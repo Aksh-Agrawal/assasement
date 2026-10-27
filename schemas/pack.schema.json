@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offline-assessment.local/schemas/pack.schema.json",
+  "title": "Offline-First Student Assessment Question Pack",
+  "description": "Phase 0 contract for schema version 1 single-correct four-option question packs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "set",
+    "questions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "content_status": {
+      "type": "string",
+      "enum": [
+        "development_fixture",
+        "production"
+      ]
+    },
+    "content_notice": {
+      "type": "string",
+      "minLength": 1
+    },
+    "set": {
+      "$ref": "#/$defs/question_set"
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/question"
+      }
+    }
+  },
+  "$defs": {
+    "stable_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "question_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "title",
+        "subject",
+        "chapter",
+        "marking"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "subject": {
+          "type": "string",
+          "enum": [
+            "Biology",
+            "Chemistry"
+          ]
+        },
+        "chapter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "marking": {
+          "$ref": "#/$defs/marking"
+        }
+      }
+    },
+    "marking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correct",
+        "wrong",
+        "skip"
+      ],
+      "properties": {
+        "correct": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "wrong": {
+          "type": "number",
+          "maximum": 0
+        },
+        "skip": {
+          "type": "number",
+          "maximum": 0
+        }
+      }
+    },
+    "option_a": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/option"
+        },
+        {
+          "properties": {
+            "key": {
+              "const": "A"
+            }
+          }
+        }
+      ]
+    },
+    "option_b": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/option"
+        },
+        {
+          "properties": {
+            "key": {
+              "const": "B"
+            }
+          }
+        }
+      ]
+    },
+    "option_c": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/option"
+        },
+        {
+          "properties": {
+            "key": {
+              "const": "C"
+            }
+          }
+        }
+      ]
+    },
+    "option_d": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/option"
+        },
+        {
+          "properties": {
+            "key": {
+              "const": "D"
+            }
+          }
+        }
+      ]
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "text"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position",
+        "topic",
+        "difficulty",
+        "question_text",
+        "options",
+        "correct_key",
+        "media_ref"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "difficulty": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "question_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/option_a"
+            },
+            {
+              "$ref": "#/$defs/option_b"
+            },
+            {
+              "$ref": "#/$defs/option_c"
+            },
+            {
+              "$ref": "#/$defs/option_d"
+            }
+          ],
+          "items": false
+        },
+        "correct_key": {
+          "type": "string",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ]
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "content_status": "development_fixture",
+  "content_notice": "Sample/testing content only. Not reviewed or licensed for production educational use.",
+  "set": {
+    "id": "biology-cell-practice-01",
+    "version": 1,
+    "title": "Cell Practice 1 — Development Fixture",
+    "subject": "Biology",
+    "chapter": "Cell: The Unit of Life",
+    "marking": {
+      "correct": 4,
+      "wrong": -1,
+      "skip": 0
+    }
+  },
+  "questions": [
+    {
+      "id": "bio-cell-q0001",
+      "position": 1,
+      "topic": "Cell Theory",
+      "difficulty": 1,
+      "question_text": "Which statement is part of classical cell theory?",
+      "options": [
+        { "key": "A", "text": "All living organisms are composed of one or more cells" },
+        { "key": "B", "text": "Every cell contains a cell wall" },
+        { "key": "C", "text": "Viruses are made of cells" },
+        { "key": "D", "text": "All cells contain chloroplasts" }
+      ],
+      "correct_key": "A",
+      "explanation": "Classical cell theory states that organisms are composed of cells and that the cell is the basic unit of life.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0002",
+      "position": 2,
+      "topic": "Cell Organelles",
+      "difficulty": 1,
+      "question_text": "Which organelle is the main site of aerobic ATP production in a eukaryotic cell?",
+      "options": [
+        { "key": "A", "text": "Golgi apparatus" },
+        { "key": "B", "text": "Mitochondrion" },
+        { "key": "C", "text": "Lysosome" },
+        { "key": "D", "text": "Nucleolus" }
+      ],
+      "correct_key": "B",
+      "explanation": "Oxidative phosphorylation occurs on the inner mitochondrial membrane.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0003",
+      "position": 3,
+      "topic": "Ribosomes",
+      "difficulty": 1,
+      "question_text": "What is the primary function of ribosomes?",
+      "options": [
+        { "key": "A", "text": "Lipid storage" },
+        { "key": "B", "text": "DNA replication" },
+        { "key": "C", "text": "Protein synthesis" },
+        { "key": "D", "text": "ATP storage" }
+      ],
+      "correct_key": "C",
+      "explanation": "Ribosomes translate messenger RNA to form polypeptides.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0004",
+      "position": 4,
+      "topic": "Plasma Membrane",
+      "difficulty": 1,
+      "question_text": "Which model describes the plasma membrane as proteins embedded in a mobile lipid bilayer?",
+      "options": [
+        { "key": "A", "text": "Lock-and-key model" },
+        { "key": "B", "text": "Operon model" },
+        { "key": "C", "text": "Sliding filament model" },
+        { "key": "D", "text": "Fluid mosaic model" }
+      ],
+      "correct_key": "D",
+      "explanation": "The fluid mosaic model describes lateral movement of lipids and many membrane proteins.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0005",
+      "position": 5,
+      "topic": "Nucleus",
+      "difficulty": 1,
+      "question_text": "The nucleolus is chiefly associated with the production of which cellular component?",
+      "options": [
+        { "key": "A", "text": "Ribosomal subunits" },
+        { "key": "B", "text": "Spindle fibres" },
+        { "key": "C", "text": "Cellulose fibres" },
+        { "key": "D", "text": "Glycogen granules" }
+      ],
+      "correct_key": "A",
+      "explanation": "Ribosomal RNA is transcribed and ribosomal subunits begin assembly in the nucleolus.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0006",
+      "position": 6,
+      "topic": "Endoplasmic Reticulum",
+      "difficulty": 1,
+      "question_text": "Rough endoplasmic reticulum appears rough because its surface bears which structures?",
+      "options": [
+        { "key": "A", "text": "Centrioles" },
+        { "key": "B", "text": "Ribosomes" },
+        { "key": "C", "text": "Lysosomes" },
+        { "key": "D", "text": "Chromosomes" }
+      ],
+      "correct_key": "B",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0007",
+      "position": 7,
+      "topic": "Golgi Apparatus",
+      "difficulty": 2,
+      "question_text": "Which organelle modifies and sorts many proteins received from the endoplasmic reticulum?",
+      "options": [
+        { "key": "A", "text": "Peroxisome" },
+        { "key": "B", "text": "Centriole" },
+        { "key": "C", "text": "Golgi apparatus" },
+        { "key": "D", "text": "Nucleolus" }
+      ],
+      "correct_key": "C",
+      "explanation": "Golgi cisternae receive, modify, sort, and dispatch many proteins and lipids.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0008",
+      "position": 8,
+      "topic": "Lysosomes",
+      "difficulty": 1,
+      "question_text": "Lysosomes characteristically contain enzymes used mainly for which process?",
+      "options": [
+        { "key": "A", "text": "Photosynthesis" },
+        { "key": "B", "text": "Transcription" },
+        { "key": "C", "text": "DNA packaging" },
+        { "key": "D", "text": "Intracellular digestion" }
+      ],
+      "correct_key": "D",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0009",
+      "position": 9,
+      "topic": "Prokaryotic Cells",
+      "difficulty": 1,
+      "question_text": "In a typical prokaryotic cell, the main chromosome is located in which region?",
+      "options": [
+        { "key": "A", "text": "Nucleoid" },
+        { "key": "B", "text": "Nucleolus" },
+        { "key": "C", "text": "Golgi body" },
+        { "key": "D", "text": "Lysosome" }
+      ],
+      "correct_key": "A",
+      "explanation": "The nucleoid is not enclosed by a nuclear membrane.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0010",
+      "position": 10,
+      "topic": "Plant Cells",
+      "difficulty": 1,
+      "question_text": "Which polysaccharide is a major structural component of plant cell walls?",
+      "options": [
+        { "key": "A", "text": "Glycogen" },
+        { "key": "B", "text": "Cellulose" },
+        { "key": "C", "text": "Chitin" },
+        { "key": "D", "text": "Starch" }
+      ],
+      "correct_key": "B",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0011",
+      "position": 11,
+      "topic": "Chloroplasts",
+      "difficulty": 2,
+      "question_text": "Stacks of thylakoids inside a chloroplast are called what?",
+      "options": [
+        { "key": "A", "text": "Cristae" },
+        { "key": "B", "text": "Cisternae" },
+        { "key": "C", "text": "Grana" },
+        { "key": "D", "text": "Matrix" }
+      ],
+      "correct_key": "C",
+      "explanation": "A granum is a stack of thylakoids; grana is the plural form.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0012",
+      "position": 12,
+      "topic": "Mitochondria",
+      "difficulty": 1,
+      "question_text": "Folds of the inner mitochondrial membrane are known as what?",
+      "options": [
+        { "key": "A", "text": "Grana" },
+        { "key": "B", "text": "Lamellae" },
+        { "key": "C", "text": "Thylakoids" },
+        { "key": "D", "text": "Cristae" }
+      ],
+      "correct_key": "D",
+      "explanation": "Cristae increase the surface area available for components of aerobic respiration.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0013",
+      "position": 13,
+      "topic": "Cell Transport",
+      "difficulty": 2,
+      "question_text": "Which transport process moves molecules down their concentration gradient without direct ATP use?",
+      "options": [
+        { "key": "A", "text": "Simple diffusion" },
+        { "key": "B", "text": "Primary active transport" },
+        { "key": "C", "text": "Endocytosis" },
+        { "key": "D", "text": "Exocytosis" }
+      ],
+      "correct_key": "A",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0014",
+      "position": 14,
+      "topic": "Osmosis",
+      "difficulty": 2,
+      "question_text": "Osmosis is the net movement of which substance across a selectively permeable membrane?",
+      "options": [
+        { "key": "A", "text": "Proteins" },
+        { "key": "B", "text": "Water" },
+        { "key": "C", "text": "DNA" },
+        { "key": "D", "text": "ATP" }
+      ],
+      "correct_key": "B",
+      "explanation": "Osmosis describes net water movement driven by a difference in water potential.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0015",
+      "position": 15,
+      "topic": "Cytoskeleton",
+      "difficulty": 2,
+      "question_text": "Which cytoskeletal element forms the core of eukaryotic cilia and flagella?",
+      "options": [
+        { "key": "A", "text": "Cellulose microfibrils" },
+        { "key": "B", "text": "Intermediate filaments only" },
+        { "key": "C", "text": "Microtubules" },
+        { "key": "D", "text": "Peptidoglycan fibres" }
+      ],
+      "correct_key": "C",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0016",
+      "position": 16,
+      "topic": "Centrosome",
+      "difficulty": 2,
+      "question_text": "In many animal cells, which structure acts as a major microtubule-organizing centre?",
+      "options": [
+        { "key": "A", "text": "Vacuole" },
+        { "key": "B", "text": "Cell wall" },
+        { "key": "C", "text": "Nucleolus" },
+        { "key": "D", "text": "Centrosome" }
+      ],
+      "correct_key": "D",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0017",
+      "position": 17,
+      "topic": "Peroxisomes",
+      "difficulty": 2,
+      "question_text": "Which enzyme commonly breaks down hydrogen peroxide in peroxisomes?",
+      "options": [
+        { "key": "A", "text": "Catalase" },
+        { "key": "B", "text": "Amylase" },
+        { "key": "C", "text": "Pepsin" },
+        { "key": "D", "text": "Ligase" }
+      ],
+      "correct_key": "A",
+      "explanation": "Catalase converts hydrogen peroxide into water and oxygen.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0018",
+      "position": 18,
+      "topic": "Vacuoles",
+      "difficulty": 1,
+      "question_text": "The membrane surrounding a plant cell's central vacuole is called what?",
+      "options": [
+        { "key": "A", "text": "Plasmalemma" },
+        { "key": "B", "text": "Tonoplast" },
+        { "key": "C", "text": "Nuclear envelope" },
+        { "key": "D", "text": "Middle lamella" }
+      ],
+      "correct_key": "B",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0019",
+      "position": 19,
+      "topic": "Chromatin",
+      "difficulty": 2,
+      "question_text": "In eukaryotic chromatin, DNA is wrapped around which proteins to form nucleosomes?",
+      "options": [
+        { "key": "A", "text": "Actins" },
+        { "key": "B", "text": "Tubulins" },
+        { "key": "C", "text": "Histones" },
+        { "key": "D", "text": "Keratin proteins" }
+      ],
+      "correct_key": "C",
+      "explanation": "A nucleosome contains DNA wrapped around a core of histone proteins.",
+      "media_ref": null
+    },
+    {
+      "id": "bio-cell-q0020",
+      "position": 20,
+      "topic": "Cell Junctions",
+      "difficulty": 2,
+      "question_text": "Which channels connect the cytoplasm of adjacent plant cells through their cell walls?",
+      "options": [
+        { "key": "A", "text": "Desmosomes" },
+        { "key": "B", "text": "Tight junctions" },
+        { "key": "C", "text": "Gap junctions" },
+        { "key": "D", "text": "Plasmodesmata" }
+      ],
+      "correct_key": "D",
+      "explanation": "Plasmodesmata are membrane-lined channels between adjacent plant cells.",
+      "media_ref": null
+    }
+  ]
+}

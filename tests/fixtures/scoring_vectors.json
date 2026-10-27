@@ -1,0 +1,1253 @@
+{
+  "fixture_version": 1,
+  "description": "Normative deterministic scoring examples. selected_key null denotes skipped; attempted responses always store a confidence value, including unrated.",
+  "vectors": [
+    {
+      "id": "all_correct",
+      "description": "Four attempted responses, all correct.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": "B",
+          "confidence": "not_sure"
+        },
+        {
+          "question_id": "q3",
+          "correct_key": "C",
+          "selected_key": "C",
+          "confidence": "guessing"
+        },
+        {
+          "question_id": "q4",
+          "correct_key": "D",
+          "selected_key": "D",
+          "confidence": "unrated"
+        }
+      ],
+      "expected": {
+        "score": 16,
+        "correct": 4,
+        "wrong": 0,
+        "skipped": 0,
+        "attempted": 4,
+        "accuracy": 1,
+        "confidence": {
+          "sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 1
+      }
+    },
+    {
+      "id": "all_incorrect",
+      "description": "Four attempted responses, all incorrect.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "B",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": "C",
+          "confidence": "not_sure"
+        },
+        {
+          "question_id": "q3",
+          "correct_key": "C",
+          "selected_key": "D",
+          "confidence": "guessing"
+        },
+        {
+          "question_id": "q4",
+          "correct_key": "D",
+          "selected_key": "A",
+          "confidence": "unrated"
+        }
+      ],
+      "expected": {
+        "score": -4,
+        "correct": 0,
+        "wrong": 4,
+        "skipped": 0,
+        "attempted": 4,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "guessing": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "unrated": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          }
+        },
+        "sure_but_wrong": 1,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "all_skipped",
+      "description": "Four questions, all skipped.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": null,
+          "confidence": null
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": null,
+          "confidence": null
+        },
+        {
+          "question_id": "q3",
+          "correct_key": "C",
+          "selected_key": null,
+          "confidence": null
+        },
+        {
+          "question_id": "q4",
+          "correct_key": "D",
+          "selected_key": null,
+          "confidence": null
+        }
+      ],
+      "expected": {
+        "score": 0,
+        "correct": 0,
+        "wrong": 0,
+        "skipped": 4,
+        "attempted": 0,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "one_correct",
+      "description": "A single correct response.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "sure"
+        }
+      ],
+      "expected": {
+        "score": 4,
+        "correct": 1,
+        "wrong": 0,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 1,
+        "confidence": {
+          "sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "one_incorrect",
+      "description": "A single incorrect response.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "D",
+          "confidence": "unrated"
+        }
+      ],
+      "expected": {
+        "score": -1,
+        "correct": 0,
+        "wrong": 1,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "one_skipped",
+      "description": "A single skipped question.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": null,
+          "confidence": null
+        }
+      ],
+      "expected": {
+        "score": 0,
+        "correct": 0,
+        "wrong": 0,
+        "skipped": 1,
+        "attempted": 0,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "correct_and_incorrect",
+      "description": "One correct and one incorrect response.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": "A",
+          "confidence": "sure"
+        }
+      ],
+      "expected": {
+        "score": 3,
+        "correct": 1,
+        "wrong": 1,
+        "skipped": 0,
+        "attempted": 2,
+        "accuracy": 0.5,
+        "confidence": {
+          "sure": {
+            "responses": 2,
+            "correct": 1,
+            "wrong": 1
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 1,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "correct_and_skipped",
+      "description": "One correct response and one skipped question.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "not_sure"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": null,
+          "confidence": null
+        }
+      ],
+      "expected": {
+        "score": 4,
+        "correct": 1,
+        "wrong": 0,
+        "skipped": 1,
+        "attempted": 1,
+        "accuracy": 1,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "incorrect_and_skipped",
+      "description": "One incorrect response and one skipped question.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "B",
+          "confidence": "guessing"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": null,
+          "confidence": null
+        }
+      ],
+      "expected": {
+        "score": -1,
+        "correct": 0,
+        "wrong": 1,
+        "skipped": 1,
+        "attempted": 1,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "mixed_test",
+      "description": "Correct, wrong, and skipped questions across all confidence buckets.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": "A",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q3",
+          "correct_key": "C",
+          "selected_key": "C",
+          "confidence": "guessing"
+        },
+        {
+          "question_id": "q4",
+          "correct_key": "D",
+          "selected_key": "A",
+          "confidence": "not_sure"
+        },
+        {
+          "question_id": "q5",
+          "correct_key": "A",
+          "selected_key": null,
+          "confidence": null
+        },
+        {
+          "question_id": "q6",
+          "correct_key": "B",
+          "selected_key": "B",
+          "confidence": "unrated"
+        }
+      ],
+      "expected": {
+        "score": 10,
+        "correct": 3,
+        "wrong": 2,
+        "skipped": 1,
+        "attempted": 5,
+        "accuracy": 0.6,
+        "confidence": {
+          "sure": {
+            "responses": 2,
+            "correct": 1,
+            "wrong": 1
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "guessing": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 1,
+        "guessed_right": 1
+      }
+    },
+    {
+      "id": "zero_attempted_questions",
+      "description": "No answer is selected, so attempted is zero and accuracy is 0.0.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": null,
+          "confidence": null
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "D",
+          "selected_key": null,
+          "confidence": null
+        }
+      ],
+      "expected": {
+        "score": 0,
+        "correct": 0,
+        "wrong": 0,
+        "skipped": 2,
+        "attempted": 0,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "sure_correct",
+      "description": "A sure response that is correct.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "B",
+          "selected_key": "B",
+          "confidence": "sure"
+        }
+      ],
+      "expected": {
+        "score": 4,
+        "correct": 1,
+        "wrong": 0,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 1,
+        "confidence": {
+          "sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "sure_wrong",
+      "description": "A sure response that is wrong.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "B",
+          "selected_key": "C",
+          "confidence": "sure"
+        }
+      ],
+      "expected": {
+        "score": -1,
+        "correct": 0,
+        "wrong": 1,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 1,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "not_sure_correct",
+      "description": "A not_sure response that is correct.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "C",
+          "selected_key": "C",
+          "confidence": "not_sure"
+        }
+      ],
+      "expected": {
+        "score": 4,
+        "correct": 1,
+        "wrong": 0,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 1,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "not_sure_wrong",
+      "description": "A not_sure response that is wrong.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "C",
+          "selected_key": "A",
+          "confidence": "not_sure"
+        }
+      ],
+      "expected": {
+        "score": -1,
+        "correct": 0,
+        "wrong": 1,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "guessing_correct",
+      "description": "A guessing response that is correct.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "D",
+          "selected_key": "D",
+          "confidence": "guessing"
+        }
+      ],
+      "expected": {
+        "score": 4,
+        "correct": 1,
+        "wrong": 0,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 1,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 1
+      }
+    },
+    {
+      "id": "guessing_wrong",
+      "description": "A guessing response that is wrong.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "D",
+          "selected_key": "B",
+          "confidence": "guessing"
+        }
+      ],
+      "expected": {
+        "score": -1,
+        "correct": 0,
+        "wrong": 1,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "unrated_correct",
+      "description": "An answer without an explicit confidence rating that is correct.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "unrated"
+        }
+      ],
+      "expected": {
+        "score": 4,
+        "correct": 1,
+        "wrong": 0,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 1,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "unrated_wrong",
+      "description": "An answer without an explicit confidence rating that is wrong.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "C",
+          "confidence": "unrated"
+        }
+      ],
+      "expected": {
+        "score": -1,
+        "correct": 0,
+        "wrong": 1,
+        "skipped": 0,
+        "attempted": 1,
+        "accuracy": 0,
+        "confidence": {
+          "sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "negative_overall_score",
+      "description": "One correct and five wrong responses produce a negative score.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": "A",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q3",
+          "correct_key": "C",
+          "selected_key": "A",
+          "confidence": "not_sure"
+        },
+        {
+          "question_id": "q4",
+          "correct_key": "D",
+          "selected_key": "A",
+          "confidence": "guessing"
+        },
+        {
+          "question_id": "q5",
+          "correct_key": "A",
+          "selected_key": "B",
+          "confidence": "unrated"
+        },
+        {
+          "question_id": "q6",
+          "correct_key": "B",
+          "selected_key": "C",
+          "confidence": "sure"
+        }
+      ],
+      "expected": {
+        "score": -1,
+        "correct": 1,
+        "wrong": 5,
+        "skipped": 0,
+        "attempted": 6,
+        "accuracy": 0.16666666666666666,
+        "confidence": {
+          "sure": {
+            "responses": 3,
+            "correct": 1,
+            "wrong": 2
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "guessing": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "unrated": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          }
+        },
+        "sure_but_wrong": 2,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "set_specific_marking",
+      "description": "A non-default set marking scheme demonstrates that marks belong to the set.",
+      "marking": {
+        "correct": 3,
+        "wrong": -2,
+        "skip": -0.5
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": "A",
+          "confidence": "not_sure"
+        },
+        {
+          "question_id": "q3",
+          "correct_key": "C",
+          "selected_key": null,
+          "confidence": null
+        }
+      ],
+      "expected": {
+        "score": 0.5,
+        "correct": 1,
+        "wrong": 1,
+        "skipped": 1,
+        "attempted": 2,
+        "accuracy": 0.5,
+        "confidence": {
+          "sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 0,
+            "wrong": 1
+          },
+          "guessing": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 0,
+            "correct": 0,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 0
+      }
+    },
+    {
+      "id": "varied_correct_keys",
+      "description": "Correct selections exercise all four allowed answer keys.",
+      "marking": {
+        "correct": 4,
+        "wrong": -1,
+        "skip": 0
+      },
+      "responses": [
+        {
+          "question_id": "q1",
+          "correct_key": "A",
+          "selected_key": "A",
+          "confidence": "unrated"
+        },
+        {
+          "question_id": "q2",
+          "correct_key": "B",
+          "selected_key": "B",
+          "confidence": "sure"
+        },
+        {
+          "question_id": "q3",
+          "correct_key": "C",
+          "selected_key": "C",
+          "confidence": "not_sure"
+        },
+        {
+          "question_id": "q4",
+          "correct_key": "D",
+          "selected_key": "D",
+          "confidence": "guessing"
+        }
+      ],
+      "expected": {
+        "score": 16,
+        "correct": 4,
+        "wrong": 0,
+        "skipped": 0,
+        "attempted": 4,
+        "accuracy": 1,
+        "confidence": {
+          "sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "not_sure": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "guessing": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          },
+          "unrated": {
+            "responses": 1,
+            "correct": 1,
+            "wrong": 0
+          }
+        },
+        "sure_but_wrong": 0,
+        "guessed_right": 1
+      }
+    }
+  ]
+}
+

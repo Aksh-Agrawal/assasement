@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assessment-device.local/schemas/update_manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "signing_key_id", "release", "artifact", "compatibility"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "signing_key_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "release": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "channel", "created_at", "min_supported_version", "required_db_schema"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "channel": {"const": "stable"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "min_supported_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "required_db_schema": {"type": "integer", "minimum": 1}
+      }
+    },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["filename", "size_bytes", "sha256"],
+      "properties": {
+        "filename": {"type": "string", "pattern": "^[A-Za-z0-9._-]+\\.tar\\.gz$"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "compatibility": {
+      "type": "object", "additionalProperties": false,
+      "required": ["platform", "architecture"],
+      "properties": {
+        "platform": {"type": "string", "minLength": 1},
+        "architecture": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
