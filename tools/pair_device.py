@@ -14,12 +14,14 @@ def main() -> int:
     config = AppConfig()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=config.database_path)
-    parser.add_argument("--base-url", required=True)
-    parser.add_argument("--credentials", type=Path, default=Path("var/device_credentials.json"))
+    parser.add_argument("--base-url", default=config.api_base_url)
+    parser.add_argument("--credentials", type=Path, default=config.credential_path)
     parser.add_argument("--device-name", default="Assessment Device")
     parser.add_argument("--poll-interval", type=float, default=2.0)
     parser.add_argument("--timeout", type=float, default=600.0)
     args = parser.parse_args()
+    if not args.base_url:
+        parser.error("Set ASSESS_API_URL or --base-url")
     with Repository(args.db) as repository:
         device_id = get_or_create_device_id(repository)
     store = CredentialStore(args.credentials)

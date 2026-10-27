@@ -47,7 +47,9 @@ def collect(args: argparse.Namespace) -> dict:
                 trusted_signing_key_id=args.trusted_key_id,
                 network=network,
             )
-        return status.to_dict()
+        result = status.to_dict()
+        result["api_configuration"] = "Configured" if args.base_url else "Not configured"
+        return result
     except Exception:
         return {
             "diagnostic_schema_version": 1,
@@ -60,6 +62,7 @@ def collect(args: argparse.Namespace) -> dict:
 
 
 def _human(status: dict) -> None:
+    print(f"API configuration: {status.get('api_configuration', 'Not configured')}")
     print(f"Health: {status['health']}")
     print(f"Support codes: {', '.join(status.get('error_codes', ())) or 'none'}")
     print(f"Application version: {status.get('app_version', 'unknown')}")
@@ -102,7 +105,7 @@ def parser() -> argparse.ArgumentParser:
     config = AppConfig()
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--db", type=Path, default=config.database_path)
-    result.add_argument("--credentials", type=Path, default=Path("var/device_credentials.json"))
+    result.add_argument("--credentials", type=Path, default=config.credential_path)
     result.add_argument("--base-url", default=config.api_base_url)
     result.add_argument("--update-root", type=Path, default=config.update_root)
     result.add_argument("--trusted-key-id", default=config.trusted_update_key_id)

@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 
 from app import __version__
+from app.api.transport import create_client, json_object
 from app.auth.credentials import CredentialStore
 from app.data.repo import Repository, SyncStatus
 from app.update.activation import ActivationManager
@@ -310,22 +311,25 @@ def collect_network_status(
     read_timeout: float = 15.0,
 ) -> NetworkStatus:
     if not base_url:
-        return NetworkStatus(checked=True, backend_reachable=False, error_code="BACKEND-001")
-    timeout = httpx.Timeout(connect_timeout, read=read_timeout)
+        return NetworkStatus(checked=False)
     headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
     try:
-        with httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout) as client:
+        with create_client(base_url, connect_timeout=connect_timeout, read_timeout=read_timeout) as client:
             health = client.get("/health")
             ready = client.get("/ready")
             catalog = client.get("/api/v1/content/catalog", headers=headers)
             update = client.get("/api/v1/device-updates/latest", headers=headers)
     except httpx.RequestError:
         return NetworkStatus(checked=True, backend_reachable=False, error_code="BACKEND-001")
-    auth_ok = catalog.status_code not in {401, 403}
+    auth_ok = bool(auth_token) and catalog.status_code == 200
+    try:
+        database_ready = ready.status_code == 200 and json_object(ready).get("database") == "ok"
+    except (ValueError, TypeError):
+        database_ready = False
     return NetworkStatus(
         checked=True,
         backend_reachable=health.status_code == 200,
-        database_ready=ready.status_code == 200 and ready.json().get("database") == "ok",
+        database_ready=database_ready,
         auth_accepted=auth_ok,
         catalog_reachable=catalog.status_code == 200,
         update_endpoint_reachable=update.status_code in {200, 404},

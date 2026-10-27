@@ -229,6 +229,8 @@ class ReleaseCheck:
 
     def _offline_checks(self) -> None:
         self.pytest("Device core", "Device unit suite", "tests/unit")
+        self.pytest("Cloud connection", "Mocked device HTTP contracts and failures",
+                    "tests/integration/test_cloud_readiness.py")
         self.pytest(
             "Device core",
             "Assessment smoke",
@@ -266,7 +268,8 @@ class ReleaseCheck:
             "not authenticated_update_check_and_download_limit and not update_check_auth_failure",
         )
         self.check("Updates", "Private signing-key safety", _private_key_safety)
-        self.pytest("Recovery", "Deterministic fault/recovery suite", "tests/faults")
+        self.pytest("Recovery", "Deterministic fault/recovery suite", "tests/faults",
+                    "-m", "not cloud_integration")
         self.pytest("Observability", "Observability regression suite", "tests/observability")
         self._diagnostics_commands()
 
@@ -511,7 +514,10 @@ def _version_consistency() -> str:
 
 
 def _backend_version() -> str:
-    text = (ROOT / "backend/pyproject.toml").read_text(encoding="utf-8")
+    path = ROOT / "backend/pyproject.toml"
+    if not path.exists():
+        return "separate cloud repository"
+    text = path.read_text(encoding="utf-8")
     match = re.search(r"(?m)^version\s*=\s*\"([^\"]+)\"", text)
     return match.group(1) if match else "unknown"
 
@@ -615,15 +621,16 @@ def _database_config() -> str:
 
 
 def _test_db_safety() -> str:
-    from sqlalchemy.engine import make_url
+    from urllib.parse import unquote, urlsplit
 
     value = os.environ.get("TEST_DATABASE_URL")
     if not value:
         raise RuntimeError("TEST_DATABASE_URL is missing")
-    parsed = make_url(value)
-    if not parsed.drivername.startswith("postgresql"):
+    parsed = urlsplit(value)
+    if not parsed.scheme.startswith("postgresql"):
         raise RuntimeError("TEST_DATABASE_URL must use PostgreSQL")
-    if not parsed.database or "test" not in parsed.database.lower():
+    database = unquote(parsed.path.lstrip("/"))
+    if not database or "test" not in database.lower():
         raise RuntimeError("refusing destructive checks outside a database named with 'test'")
     return "PostgreSQL URL targets an explicitly named test database"
 

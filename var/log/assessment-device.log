@@ -1,0 +1,24 @@
+2026-10-27 09:41:49,324 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=2
+2026-10-27 15:30:10,900 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=2
+2026-10-27 15:30:28,000 level=INFO component=app.assessment event=attempt resumed attempt_id=b8270aa3-928b-4fcc-9121-a92ac6836afe
+2026-10-28 01:43:34,887 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=2
+2026-10-28 01:44:21,607 level=INFO component=app.assessment event=attempt completed attempt_id=b8270aa3-928b-4fcc-9121-a92ac6836afe
+2026-10-28 01:45:52,808 level=INFO component=app.assessment event=attempt resumed attempt_id=f1f6bb00-ad48-4ea1-a3d0-251ef9485a9b
+2026-10-28 01:46:05,634 level=INFO component=app.assessment event=attempt completed attempt_id=f1f6bb00-ad48-4ea1-a3d0-251ef9485a9b
+2026-10-28 01:46:43,073 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=2
+2026-10-28 01:46:43,077 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=2
+2026-10-28 01:46:43,404 level=INFO component=app.sync.worker event=sync cycle started selected=3 recovered_stale=0
+2026-10-28 01:46:43,404 level=INFO component=app.sync.worker event=sync attempt selected attempt_id=dce4d7e2-70f5-465e-8947-75dde71ff7dc
+2026-10-28 01:46:44,599 level=INFO component=httpx event=HTTP Request: PUT https://startup-cloud.onrender.com/api/v1/attempts/dce4d7e2-70f5-465e-8947-75dde71ff7dc "HTTP/1.1 201 Created"
+2026-10-28 01:46:44,607 level=INFO component=app.sync.worker event=sync upload success attempt_id=dce4d7e2-70f5-465e-8947-75dde71ff7dc
+2026-10-28 01:46:44,608 level=INFO component=app.sync.worker event=sync attempt selected attempt_id=b8270aa3-928b-4fcc-9121-a92ac6836afe
+2026-10-28 01:46:45,771 level=INFO component=httpx event=HTTP Request: PUT https://startup-cloud.onrender.com/api/v1/attempts/b8270aa3-928b-4fcc-9121-a92ac6836afe "HTTP/1.1 201 Created"
+2026-10-28 01:46:45,777 level=INFO component=app.sync.worker event=sync upload success attempt_id=b8270aa3-928b-4fcc-9121-a92ac6836afe
+2026-10-28 01:46:45,777 level=INFO component=app.sync.worker event=sync attempt selected attempt_id=f1f6bb00-ad48-4ea1-a3d0-251ef9485a9b
+2026-10-28 01:46:46,805 level=INFO component=httpx event=HTTP Request: PUT https://startup-cloud.onrender.com/api/v1/attempts/f1f6bb00-ad48-4ea1-a3d0-251ef9485a9b "HTTP/1.1 201 Created"
+2026-10-28 01:46:46,809 level=INFO component=app.sync.worker event=sync upload success attempt_id=f1f6bb00-ad48-4ea1-a3d0-251ef9485a9b
+2026-10-28 01:46:48,112 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-10-28 01:46:49,318 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-10-28 01:46:49,531 level=INFO component=app.update.client event=update check started
+2026-10-28 01:46:50,550 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-10-28 01:46:50,553 level=WARNING component=app.update.client event=update check failed: HTTPStatusError

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 
+from app.api.transport import create_client, json_object
 from app.update.errors import IntegrityError, UpdateError
 from app.update.manifest import UpdateManifest, canonical_manifest_bytes
 
@@ -31,12 +32,7 @@ class UpdateClient:
     ) -> None:
         if not base_url.strip():
             raise ValueError("Update API base URL must not be empty")
-        self._client = httpx.Client(
-            base_url=base_url.rstrip("/"),
-            timeout=timeout,
-            transport=transport,
-            headers={"Authorization": f"Bearer {credential}"},
-        )
+        self._client = create_client(base_url, auth_token=credential, connect_timeout=timeout, read_timeout=timeout, transport=transport)
 
     def close(self) -> None:
         self._client.close()
@@ -48,7 +44,7 @@ class UpdateClient:
             if response.status_code in {401, 403}:
                 raise UpdateError("Update authentication required")
             response.raise_for_status()
-            body = response.json()
+            body = json_object(response)
             manifest_bytes = canonical_manifest_bytes(body["manifest"])
             update = AvailableUpdate(
                 manifest_bytes,

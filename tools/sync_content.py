@@ -15,7 +15,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=config.database_path)
     parser.add_argument("--base-url", default=config.api_base_url)
-    parser.add_argument("--credentials", type=Path, default=Path("var/device_credentials.json"))
+    parser.add_argument("--credentials", type=Path, default=config.credential_path)
     parser.add_argument("--temp-dir", type=Path, default=config.content_download_directory)
     parser.add_argument("--limit", type=int, default=config.content_max_downloads_per_cycle)
     parser.add_argument("--dry-run", action="store_true")

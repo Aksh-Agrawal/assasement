@@ -7,7 +7,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-from sqlalchemy import func, select
 
 from app.assessment import AssessmentApplication
 from app.auth.credentials import CredentialStore
@@ -18,11 +17,6 @@ from app.data.repo import LocalDatabaseIntegrityError, Repository, SyncStatus
 from app.sync.client import SyncApiClient
 from app.sync.payloads import build_upload_payload
 from app.sync.worker import SyncWorker
-from backend.app.config import Settings
-from backend.app.db.models import Attempt
-from backend.app.main import create_app
-from backend.tests.conftest import TOKEN, issue_test_credential
-from backend.tests.test_end_to_end import LocalUvicorn
 from tests.faults.harness import FaultInjector, InjectedCrash
 from tools.restore_local_db import restore
 
@@ -213,7 +207,19 @@ def test_missing_and_malformed_credentials_do_not_touch_database(tmp_path: Path)
     assert repository.get_attempt_sync_state(attempt.id).status is SyncStatus.PENDING
 
 
+@pytest.mark.cloud_integration
 def test_full_crash_offline_lost_ack_recovery_has_one_server_attempt(tmp_path: Path) -> None:
+    pytest.importorskip("backend")
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("fastapi")
+    from sqlalchemy import func, select
+
+    from backend.app.config import Settings
+    from backend.app.db.models import Attempt
+    from backend.app.main import create_app
+    from backend.tests.conftest import TOKEN, issue_test_credential
+    from backend.tests.test_end_to_end import LocalUvicorn
+
     device_path = tmp_path / "full-device.db"
     repository, app, attempt = _started(device_path)
     app.select_answer(app.current_question().correct_key)

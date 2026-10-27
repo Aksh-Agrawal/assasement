@@ -12,7 +12,7 @@ from app.ui.theme import THEME
 def render(surface: pygame.Surface, controller: UIController, fonts: Fonts) -> list[Control]:
     controls: list[Control] = []
     answered, unanswered, marked = controller.submit_counts
-    title(surface, "Submit assessment?", fonts)
+    title(surface, "Ready to submit?", fonts)
     total = answered + unanswered
     text(surface, f"Total questions: {total}", (120, 90), fonts.body)
     text(surface, f"Answered: {answered}", (120, 130), fonts.body)
@@ -30,8 +30,8 @@ def render(surface: pygame.Surface, controller: UIController, fonts: Fonts) -> l
         surface,
         controls,
         Rect(100, 320, 270, 70),
-        "Continue Assessment",
-        Action.BACK,
+        "Review Questions",
+        Action.MENU,
         fonts,
     )
     button(

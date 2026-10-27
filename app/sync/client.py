@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 import httpx
 
+from app.api.transport import FailureState, create_client, json_object, response_failure
 from app.sync.errors import (
     AlreadySynced,
     AuthenticationError,
@@ -39,20 +40,8 @@ class SyncApiClient:
     ) -> None:
         if not base_url.strip():
             raise ValueError("API base URL must not be empty")
-        timeout = httpx.Timeout(
-            connect=connect_timeout,
-            read=read_timeout,
-            write=read_timeout,
-            pool=connect_timeout,
-        )
-        headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else None
         self._paired = auth_token is not None
-        self._client = httpx.Client(
-            base_url=base_url.rstrip("/"),
-            timeout=timeout,
-            transport=transport,
-            headers=headers,
-        )
+        self._client = create_client(base_url, auth_token=auth_token, connect_timeout=connect_timeout, read_timeout=read_timeout, transport=transport)
 
     def close(self) -> None:
         self._client.close()
@@ -78,24 +67,24 @@ class SyncApiClient:
                 },
             )
         except httpx.TimeoutException as error:
-            raise TransientSyncError(f"timeout: {error}") from error
+            raise TransientSyncError("Cloud request timed out") from error
         except httpx.RequestError as error:
-            raise TransientSyncError(f"network: {error}") from error
+            raise TransientSyncError("Cloud connection unavailable") from error
 
         if 200 <= response.status_code < 300:
             return UploadResult(response.status_code)
-        if response.status_code in {401, 403}:
+        if response_failure(response) is FailureState.AUTH_REQUIRED:
             raise AuthenticationError(f"HTTP {response.status_code}: authentication rejected")
         if response.status_code == 409 and self._proves_already_accepted(response, idempotency_key):
             raise AlreadySynced(f"Attempt {idempotency_key} was already accepted")
-        if response.status_code in {408, 425, 429} or 500 <= response.status_code <= 599:
+        if response_failure(response) is FailureState.SERVER_ERROR:
             raise TransientSyncError(f"HTTP {response.status_code}: server temporarily unavailable")
         raise PermanentSyncError(f"HTTP {response.status_code}: upload rejected")
 
     @staticmethod
     def _proves_already_accepted(response: httpx.Response, attempt_id: str) -> bool:
         try:
-            body = response.json()
+            body = json_object(response)
         except ValueError:
             return False
         if not isinstance(body, dict) or body.get("attempt_id") != attempt_id:

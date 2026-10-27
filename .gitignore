@@ -25,6 +25,7 @@ Thumbs.db
 var/screenshots/
 var/device_credentials.json
 var/device_credentials.json.tmp
+.credential-*
 runtime/updates/
 backend/runtime/content/
 var/update-keys/

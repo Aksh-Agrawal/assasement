@@ -23,6 +23,12 @@ class RemotePack:
     sha256: str
     published_at: datetime
 
+    @property
+    def download_reference(self) -> str:
+        from urllib.parse import quote
+
+        return f"/api/v1/content/packs/{quote(self.set_id, safe='')}/{self.version}"
+
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "RemotePack":
         required = {
@@ -36,7 +42,7 @@ class RemotePack:
             "sha256",
             "published_at",
         }
-        if set(value) != required:
+        if not isinstance(value, dict) or not required <= set(value):
             raise ValueError("Invalid catalog pack fields")
         digest = str(value["sha256"]).lower()
         if not _SHA256.fullmatch(digest):
@@ -67,7 +73,7 @@ class ContentCatalog:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "ContentCatalog":
-        if set(value) != {"schema_version", "packs"} or value["schema_version"] != 1:
+        if not {"schema_version", "packs"} <= set(value) or value["schema_version"] != 1:
             raise ValueError("Unsupported content catalog")
         if not isinstance(value["packs"], list):
             raise ValueError("Catalog packs must be a list")

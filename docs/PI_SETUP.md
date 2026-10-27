@@ -131,3 +131,26 @@ Test A, B, C, D, PREV, NEXT, and MENU individually and record bounce, missed pre
 ## Bring-up record
 
 Put measured values in `docs/measurements.md` and check `docs/HARDWARE_ACCEPTANCE.md` only after observing each result on the physical prototype. Preserve command output for anomalies and label blockers before proceeding to GUI benchmarking.
+
+
+## Independent device installation and configuration
+
+Install `python -m pip install -e ".[gui]"` for pygame-ce. No cloud extra or Node
+installation is required. The rsync deployment script excludes backend source,
+cloud admin commands, generated runtime files and local secrets. It does not delete
+files from an older Pi deployment; use a fresh destination for a device-only rollout.
+
+Copy `.env.example` to `/etc/assessdev/device.env`, edit the paths/API origin, and
+create the configured writable directories owned by the `assess` account. Shell
+launches must export these variables; Python does not automatically read `.env`.
+Import initial packs with `python -m tools.import_pack` (see `--help`) before using
+them offline. Assessment reads SQLite rather than scanning the configured pack folder.
+
+Run `python -m app.ui.app --fullscreen` from `/opt/assessment-device` under the Pi
+user's graphical session. The existing UI needs the session's display/input access.
+For background upload and heartbeat, install the example
+`scripts/systemd/assessdev-sync.service` under `/etc/systemd/system`, then run
+`sudo systemctl daemon-reload` and `sudo systemctl enable --now assessdev-sync`.
+Adjust its account, install path and environment file to match the Pi. It does not
+need a display. With no API URL/credential it remains idle. Heartbeat requires the
+new endpoint described in DEVICE_CLOUD_CONTRACT.md to exist on the cloud.

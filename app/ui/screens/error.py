@@ -9,19 +9,23 @@ from app.ui.screens.common import Control, Fonts, button, paragraph, title
 
 
 def render(surface: pygame.Surface, controller: UIController, fonts: Fonts) -> list[Control]:
-    return render_message(surface, controller.message, fonts)
+    return render_message(surface, controller.message, fonts, support_code=controller.error_code)
 
 
-def render_message(surface: pygame.Surface, message: str, fonts: Fonts) -> list[Control]:
+def render_message(
+    surface: pygame.Surface, message: str, fonts: Fonts, *, support_code: str = "APP-001"
+) -> list[Control]:
     """Render an error even when controller/repository startup was impossible."""
     controls: list[Control] = []
-    title(surface, "Unable to continue", fonts)
+    title(surface, "Something went wrong", fonts)
     paragraph(
         surface,
-        message or "An expected application error occurred.",
+        message or "Your assessment is safe. Please try again.",
         Rect(40, 100, 720, 180),
         fonts.body,
         max_lines=8,
     )
-    button(surface, controls, Rect(260, 340, 280, 65), "Back to home", Action.BACK, fonts)
+    paragraph(surface, f"Support code: {support_code}", Rect(40, 285, 720, 35), fonts.small)
+    button(surface, controls, Rect(120, 340, 250, 65), "Try Again", Action.CONFIRM, fonts)
+    button(surface, controls, Rect(430, 340, 250, 65), "Back to home", Action.BACK, fonts)
     return controls

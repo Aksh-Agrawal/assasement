@@ -32,7 +32,7 @@ def main() -> int:
     config = AppConfig()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=config.database_path)
-    parser.add_argument("--credentials", type=Path, default=Path("var/device_credentials.json"))
+    parser.add_argument("--credentials", type=Path, default=config.credential_path)
     parser.add_argument("--base-url", default=config.api_base_url)
     parser.add_argument("--update-root", type=Path, default=config.update_root)
     parser.add_argument("--trusted-key-id", default=config.trusted_update_key_id)

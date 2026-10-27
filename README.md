@@ -1,3 +1,20 @@
+# Assessment device repository
+
+This repository runs the offline-first Raspberry Pi assessment device. Cloud source
+in `backend/` is **TEMPORARY — being migrated to assasement-cloud repository**.
+It is excluded from Pi deployment and is not a device runtime dependency.
+
+Install the device with `python -m pip install -e ".[gui]"` (add `dev` for tests).
+Configure `ASSESS_API_URL` and device paths through the environment; see
+[.env.example](.env.example). With no API URL, local assessment remains available.
+Run `python -m app.ui.app --fullscreen` and optionally run
+`python -m app.sync.service` in a separate process for periodic uploads/heartbeat.
+
+The [migration map](docs/DEVICE_MIGRATION_MAP.md) records ownership and temporary
+files. The [device/cloud contract](docs/DEVICE_CLOUD_CONTRACT.md) defines the HTTP
+boundary for the independent cloud repository. Existing development backend
+instructions below are transitional and require separate cloud dependencies.
+
 # Offline-First Student Assessment Device
 
 An offline-first practice-assessment application intended for a Raspberry Pi Zero 2 W with a small touchscreen and physical buttons. Installed Biology and Chemistry assessments must remain usable without internet access; networking and synchronization are later-phase concerns.
@@ -123,7 +140,8 @@ Raspberry Pi network validation remain pending.
 Install device, test, GUI, and backend dependencies:
 
 ```powershell
-python -m pip install -e ".[dev,gui,backend]"
+python -m pip install -e ".[dev,gui]"
+python -m pip install -r backend/requirements.txt
 ```
 
 Start FastAPI from the repository root:
@@ -181,7 +199,8 @@ Install the project and development tools:
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev,gui,backend]"
+python -m pip install -e ".[dev,gui]"
+python -m pip install -r backend/requirements.txt
 ```
 
 Run the development entry point:
@@ -205,18 +224,23 @@ Launch the separately packaged GUI entry point:
 python -m app.ui.app
 ```
 
-Use `--db PATH` for another SQLite database. The offline flow separates local profile, installed
-subject, and local chapter/question-set selection. If no profile exists, Confirm creates the
-explicit development-only `Development Student` profile; custom profile naming and PIN setup are
-deferred. An in-progress attempt is shown with its set and answered count and must be resumed.
+Use `--db PATH` for another SQLite database. Startup checks lead to the local profile picker,
+PIN unlock when applicable, and Home. Add a local profile explicitly with your chosen name.
+Practice follows Subject → Chapter → Question Set → Test Setup. Home offers an interrupted
+attempt with its original pack version and saved answers. Settings opens the device console.
+See [the device UI flow](docs/UI_FLOW.md) for routes, input mappings and integration limits.
 
 Answer with A–D, select confidence with S/N/G (or Enter for Unrated), navigate with the arrow
 keys, toggle review with R, request submission with T, and use Escape for Back. Enter confirms
-selection and opens the full-content view on question/review screens. F12 saves a development
+selection and opens the full-content view on question/review screens. At submission confirmation,
+Enter continues the test; T or the labelled touch target submits. F12 saves a development
 screenshot under ignored `var/screenshots/`.
 
 The window renders one 800×480 logical surface and scales it to the resizable desktop window.
 This target is an unverified prototype resolution, not a statement about final display hardware.
+`--base-url URL` configures network services; `--fullscreen` and `--gpio` enable optional device
+integration. Local assessment does not require a server. To render previews without touching
+student data, run `python -m tools.ui_smoke`; previews use a temporary real database and sample pack.
 
 ## Offline CLI assessment
 
@@ -318,3 +342,10 @@ The repository always receives a database `Path`; laptop tests use temporary fil
 
 The specifications under `docs/`, the question-pack schema, sample content, and scoring vectors are preserved as the source of truth for future phases.
 
+
+## Hosted connection readiness
+
+See [Cloud connection](docs/CLOUD_CONNECTION.md) for the configuration-only future
+connection procedure and [Hosted acceptance](docs/HOSTED_ACCEPTANCE_TEST.md) for
+the pending physical-Pi golden tests. Run `python -m tools.cloud_check` for a safe
+connection report; an empty API URL is an expected waiting state.

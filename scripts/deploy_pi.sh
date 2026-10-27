@@ -12,6 +12,15 @@ fi
 echo "Deploying repository to ${target}:~/${destination}"
 ssh "${target}" "mkdir -p ~/${destination}"
 rsync -az --human-readable \
+  --exclude='backend/' \
+  --exclude='tools/approve_pairing.py' \
+  --exclude='tools/revoke_device.py' \
+  --include='.env.example' \
+  --exclude='.env' \
+  --exclude='.env.*' \
+  --exclude='artifacts/' \
+  --exclude='runtime/' \
+  --exclude='*.pem' \
   --exclude='.git/' \
   --exclude='.venv/' \
   --exclude='venv/' \

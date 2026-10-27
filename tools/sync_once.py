@@ -24,7 +24,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--max-retries", type=int, default=config.sync_max_automatic_retries)
     parser.add_argument("--connect-timeout", type=float, default=config.sync_connect_timeout)
     parser.add_argument("--read-timeout", type=float, default=config.sync_read_timeout)
-    parser.add_argument("--credentials", type=Path, default=Path("var/device_credentials.json"))
+    parser.add_argument("--credentials", type=Path, default=config.credential_path)
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 

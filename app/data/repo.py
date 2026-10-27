@@ -264,6 +264,17 @@ class Repository:
         ).fetchall()
         return tuple(self._profile_from_row(row) for row in rows)
 
+    def get_profile_pin(self, profile_id: str) -> tuple[str | None, str | None]:
+        """Read existing PIN metadata through the repository boundary."""
+        self._ensure_open()
+        row = self._connection.execute(
+            "SELECT pin_hash, pin_salt FROM profiles WHERE id = ? AND deleted_at IS NULL",
+            (profile_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError("Profile unavailable")
+        return row["pin_hash"], row["pin_salt"]
+
     def soft_delete_profile(
         self, profile_id: str, *, deleted_at: datetime | None = None
     ) -> bool:
@@ -610,6 +621,33 @@ class Repository:
             "SELECT * FROM attempts WHERE id = ?", (attempt_id,)
         ).fetchone()
         return self._attempt_from_row(row) if row else None
+
+    def list_attempts(
+        self,
+        *,
+        profile_id: str | None = None,
+        status: AttemptStatus | None = None,
+        limit: int = 20,
+    ) -> tuple[Attempt, ...]:
+        """Return local attempt metadata newest-first for student history views."""
+        if limit < 1:
+            raise ValueError("Attempt limit must be positive")
+        clauses: list[str] = []
+        values: list[object] = []
+        if profile_id is not None:
+            clauses.append("profile_id = ?")
+            values.append(profile_id)
+        if status is not None:
+            clauses.append("status = ?")
+            values.append(status.value)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        values.append(limit)
+        rows = self._connection.execute(
+            "SELECT * FROM attempts" + where
+            + " ORDER BY COALESCE(completed_at, started_at) DESC, id DESC LIMIT ?",
+            values,
+        ).fetchall()
+        return tuple(self._attempt_from_row(row) for row in rows)
 
     @staticmethod
     def _attempt_from_row(row: sqlite3.Row) -> Attempt:

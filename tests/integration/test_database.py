@@ -29,6 +29,29 @@ EXPECTED_TABLES = {
 }
 
 
+def test_failed_connection_setup_closes_handle_and_preserves_corrupt_file(tmp_path, monkeypatch):
+    path = tmp_path / "corrupt.db"
+    original = b"Not a SQLite database"
+    path.write_bytes(original)
+    opened = []
+    real_connect = sqlite3.connect
+
+    def record_connection(*args, **kwargs):
+        connection = real_connect(*args, **kwargs)
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr("app.data.db.sqlite3.connect", record_connection)
+    with pytest.raises(sqlite3.DatabaseError):
+        connect_database(path)
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        opened[0].execute("SELECT 1")
+    assert path.read_bytes() == original
+    retained = tmp_path / "retained-corrupt.db"
+    path.rename(retained)
+    assert retained.read_bytes() == original
+
+
 def test_fresh_database_migrates_and_second_run_is_idempotent(tmp_path: Path) -> None:
     database_path = tmp_path / "fresh.db"
     connection = connect_database(database_path)
@@ -209,4 +232,3 @@ def test_phase_8_schema_migrates_without_losing_assessment_data(tmp_path: Path) 
         state = repository.get_attempt_sync_state("attempt-1")
         assert state.status.value == "pending"
         assert state.next_sync_at is None
-

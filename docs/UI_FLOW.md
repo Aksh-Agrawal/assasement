@@ -1,87 +1,151 @@
-# Offline Desktop UI Flow
+# Device UI flow
 
-Status: Phase 8A laptop implementation. Raspberry Pi GUI benchmarking, touchscreen validation,
-and physical GPIO verification remain pending.
+The device UI follows `Offline_First_Assessment_Device_Product_Implementation_Playbook_v2.docx`
+(version 2, 13 October 2026), particularly sections 3–5 and the navigation invariants.
+Local implementation and verification were updated on 27 October 2026.
 
-## Layer path
+## Run locally
 
-```text
-Keyboard / mouse hit-test
-          ↓
-   Canonical Action
-          ↓
-     UIController
-          ↓
-AssessmentApplication
-          ↓
-Engine + Repository → SQLite
+```powershell
+.\.venv\Scripts\python.exe -m app.ui.app
 ```
 
-Renderers never execute SQL, calculate scores, or mutate domain objects. Mouse clicks and keyboard
-keys converge on the same `Action` values before controller routing.
+The existing Pi command remains supported:
 
-Keyboard shortcuts are A–D for answers, arrows for Previous/Next, Enter for Confirm, Escape for
-Back, S/N/G for confidence, R for review marking, T for Submit, and M for Menu.
+```bash
+cd ~/assasement
+source .venv/bin/activate
+DISPLAY=:0 python -m app.ui.app
+```
 
-## Screens
+Optional flags: `--db PATH`, `--base-url URL`, `--fullscreen`, and `--gpio`.
+The GUI uses the existing database by default. Do not replace it with a preview database.
+No systemd or display-server configuration is changed by this UI work.
 
-### Profile
+## Route graph
 
-Shows local display names only. Previous/Next selects among profiles and Confirm continues. When
-none exists, Confirm explicitly creates the fixed development-only `Development Student` profile.
-Custom profile naming, PIN setup, and backend accounts remain deferred.
+```text
+Startup checks -> Profile picker -> PIN (when protected) -> Home
+       |
+       +-> Recovery -> Retry / startup diagnostics / recovery guidance
 
-### Subject
+Profile -> Add local profile / Pair device
+Home -> Continue test
+     -> Practice / Subjects -> Subject -> Chapter -> Question set -> Test setup
+     -> Progress
+     -> Settings
 
-Lists only distinct subjects found in installed SQLite question sets. No Biology or Chemistry list
-is hard-coded in the UI. Back returns to Profile.
+Test setup -> Start / Resume -> Question -> Confidence -> Question
+Question -> Previous / Next / Review flag / Full text
+         -> Assessment menu -> Navigator / Resume / Submit / Device status / Home confirmation
+Submit confirmation -> Continue test / explicit Submit -> Result
+Result -> Review all / wrong / guessed / sure-but-wrong / guessed-right -> Result -> Home
 
-### Question Set
+Settings -> Wi-Fi / Sync / Account-pairing / Content updates / Software update
+         -> Device-storage / Diagnostics / About
+```
 
-Filters installed sets by subject and shows title, chapter, question count, and version. Confirm
-starts the selected immutable version. If the profile has an in-progress attempt, the screen shows
-its set plus answered/total counts and Confirm resumes it instead of starting another attempt.
+The welcome screen is the profile picker. There is no extra welcome gate or online/offline mode.
+`app/ui/router.py` declares routes. `app/ui/screens/console.py` is the renderer registry;
+each major screen has its own module. Historical direct-controller integration calls are
+retained with `startup=False`; the GUI always selects the complete device flow.
 
-### Assessment
+## Startup and recovery
 
-Shows compact subject/title/chapter metadata, position, wrapped question text, four whole-row
-answer targets, current answer, confidence, answered count, review state, navigation, and submit.
-Previous is disabled on the first question. Next from the final question enters confirmation and
-does not submit automatically. Confirm opens the page-like full-content view.
+The window appears before opening SQLite. `StartupSession` advances real local checks:
+configuration, repository open/integrity validation, applied migration version, device identity,
+credential availability, installed content, interrupted attempts, update metadata, and quick check.
+There is no timed splash, fabricated success animation, or internet requirement. A malformed
+update-state file is advisory; inability to safely open/check the local database is blocking.
+Recovery never deletes, overwrites, or automatically restores data. Its diagnostics show completed
+startup checks and a safe support code. See `RECOVERY.md` for the support procedure.
 
-### Confidence
+## Input and layout
 
-Answer selection is already durably stored as `unrated` before this screen appears. Sure, Not
-Sure, Guessing, or Continue Unrated updates the existing response through the application service.
+The logical canvas is 800 × 480 and is scaled to the display window. Colours and typography live
+in `app/ui/theme.py`. Fonts and bounded label surfaces are cached. The event loop redraws after
+input, a device-job completion, a resize, or a timer-second change; there is no continuous animation.
 
-### Submit
+Touch/finger input and mouse hit targets emit the same `Action` plus optional UI payload as keyboard
+and GPIO input. Synthesised touch mouse events are ignored to prevent a single tap being processed
+twice. GPIO is opt-in and uses the existing button adapter; callbacks post events to the GUI thread.
 
-Shows total, answered, unanswered, and review-marked counts. Unanswered questions are explicitly
-described as skipped. Continue returns to the assessment; Submit Assessment finalizes locally and
-shows the engine-produced `ScoreResult`.
+- Questions: A/B/C/D or 1/2/3/4 answer; Left/Right previous/next; R review flag; M menu.
+- Confidence: A/B/C or S/N/G select Sure/Not Sure/Guessing; Back returns to options.
+- Lists: Left/Right choose, A or Enter select, M/Escape back.
+- Submit: A/Enter continues the test; T or the labelled touch target performs final submission.
+- Text entry: type normally on a keyboard, or use the on-screen keys. GPIO Left/Right chooses
+  a character, A types it, B deletes, C changes key sets, D confirms, Menu goes back.
+- Full text: Left/Right changes page, A/Menu/Back returns. Page counts derive from all content.
+- F12 saves a local screenshot under `var/screenshots`.
 
-### Result
+Every emitted touch target is at least 48 × 48 logical pixels. Headers and contextual physical-button
+footers are persistent. Long question/option bodies scroll; full-text pages expose all text without a
+fixed three-page limit. Review explanations scroll and are also available in full text. Navigator
+buttons are paged in groups of 40 and use `+` answered, `-` unanswered, `*` review, `>` current as
+well as colour and border changes. Diagram paths are confined to the configured media root,
+file/pixel sizes are bounded, and scaled surfaces are cached. Missing media has an explicit state.
 
-Shows score, correct, wrong, skipped, attempted, accuracy, confidence buckets, sure-but-wrong, and
-guessed-right. Review Answers enters immutable review; Return Home returns to Profile without
-reopening the completed attempt.
+## Assessment boundaries
 
-### Review
+Only `AssessmentApplication` writes assessment events and transitions the engine. The UI does not
+execute SQL or calculate scores. Result accuracy, correctness counts, confidence matrices and
+priority-review IDs come from the engine's `ScoreResult`. Local Progress shows the most recent 20
+completed attempts for the selected profile, using persisted scores and sync state.
 
-Shows the question, selected and correct answers, confidence, outcome, response time, explanation,
-and review flag. Correct, wrong, and skipped states use distinct labeled/color presentation.
-Previous/Next changes only the review view. Full text opens the detail pages. Exit Review returns
-to Result; no review action can edit stored responses.
+An in-progress attempt always resumes its exact stored version and question order. The existing
+engine allows one in-progress attempt per profile. Start New explains that the existing test must
+be finished; it never abandons or replaces that attempt. Leaving for Home requires a confirmation
+and pauses/saves timing. Closing and restarting preserves answers, confidence and review flags.
 
-### Error and empty states
+## Device services
 
-No-profile, no-subject/set, startup/database, and controller resume failures produce concise
-screens or status messages. Invalid empty question packs are rejected before repository import,
-so a stored zero-question set is treated as unavailable/corrupt rather than rendered.
+`DeviceConsole` runs bounded operations on a daemon worker. Each operation that needs SQLite opens
+its own repository connection; it never passes the GUI connection to a thread. Results are applied
+on the main thread. The assessment can continue while a network request fails or is waiting.
 
-## Persistence and recovery
+- Wi-Fi uses argument-array NetworkManager calls with timeouts. Saved networks, scanning,
+  password entry, connect and forget stay in the UI. Missing NetworkManager is a visible state.
+  Association and internet/API reachability are checked separately.
+- Pairing reuses `PairingClient` and `CredentialStore`; only the user pairing code is displayed.
+  Polling is bounded, expiry is handled, and cancelling invalidates pending results/credential saves.
+  Existing local profiles remain available. Removal of pairing has an explicit confirmation.
+- Sync reuses `SyncWorker`, preserving retry/idempotency behavior and local assessment independence.
+- Content uses `ContentApiClient` and the existing download/hash/schema/atomic-import pipeline.
+  Local versions remain listed and usable. Fetched remote metadata adds catalogue entries without
+  hiding local content. Download, update, validation failure and unavailable-offline states are shown.
+- Software update uses `UpdateClient`, `verify_update` and `stage_update`. Install & Restart remains
+  disabled: the existing activation service updates release metadata but this checkout has no
+  boot/restart launcher that consumes it. This UI does not pretend to have installed a staged release.
+- Diagnostics reuses `collect_device_status`; support export reuses `create_support_bundle`.
+  Account/device screens show only pairing state and a shortened ID, never token or secret paths.
 
-Window close calls `AssessmentApplication.pause()` and never submits. A selected answer survives
-closing on the confidence screen because answer selection is committed immediately with
-`unrated`. Resume loads the attempt's exact stored set version and write-once question order.
-Completed attempts are never returned by the in-progress lookup and review cannot mutate them.
+## PIN integration limit
+
+The existing checkout contained nullable `pin_hash` / `pin_salt` columns but no PIN verifier,
+provisioning UI, hash-format contract or lockout implementation. The repository now exposes these
+fields through a read-only accessor; SQL remains in the data layer. The verifier accepts explicitly
+encoded `pbkdf2_sha256$iterations$hex_digest` values with the separately stored UTF-8 salt, bounds
+iterations to 100,000–1,000,000, compares in constant time, and persists escalating lockout after
+five failures. No existing hashes are rewritten. Unknown/opaque formats stay locked and show
+recovery guidance. New local profiles have no PIN; PIN provisioning is not supplied by this UI.
+Confirm the deployed provisioning format before claiming compatibility with existing protected Pi
+profiles. Do not treat the test format as proof of that deployment policy.
+
+## Verification
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m tools.ui_smoke
+```
+
+`ui_smoke` uses a temporary real repository and the shipped sample question pack. It generates
+24 800 × 480 previews and a contact sheet under `artifacts/ui-redesign`, without opening or changing
+student data. Automated tests exercise real engine/repository transitions, restart/version pinning,
+startup/recovery, settings navigation, touch bounds, long text, PIN lockout, background failure,
+local diagnostics/support export, catalogue states and large question navigators.
+
+Pi display/touch/GPIO, NetworkManager permissions, actual server pairing/sync/download,
+release activation/restart and on-device performance require device acceptance testing.
+No remote deployment or Pi test is implied by local previews or the headless entry-point tests.

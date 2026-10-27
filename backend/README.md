@@ -1,3 +1,6 @@
+> **TEMPORARY — being migrated to assasement-cloud repository.**
+> Retained until independent cloud validation. Device runtime and Pi deployment do not require this directory.
+
 # Phase 10A paired-device backend
 
 The FastAPI backend accepts completed attempts from the existing Phase 9A device client. Device

@@ -3,10 +3,10 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 
+from app.api.transport import FailureState, create_client, json_object, response_failure
 from app.content.catalog import ContentCatalog, RemotePack
 
 
@@ -19,7 +19,9 @@ class ContentAuthError(ContentClientError):
 
 
 class ContentNetworkError(ContentClientError):
-    pass
+    def __init__(self, message: str, state: FailureState = FailureState.OFFLINE):
+        super().__init__(message)
+        self.state = state
 
 
 class ContentProtocolError(ContentClientError):
@@ -39,17 +41,7 @@ class ContentApiClient:
         if not base_url.strip():
             raise ValueError("API base URL must not be empty")
         self._paired = auth_token is not None
-        self._client = httpx.Client(
-            base_url=base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {auth_token}"} if auth_token else None,
-            timeout=httpx.Timeout(
-                connect=connect_timeout,
-                read=read_timeout,
-                write=read_timeout,
-                pool=connect_timeout,
-            ),
-            transport=transport,
-        )
+        self._client = create_client(base_url, auth_token=auth_token, connect_timeout=connect_timeout, read_timeout=read_timeout, transport=transport)
 
     def close(self) -> None:
         self._client.close()
@@ -66,21 +58,21 @@ class ContentApiClient:
         try:
             response = self._client.get("/api/v1/content/catalog")
         except httpx.RequestError as error:
-            raise ContentNetworkError(str(error)) from error
+            raise ContentNetworkError("Cloud connection unavailable") from error
         self._check_response(response)
         try:
-            body: Any = response.json()
+            body: Any = json_object(response)
             if not isinstance(body, dict):
                 raise ValueError("Catalog must be an object")
             return ContentCatalog.from_dict(body)
         except (ValueError, TypeError) as error:
-            raise ContentProtocolError(f"Invalid catalog response: {error}") from error
+            raise ContentProtocolError("Invalid catalog response") from error
 
     @contextmanager
     def stream_pack(self, pack: RemotePack) -> Iterator[httpx.Response]:
         if not self._paired:
             raise ContentAuthError("Device pairing is required")
-        path = f"/api/v1/content/packs/{quote(pack.set_id, safe='')}/{pack.version}"
+        path = pack.download_reference
         try:
             with self._client.stream("GET", path) as response:
                 self._check_response(response)
@@ -88,13 +80,15 @@ class ContentApiClient:
         except ContentClientError:
             raise
         except httpx.RequestError as error:
-            raise ContentNetworkError(str(error)) from error
+            raise ContentNetworkError("Cloud connection unavailable") from error
 
     @staticmethod
     def _check_response(response: httpx.Response) -> None:
-        if response.status_code in {401, 403}:
+        if response_failure(response) is FailureState.AUTH_REQUIRED:
             raise ContentAuthError(f"HTTP {response.status_code}: authentication rejected")
-        if response.status_code in {408, 425, 429} or response.status_code >= 500:
-            raise ContentNetworkError(f"HTTP {response.status_code}: backend unavailable")
+        if response_failure(response) is FailureState.SERVER_ERROR:
+            raise ContentNetworkError(
+                f"HTTP {response.status_code}: backend unavailable", FailureState.SERVER_ERROR
+            )
         if not 200 <= response.status_code < 300:
             raise ContentProtocolError(f"HTTP {response.status_code}: content request rejected")

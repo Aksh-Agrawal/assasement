@@ -24,17 +24,16 @@ gui = [
     # pygame-compatible distribution with CPython 3.14 wheels.
     "pygame-ce>=2.5,<3",
 ]
-backend = [
-    "alembic>=1.14,<2",
-    "fastapi>=0.115,<1",
-    "psycopg[binary]>=3.2,<4",
-    "pydantic>=2.9,<3",
-    "sqlalchemy>=2.0,<3",
-    "uvicorn>=0.34,<1",
-]
 
 [tool.setuptools.packages.find]
-include = ["app*", "tools*"]
+include = ["app*", "tools*", "schemas"]
+
+[tool.setuptools.package-data]
+schemas = ["*.json"]
+"app.data" = ["migrations/*.sql"]
+
+[tool.setuptools.exclude-package-data]
+tools = ["approve_pairing.py", "revoke_device.py"]
 
 [tool.setuptools.dynamic]
 version = {attr = "app.version.__version__"}
@@ -45,6 +44,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "postgres: requires TEST_DATABASE_URL pointing to a dedicated PostgreSQL test database",
+    "cloud_integration: temporary device/cloud integration tests requiring server source",
     "fault: deterministic file-backed fault-injection and recovery tests",
     "update: deterministic signed-update architecture tests",
 ]
