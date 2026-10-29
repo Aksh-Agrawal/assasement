@@ -78,3 +78,26 @@ batch-mode read-only SSH attempt to port 22 timed out. No device identity was
 verified, no host trust was bypassed and no Pi changes were made. Use this target
 only as a placeholder until the actual address is confirmed. Physical acceptance
 remains PENDING; this is not evidence that the Pi itself is faulty.
+
+
+## Physical Pi cloud-configuration diagnosis — 29 October 2026
+
+Actual Pi SSH target aksh@10.32.139.228 is reachable. NetworkManager active; wlan0 has
+a route. GUI reported network unavailable because ASSESS_API_URL was empty/unset.
+No /etc/assessdev/device.env existed. Checkout .env used uninstalled /var/lib/assessdev
+paths, while actual SQLite and credential files exist under /home/aksh/assasement/var.
+Read-only original inventory: 1 local profile, 3 attempts. No database migration/reset,
+credential replacement or sync upload was used for this fix.
+
+The original .env was copied to a private mode-0600 timestamped backup. Set backend
+origin to https://startup-cloud.onrender.com and point data/database/credential/log/
+update/download settings at the existing checkout var directory. Added the reviewed
+scripts/device-python.sh launcher to load the environment explicitly; it passes shell
+syntax validation. Physical Pi execution through that same launcher reports API configured,
+DNS OK, HTTPS VERIFIED, device PAIRED, catalogue OK and Cloud readiness READY.
+
+Restart GUI through `./scripts/device-python.sh -m app.ui.app --fullscreen` from the
+Pi's graphical session. No GUI was force-stopped or rebooted, no Wi-Fi changed and no
+systemd/autostart installation was performed in this fix. The operator must still
+confirm the resulting visible GUI state; CLI readiness alone is not full physical
+product acceptance.

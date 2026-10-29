@@ -80,3 +80,24 @@ fault test, `tools/approve_pairing.py`, `tools/revoke_device.py`, and release-ch
 It is excluded from device packages and Pi deployment; normal device CI excludes
 the optional cloud-integration test. Server packages are not device dependencies.
 Migrate those legacy checks/admin tools to the cloud repository before deleting it.
+
+
+## Interactive GUI launcher
+
+For a manually installed checkout, launch through `scripts/device-python.sh` so GUI
+and CLI processes load the same configuration. The launcher uses ASSESS_ENV_FILE if
+specified, otherwise /etc/assessdev/device.env when present, then checkout .env.
+It changes to the checkout directory and uses that checkout's virtual environment.
+Only source a trusted operator-owned shell environment file.
+
+```sh
+cd /home/aksh/assasement
+./scripts/device-python.sh -m tools.cloud_check
+./scripts/device-python.sh -m app.ui.app --fullscreen
+```
+
+A plain `python -m app.ui.app` does not load .env automatically. Working ping does not
+prove the app has an API URL. An empty ASSESS_API_URL disables remote actions; existing
+profile-action copy may call this Network unavailable. Configure the actual backend
+origin, keep the existing SQLite/credential paths, and restart the GUI through the
+launcher. Do not point it at a fresh database to fix a network configuration problem.
