@@ -125,6 +125,8 @@ class LegacyController:
 
     @property
     def sync_label(self) -> str:
+        if self.repository.sync_diagnostic_summary()["attention_required"]:
+            return "Sync attention required"
         if self.network_label == "Offline":
             return "Offline"
         return f"{self.pending_sync_count} pending" if self.pending_sync_count else "Synced"
@@ -441,6 +443,7 @@ class UIController(LegacyController):
     def __init__(
         self, repository, *, application_factory=AssessmentApplication, startup=False, device=None
     ):
+        self.institute_assignment = None
         self.chapter_index = 0
         self.focus = 0
         self.scroll = 0
@@ -469,15 +472,23 @@ class UIController(LegacyController):
 
     def refresh_catalog(self):
         super().refresh_catalog()
-        if self.student_flow and self.device:
-            self.subjects = tuple(
-                sorted(set(self.subjects) | {p.subject for p in self.device.catalog})
-            )
+        if self.student_flow:
+            profile_id = self.selected_profile.id if self.selected_profile else None
+            self.question_sets = self.repository.visible_question_sets(profile_id)
+            self.subjects = tuple(sorted({p.subject for p in self.question_sets} |
+                                         {p.subject for p in self.remote_packs}))
             self.subject_index = min(self.subject_index, max(0, len(self.subjects) - 1))
 
     @property
     def remote_packs(self):
-        return self.device.catalog if self.device else ()
+        profile = self.selected_profile
+        if profile and profile.ownership_state == "owned":
+            from app.content.catalog import RemotePack
+            return tuple(RemotePack.from_dict(p) for p in
+                         self.repository.profile_library_catalog(profile.id))
+        if self.device and getattr(self.device, "catalog_profile_id", None) is None:
+            return self.device.catalog
+        return ()
 
     @property
     def resume_summary(self):
@@ -543,6 +554,7 @@ class UIController(LegacyController):
             UIScreen.PROFILE: self._profile_choices,
             UIScreen.HOME: self._home_choices,
             UIScreen.SUBJECTS: self._subject_choices,
+            UIScreen.INSTITUTE_WORK: self._institute_choices,
             UIScreen.CHAPTERS: self._chapter_choices,
             UIScreen.PACKS: self._pack_choices,
             UIScreen.TEST_SETUP: self._setup_choices,
@@ -558,7 +570,16 @@ class UIController(LegacyController):
                 Choice("Sync Now", "job", "sync"),
                 Choice("Check connection", "job", "network"),
             ),
+            UIScreen.LINK_CONFIRM: lambda: (
+                Choice("Confirm link", "profile_claim"),
+                Choice("Back", "route", UIScreen.LINK_PROFILE),
+            ),
             UIScreen.ACCOUNT: lambda: (
+                Choice("Link Study Profile", "profile_link"),
+                Choice("Refresh link status", "profile_status"),
+                Choice("Confirm unlink" if getattr(self, "unlink_pending", False)
+                       else "Unlink profile", "profile_unlink"),
+
                 Choice(
                     "Re-pair"
                     if self.device and self.device.credentials.load_safe()
@@ -606,10 +627,29 @@ class UIController(LegacyController):
         return (
             Choice(label, "resume", enabled=bool(resume)),
             Choice("PRACTICE\nChoose subject and chapter", "route", UIScreen.SUBJECTS),
-            Choice("Subjects", "route", UIScreen.SUBJECTS),
+            Choice("Institute Work", "route", UIScreen.INSTITUTE_WORK),
             Choice("Progress", "route", UIScreen.PROGRESS),
             Choice("Settings", "route", UIScreen.SETTINGS),
         )
+
+    @property
+    def selected_question_set(self):
+        a = getattr(self, "institute_assignment", None)
+        if a and self.selected_profile and a["local_profile_id"] == self.selected_profile.id:
+            return self.repository.get_question_set(a["set_id"], a["version"])
+        return super().selected_question_set
+
+    def _institute_choices(self):
+        p = self.selected_profile
+        if not p:
+            return ()
+        choices = [Choice("Refresh Institute Work", "institute_refresh")]
+        for a in self.repository.institute_work(p.id):
+            installed = self.repository.get_question_set(a["set_id"], a["version"])
+            choices.append(Choice(f"{a['title']} | {a['institute_name']}\n" +
+                ("Downloaded / Start" if installed else "Download for offline practice"),
+                "institute_start" if installed else "institute_download", a))
+        return tuple(choices)
 
     def _subject_choices(self):
         result = []
@@ -749,7 +789,7 @@ class UIController(LegacyController):
                           "local_pack", enabled=False) for pack in self.question_sets]
         if self.device:
             local = {(s.id, s.version) for s in self.question_sets}
-            for pack in self.device.catalog:
+            for pack in self.remote_packs:
                 newest = max(
                     (s.version for s in self.question_sets if s.id == pack.set_id), default=0
                 )
@@ -832,6 +872,7 @@ class UIController(LegacyController):
                 UIScreen.QUESTION_NAV: self._device_navigator,
                 UIScreen.REVIEW: self._device_review,
                 UIScreen.QUESTION_DETAIL: self._device_detail,
+                UIScreen.LINK_PROFILE: self._device_text,
                 UIScreen.PIN: self._device_text,
                 UIScreen.ADD_PROFILE: self._device_text,
                 UIScreen.PROGRESS: self._device_progress,
@@ -861,16 +902,29 @@ class UIController(LegacyController):
     def _activate(self, choice):
         command, value = choice.command, choice.value
         if command == "route":
+            if value in {UIScreen.SUBJECTS, UIScreen.INSTITUTE_WORK, UIScreen.HOME}:
+                self.institute_assignment = None
             self.route(value)
             if value is UIScreen.HOME:
                 self.focus = 0 if self.can_resume else 1
         elif command == "profile":
+            self.institute_assignment = None
             self.profile_index = value
+            self.chapter_index = self.set_index = self.subject_index = 0
+            self.refresh_catalog()
             self.text_value = ""
             if self.pin_service.protected(self.selected_profile.id):
                 self.route(UIScreen.PIN)
             else:
                 self._unlocked()
+        elif command == "institute_refresh":
+            self._job("institute_refresh", local_profile_id=self.selected_profile.id)
+        elif command == "institute_download":
+            self._job("institute_download", local_profile_id=self.selected_profile.id,
+                assignment_id=value["assignment_id"])
+        elif command == "institute_start":
+            self.institute_assignment = {**value, "local_profile_id": self.selected_profile.id}
+            self.route(UIScreen.TEST_SETUP)
         elif command == "subject":
             self.subject_index, self.chapter_index, self.set_index = value, 0, 0
             self.route(UIScreen.CHAPTERS)
@@ -911,6 +965,28 @@ class UIController(LegacyController):
             self.focus = 1
         elif command == "job":
             self._job(value)
+        elif command == "profile_link":
+            if self.selected_profile is None:
+                self.message = "Select a local profile first."
+                return
+            if self.selected_profile.link_state == "linked":
+                self.message = "This profile is already linked. Unlink explicitly before relinking."
+            else:
+                self.text_value = ""
+                self.route(UIScreen.LINK_PROFILE)
+        elif command == "profile_claim":
+            code, self.text_value = self.text_value, ""
+            self._job("profile_claim", code=code, local_profile_id=self.selected_profile.id)
+            self.route(UIScreen.ACCOUNT)
+        elif command == "profile_status":
+            self._job("profile_status", local_profile_id=self.selected_profile.id)
+        elif command == "profile_unlink":
+            if getattr(self, "unlink_pending", False):
+                self._job("profile_unlink", local_profile_id=self.selected_profile.id)
+                self.unlink_pending = False
+            else:
+                self.unlink_pending = True
+                self.message = "Confirm unlink. Saved assessments and the device credential remain."
         elif command == "pair":
             self.pair_return = self.screen
             self.route(UIScreen.PAIRING)
@@ -947,6 +1023,8 @@ class UIController(LegacyController):
             self.message = "Keep existing data. Ask support to restore a verified backup using the recovery guide."
 
     def _job(self, operation, **args):
+        if operation in {"catalog", "download"} and self.selected_profile:
+            args["local_profile_id"] = self.selected_profile.id
         if self.device:
             self.device.start(operation, **args)
             self.message = self.device.message
@@ -956,6 +1034,7 @@ class UIController(LegacyController):
             )
 
     def _unlocked(self):
+        self.refresh_catalog()
         self.authorized_profile = self.selected_profile.id
         self.route(UIScreen.HOME)
         self.focus = 0 if self.can_resume else 1
@@ -970,7 +1049,8 @@ class UIController(LegacyController):
             self.application.resume_attempt(profile.id)
         elif self.selected_question_set:
             selected = self.selected_question_set
-            self.application.start_test(profile.id, selected.id, selected.version)
+            self.application.start_test(profile.id, selected.id, selected.version,
+                institute_assignment_id=self.institute_assignment["assignment_id"] if self.institute_assignment else None)
         else:
             self.message = "No downloaded set is available."
             return
@@ -1065,6 +1145,10 @@ class UIController(LegacyController):
             self.scroll = max(0, self.scroll + (1 if action is Action.NEXT else -1))
 
     def _back(self):
+        if self.screen in {UIScreen.LINK_PROFILE, UIScreen.LINK_CONFIRM}:
+            self.text_value = ""
+            self.route(UIScreen.ACCOUNT)
+            return
         if self.screen is UIScreen.PAIRING:
             if self.device:
                 self.device.cancel_pairing()
@@ -1078,6 +1162,7 @@ class UIController(LegacyController):
             UIScreen.PROFILE: UIScreen.PROFILE,
             UIScreen.HOME: UIScreen.PROFILE,
             UIScreen.SUBJECTS: UIScreen.HOME,
+            UIScreen.INSTITUTE_WORK: UIScreen.HOME,
             UIScreen.CHAPTERS: UIScreen.SUBJECTS,
             UIScreen.PACKS: UIScreen.CHAPTERS,
             UIScreen.TEST_SETUP: UIScreen.PACKS,
@@ -1103,6 +1188,8 @@ class UIController(LegacyController):
 
     @property
     def keyboard_characters(self):
+        if self.screen is UIScreen.LINK_PROFILE:
+            return "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
         if self.screen is UIScreen.PIN:
             return "1234567890"
         return (
@@ -1114,7 +1201,7 @@ class UIController(LegacyController):
     def handle_text(self, value):
         if not self.student_flow:
             return
-        if self.screen not in {UIScreen.PIN, UIScreen.ADD_PROFILE} and not (
+        if self.screen not in {UIScreen.PIN, UIScreen.ADD_PROFILE, UIScreen.LINK_PROFILE} and not (
             self.screen is UIScreen.WIFI and self.selected_wifi
         ):
             return
@@ -1123,6 +1210,9 @@ class UIController(LegacyController):
         )
         if self.screen is UIScreen.PIN:
             value = "".join(c for c in value if c in "0123456789")
+        if self.screen is UIScreen.LINK_PROFILE:
+            value = "".join(c for c in value.upper() if c in self.keyboard_characters)
+            limit = 10
         self.text_value = (self.text_value + value)[:limit]
 
     def _command(self, command):
@@ -1165,6 +1255,12 @@ class UIController(LegacyController):
             self._submit_text()
 
     def _submit_text(self):
+        if self.screen is UIScreen.LINK_PROFILE:
+            if len(self.text_value) != 10:
+                self.message = "Enter the 10-character code shown on the website."
+                return
+            self.route(UIScreen.LINK_CONFIRM)
+            return
         if self.screen is UIScreen.PIN:
             success, message = self.pin_service.unlock(self.selected_profile.id, self.text_value)
             self.text_value = ""

@@ -219,6 +219,186 @@ class Repository:
             )
             return device_id
 
+    def institute_work(self, profile_id: str) -> list[dict]:
+        profile = self.get_profile(profile_id)
+        context = self.get_profile_link_context(profile_id)
+        if not profile or profile.link_state != "linked" or not context:
+            return []
+        return [json.loads(r[0]) for r in self._connection.execute(
+            "SELECT metadata_json FROM institute_work WHERE local_profile_id=? AND link_id=? AND eligible=1 ORDER BY assignment_id",
+            (profile_id, context["link_id"]))]
+
+    def cache_institute_work(self, profile_id, link_id, items):
+        context = self.get_profile_link_context(profile_id)
+        profile = self.get_profile(profile_id)
+        if not context or context["link_id"] != link_id or profile.link_state != "linked":
+            raise ValueError("Profile link changed")
+        for item in items:
+            if item["study_profile_id"] != profile.cloud_profile_id:
+                raise ValueError("Assignment owner mismatch")
+        with transaction(self._connection) as c:
+            c.execute("UPDATE institute_work SET eligible=0 WHERE local_profile_id=?", (profile_id,))
+            for item in items:
+                c.execute("INSERT INTO institute_work VALUES(?,?,?,?,1) ON CONFLICT(local_profile_id,assignment_id) "
+                    "DO UPDATE SET link_id=excluded.link_id,metadata_json=excluded.metadata_json,eligible=1",
+                    (profile_id, item["assignment_id"], link_id, json.dumps(item)))
+
+    def revoke_institute_work(self, profile_id):
+        with transaction(self._connection) as c:
+            c.execute("UPDATE institute_work SET eligible=0 WHERE local_profile_id=?", (profile_id,))
+
+    def get_attempt_institute_context(self, attempt_id):
+        row = self._connection.execute("SELECT * FROM attempt_institute_context WHERE attempt_id=?", (attempt_id,)).fetchone()
+        return dict(row) if row else None
+
+    def profile_library_catalog(self, profile_id: str) -> list[dict]:
+        """Return only this local profile's cached, currently authorized catalogue."""
+        self._ensure_open()
+        profile = self.get_profile(profile_id)
+        context = self.get_profile_link_context(profile_id)
+        if profile is None or profile.link_state != "linked" or context is None:
+            return []
+        rows = self._connection.execute(
+            "SELECT metadata_json FROM profile_library WHERE local_profile_id=? "
+            "AND link_id=? AND eligible=1 ORDER BY set_id, version",
+            (profile_id, context["link_id"]),
+        )
+        return [json.loads(row[0]) for row in rows]
+
+    def cache_profile_library(self, profile_id: str, link_id: str, packs: list[dict]) -> None:
+        """Replace eligibility only on a complete successful profile-specific refresh."""
+        context = self.get_profile_link_context(profile_id)
+        profile = self.get_profile(profile_id)
+        if not context or context["link_id"] != link_id or profile.link_state != "linked":
+            raise ValueError("Profile link changed during refresh")
+        selected_sets = {p["set_id"] for p in packs}
+        with transaction(self._connection) as connection:
+            # Keep older downloaded versions of still-selected sets for offline updates.
+            rows = connection.execute(
+                "SELECT set_id, version, link_id FROM profile_library WHERE local_profile_id=?",
+                (profile_id,),
+            ).fetchall()
+            for row in rows:
+                if row["set_id"] not in selected_sets or row["link_id"] != link_id:
+                    connection.execute("UPDATE profile_library SET eligible=0 WHERE "
+                        "local_profile_id=? AND set_id=? AND version=?",
+                        (profile_id, row["set_id"], row["version"]))
+            for pack in packs:
+                connection.execute(
+                    "INSERT INTO profile_library VALUES (?, ?, ?, ?, ?, 1) "
+                    "ON CONFLICT(local_profile_id,set_id,version) DO UPDATE SET "
+                    "link_id=excluded.link_id, metadata_json=excluded.metadata_json, eligible=1",
+                    (profile_id, pack["set_id"], pack["version"], link_id,
+                     json.dumps(pack, separators=(",", ":"))),
+                )
+
+    def revoke_profile_library(self, profile_id: str) -> None:
+        with transaction(self._connection) as connection:
+            connection.execute("UPDATE profile_library SET eligible=0 WHERE local_profile_id=?",
+                               (profile_id,))
+
+    def can_start_pack(self, profile_id: str, set_id: str, version: int) -> bool:
+        """Legacy/shared packs retain compatibility; private bytes require an exact grant."""
+        self._ensure_open()
+        private = self._connection.execute(
+            "SELECT 1 FROM private_pack_versions WHERE set_id=? AND version=?", (set_id, version)
+        ).fetchone()
+        if private is None:
+            return self.get_question_set(set_id, version) is not None
+        return any(p["set_id"] == set_id and p["version"] == version
+                   for p in self.profile_library_catalog(profile_id))
+
+    def visible_question_sets(self, profile_id: str | None):
+        packs = self.list_question_sets()
+        return tuple(p for p in packs if self.can_start_pack(profile_id or "", p.id, p.version))
+
+    def get_profile_link_context(self, profile_id: str) -> dict | None:
+        self._ensure_open()
+        row = self._connection.execute(
+            "SELECT * FROM profile_link_context WHERE local_profile_id = ?", (profile_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def apply_profile_link(self, profile_id: str, result: dict) -> None:
+        """Persist only an explicitly selected, server-verified mapping atomically."""
+        self._ensure_open()
+        if result.get("status") not in {"linked", "revoked"}:
+            raise ValueError("Invalid link response state")
+        for key in ("link_id", "student_account_id", "study_profile_id"):
+            uuid.UUID(result[key])
+        if result.get("local_profile_id") != profile_id:
+            raise ValueError("Link response local profile mismatch")
+        with transaction(self._connection) as connection:
+            row = connection.execute("SELECT * FROM profiles WHERE id = ? AND deleted_at IS NULL",
+                                     (profile_id,)).fetchone()
+            if row is None:
+                raise ValueError("Local profile unavailable")
+            if row["ownership_state"] == "owned" and (
+                row["cloud_account_id"] != result["student_account_id"] or
+                row["cloud_profile_id"] != result["study_profile_id"]
+            ):
+                raise ValueError("Profile ownership cannot be overwritten")
+            current = connection.execute(
+                "SELECT link_id FROM profile_link_context WHERE local_profile_id = ?", (profile_id,)
+            ).fetchone()
+            if row["link_state"] == "linked" and current and current["link_id"] != result["link_id"]:
+                raise ValueError("Profile already linked")
+            linked = result["status"] == "linked"
+            connection.execute(
+                "UPDATE profiles SET cloud_account_id=?, cloud_profile_id=?, ownership_state='owned', "
+                "link_state=? WHERE id=?",
+                (result["student_account_id"], result["study_profile_id"],
+                 "linked" if linked else "unlinked", profile_id),
+            )
+            connection.execute(
+                "INSERT INTO profile_link_context VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(local_profile_id) DO UPDATE SET link_id=excluded.link_id, "
+                "account_display_name=excluded.account_display_name, "
+                "study_profile_name=excluded.study_profile_name",
+                (profile_id, result["link_id"], result["account_display_name"],
+                 result["study_profile_name"]),
+            )
+
+    def get_attempt_ownership(self, attempt_id: str) -> dict | None:
+        self._ensure_open()
+        row = self._connection.execute(
+            "SELECT study_profile_id, link_id FROM attempt_ownership WHERE attempt_id = ?",
+            (attempt_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_student_account_context(self) -> dict[str, str | None] | None:
+        """Cached identity hints only; never a proof of current authentication."""
+        self._ensure_open()
+        row = self._connection.execute(
+            "SELECT * FROM student_account_context WHERE singleton = 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+    def cache_student_account_context(
+        self, cloud_account_id: str, display_name: str, *, last_verified_at: datetime | None = None
+    ) -> None:
+        """Prepare a cached context without tokens or granting offline login rights."""
+        uuid.UUID(cloud_account_id)
+        if not display_name.strip():
+            raise ValueError("Display name required")
+        with transaction(self._connection) as connection:
+            connection.execute(
+                "INSERT INTO student_account_context "
+                "(singleton, cloud_account_id, display_name, auth_state, last_verified_at) "
+                "VALUES (1, ?, ?, 'verification_required', ?) "
+                "ON CONFLICT(singleton) DO UPDATE SET cloud_account_id=excluded.cloud_account_id, "
+                "display_name=excluded.display_name, auth_state='verification_required', "
+                "last_verified_at=excluded.last_verified_at",
+                (cloud_account_id, display_name,
+                 datetime_to_text(last_verified_at) if last_verified_at else None),
+            )
+
+    def clear_student_account_context(self) -> None:
+        """Clear the context without changing profiles, attempts or pending uploads."""
+        with transaction(self._connection) as connection:
+            connection.execute("DELETE FROM student_account_context")
+
     def create_profile(
         self,
         profile: Profile,
@@ -233,8 +413,9 @@ class Repository:
         with transaction(self._connection) as connection:
             connection.execute(
                 "INSERT INTO profiles("
-                "id, display_name, server_user_id, pin_hash, pin_salt, created_at"
-                ") VALUES (?, ?, ?, ?, ?, ?)",
+                "id, display_name, server_user_id, pin_hash, pin_salt, created_at, "
+                "cloud_account_id, cloud_profile_id, ownership_state, link_state"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     profile.id,
                     profile.display_name,
@@ -242,6 +423,10 @@ class Repository:
                     pin_hash,
                     pin_salt,
                     created_text,
+                    profile.cloud_account_id,
+                    profile.cloud_profile_id,
+                    profile.ownership_state,
+                    profile.link_state,
                 ),
             )
         return profile
@@ -250,7 +435,7 @@ class Repository:
         """Return one profile, including a soft-deleted profile when requested by ID."""
         self._ensure_open()
         row = self._connection.execute(
-            "SELECT id, display_name, server_user_id FROM profiles WHERE id = ?",
+            "SELECT * FROM profiles WHERE id = ?",
             (profile_id,),
         ).fetchone()
         return self._profile_from_row(row) if row else None
@@ -259,7 +444,7 @@ class Repository:
         """Return active profiles in stable creation/ID order."""
         self._ensure_open()
         rows = self._connection.execute(
-            "SELECT id, display_name, server_user_id FROM profiles "
+            "SELECT * FROM profiles "
             "WHERE deleted_at IS NULL ORDER BY created_at, id"
         ).fetchall()
         return tuple(self._profile_from_row(row) for row in rows)
@@ -294,6 +479,10 @@ class Repository:
             id=row["id"],
             display_name=row["display_name"],
             server_user_id=row["server_user_id"],
+            cloud_account_id=row["cloud_account_id"],
+            cloud_profile_id=row["cloud_profile_id"],
+            ownership_state=row["ownership_state"],
+            link_state=row["link_state"],
         )
 
     def insert_question_set(
@@ -329,6 +518,7 @@ class Repository:
         content_hash: str,
         downloaded_at: datetime | None = None,
         is_active: bool = False,
+        profile_only: bool = False,
     ) -> None:
         """Atomically insert immutable set metadata, questions, and activation."""
         downloaded_text = datetime_to_text(downloaded_at) if downloaded_at else utc_now_text()
@@ -344,6 +534,9 @@ class Repository:
                 self._insert_question_rows(
                     connection, question_set.id, question_set.version, question_set.questions
                 )
+                if profile_only:
+                    connection.execute("INSERT INTO private_pack_versions VALUES (?, ?)",
+                                       (question_set.id, question_set.version))
                 self._fault_hook("BEFORE_PACK_IMPORT_COMMIT")
                 if is_active:
                     connection.execute(
@@ -580,10 +773,31 @@ class Repository:
         *,
         question_order: Sequence[str] | None = None,
         sync_status: SyncStatus = SyncStatus.LOCAL,
+        institute_assignment_id: str | None = None,
     ) -> Attempt:
         """Persist an attempt and optional fixed question order atomically."""
+        assignment = None
+        if institute_assignment_id:
+            assignment = next((a for a in self.institute_work(attempt.profile_id)
+                if a["assignment_id"] == institute_assignment_id and a["set_id"] == attempt.set_id
+                and a["version"] == attempt.set_version), None)
+            if assignment is None:
+                raise ValueError("Assignment unavailable for this profile")
         with transaction(self._connection) as connection:
             self._insert_attempt(connection, attempt, sync_status)
+            if assignment:
+                connection.execute("INSERT INTO attempt_institute_context VALUES(?,?,?,?,?)",
+                    (attempt.id, assignment["assignment_id"], assignment["institute_id"],
+                     assignment["membership_id"], assignment["study_profile_id"]))
+            mapping = connection.execute(
+                "SELECT p.cloud_profile_id, c.link_id FROM profiles p "
+                "JOIN profile_link_context c ON c.local_profile_id=p.id "
+                "WHERE p.id=? AND p.ownership_state='owned' AND p.link_state='linked'",
+                (attempt.profile_id,),
+            ).fetchone()
+            if mapping:
+                connection.execute("INSERT INTO attempt_ownership VALUES (?, ?, ?)",
+                                   (attempt.id, mapping["cloud_profile_id"], mapping["link_id"]))
             if question_order is not None:
                 self._insert_attempt_order(connection, attempt.id, question_order)
         return attempt
@@ -1171,6 +1385,10 @@ class Repository:
             "counts": counts,
             "in_progress": int(in_progress),
             "auth_required": int(auth_required),
+            "attention_required": int(self._connection.execute(
+                "SELECT COUNT(*) FROM attempts WHERE sync_status='failed' "
+                "AND sync_error_kind IN ('permanent','authentication')"
+            ).fetchone()[0]),
             "last_success": last_success,
             "last_failure": failure["completed_at"] if failure else None,
             "last_error_kind": failure["sync_error_kind"] if failure else None,

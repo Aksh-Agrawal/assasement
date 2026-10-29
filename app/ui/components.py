@@ -32,6 +32,7 @@ def footer(surface, controller, fonts):
         UIScreen.REVIEW: "LEFT Previous   RIGHT Next   A Full text   MENU Done",
         UIScreen.QUESTION_DETAIL: "LEFT / RIGHT Page   A Return   MENU Back",
         UIScreen.PROGRESS: "LEFT / RIGHT History   MENU Back   Esc Back",
+        UIScreen.LINK_PROFILE: "LEFT / RIGHT Character   A Type   B Delete   D Review link   MENU Back",
         UIScreen.PIN: "LEFT / RIGHT Digit   A Type   B Delete   D Unlock   MENU Back",
         UIScreen.SUBMIT_CONFIRM: "A Continue test   T Submit   MENU Question navigator",
         UIScreen.ADD_PROFILE: "LEFT / RIGHT Character   A Type   B Delete   C Keys   D Save   MENU Back",
@@ -210,7 +211,7 @@ def keyboard(surface, controls, controller, fonts, *, pin=False):
         fonts,
         payload=("command", "delete"),
     )
-    if not pin:
+    if not pin and controller.screen is not UIScreen.LINK_PROFILE:
         button(
             surface,
             controls,
@@ -243,7 +244,8 @@ def keyboard(surface, controls, controller, fonts, *, pin=False):
         surface,
         controls,
         Rect(608, 366, 168, 48),
-        "Unlock" if pin else "Connect" if controller.screen is UIScreen.WIFI else "Save profile",
+        "Unlock" if pin else "Review link" if controller.screen is UIScreen.LINK_PROFILE
+        else "Connect" if controller.screen is UIScreen.WIFI else "Save profile",
         Action.CONFIRM,
         fonts,
         state="primary",

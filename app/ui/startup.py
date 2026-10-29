@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.auth.credentials import CredentialStore
+from app.auth.student_context import load_student_routing_context
 from app.config import AppConfig
 from app.data.repo import Repository
 from app.update.activation import ActivationManager
@@ -19,6 +20,7 @@ class StartupCheck:
 class StartupSession:
     def __init__(self, path: Path, config: AppConfig, credentials: CredentialStore):
         self.path, self.config, self.credentials = path, config, credentials
+        self.student_context = None
         self.repository = None
         self.rows: list[StartupCheck] = []
         self.failed = False
@@ -32,6 +34,7 @@ class StartupSession:
         yield StartupCheck(
             "Schema / migrations", f"Current schema {self.repository.schema_version}"
         )
+        self.student_context = load_student_routing_context(self.repository)
         identity = self.repository.get_or_create_device_id()
         yield StartupCheck("Device identity", identity[:8])
         yield StartupCheck(

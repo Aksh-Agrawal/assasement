@@ -1,0 +1,28 @@
+[Unit]
+Description=Assessment device graphical kiosk
+After=systemd-user-sessions.service
+Conflicts=getty@tty1.service
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=assess
+Group=assess
+PAMName=login
+WorkingDirectory=/opt/assessment-device
+EnvironmentFile=/etc/assessdev/device.env
+Environment=SDL_VIDEODRIVER=x11
+StandardInput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+UtmpIdentifier=tty1
+ExecStart=/usr/bin/xinit /opt/assessment-device/scripts/kiosk-session.sh -- /usr/bin/Xorg :0 vt1 -keeptty -nolisten tcp
+Restart=always
+RestartSec=10
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

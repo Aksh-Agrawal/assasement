@@ -32,6 +32,7 @@ def import_pack(
     make_active: bool = True,
     max_bytes: int = DEFAULT_MAX_PACK_BYTES,
     now: datetime | None = None,
+    profile_only: bool = False,
 ) -> ImportResult:
     """Fully validate before calling the repository's single atomic import."""
     validated = validate_pack(
@@ -48,6 +49,7 @@ def import_pack(
             content_hash=validated.sha256,
             downloaded_at=imported_at,
             is_active=make_active,
+            profile_only=profile_only,
         )
     except DuplicateQuestionSetVersion as error:
         raise PackImportError(

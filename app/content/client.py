@@ -37,9 +37,14 @@ class ContentApiClient:
         connect_timeout: float = 5.0,
         read_timeout: float = 15.0,
         transport: httpx.BaseTransport | None = None,
+        local_profile_id: str | None = None,
+        link_id: str | None = None,
     ) -> None:
         if not base_url.strip():
             raise ValueError("API base URL must not be empty")
+        self.profile_scoped = local_profile_id is not None and link_id is not None
+        self.local_profile_id, self.link_id = local_profile_id, link_id
+        self.catalog_metadata = []
         self._paired = auth_token is not None
         self._client = create_client(base_url, auth_token=auth_token, connect_timeout=connect_timeout, read_timeout=read_timeout, transport=transport)
 
@@ -56,6 +61,8 @@ class ContentApiClient:
         if not self._paired:
             raise ContentAuthError("Device pairing is required")
         try:
+            if self.profile_scoped:
+                return self._fetch_profile_catalog()
             response = self._client.get("/api/v1/content/catalog")
         except httpx.RequestError as error:
             raise ContentNetworkError("Cloud connection unavailable") from error
@@ -73,14 +80,48 @@ class ContentApiClient:
         if not self._paired:
             raise ContentAuthError("Device pairing is required")
         path = pack.download_reference
+        params = None
+        if self.profile_scoped:
+            from urllib.parse import quote
+            path = f"/api/v1/profile-content/{self.link_id}/packs/{quote(pack.set_id, safe='')}/{pack.version}"
+            params = {"local_profile_id": self.local_profile_id}
         try:
-            with self._client.stream("GET", path) as response:
+            with self._client.stream("GET", path, params=params) as response:
                 self._check_response(response)
                 yield response
         except ContentClientError:
             raise
         except httpx.RequestError as error:
             raise ContentNetworkError("Cloud connection unavailable") from error
+
+    def _fetch_profile_catalog(self):
+        packs, offset = [], 0
+        # Paginate with a bounded cap; an incomplete response never replaces offline grants.
+        while True:
+            response = self._client.get(f"/api/v1/profile-content/{self.link_id}/catalog",
+                params={"local_profile_id": self.local_profile_id, "offset": offset, "limit": 100})
+            self._check_response(response)
+            try:
+                body = json_object(response)
+                ContentCatalog.from_dict(body)
+                packs.extend(body["packs"])
+                next_offset = body.get("next_offset")
+                if next_offset is None:
+                    break
+                if not isinstance(next_offset, int) or next_offset <= offset or len(packs) >= 1000:
+                    raise ValueError("Catalogue exceeds bounded client capacity")
+                offset = next_offset
+            except (ValueError, TypeError, KeyError) as error:
+                raise ContentProtocolError("Invalid profile catalogue") from error
+        self.catalog_metadata = packs
+        return ContentCatalog.from_dict({"schema_version": 1, "packs": packs})
+
+    def acknowledge(self, pack, status):
+        if self.profile_scoped:
+            response = self._client.post(f"/api/v1/profile-content/{self.link_id}/status", json={
+                "local_profile_id": self.local_profile_id, "set_id": pack.set_id,
+                "version": pack.version, "status": status})
+            self._check_response(response)
 
     @staticmethod
     def _check_response(response: httpx.Response) -> None:

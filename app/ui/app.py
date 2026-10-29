@@ -123,7 +123,7 @@ def run(
                         entry = bool(
                             controller
                             and (
-                                controller.screen in {UIScreen.PIN, UIScreen.ADD_PROFILE}
+                                controller.screen in {UIScreen.PIN, UIScreen.ADD_PROFILE, UIScreen.LINK_PROFILE}
                                 or controller.screen is UIScreen.WIFI
                                 and controller.selected_wifi
                             )

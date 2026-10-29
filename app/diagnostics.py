@@ -105,6 +105,8 @@ class DeviceStatus:
 
 
 _PATTERNS = (
+    (re.compile(r"(?i)([\"']?(?:password|password_hash|pin_hash|pin_salt|token|access_token|refresh_token|api_key|service_role_key|supabase_service_role_key|supabase_secret_key|wifi_password|psk|admin_auth_secret|link_code|enrollment_code)[\"']?\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s,;}]+)"), r"\1[REDACTED]"),
+    (re.compile(r"ENR-[A-Za-z0-9_-]+"), "[REDACTED_ENROLLMENT_CODE]"),
     (re.compile(r"(?i)(authorization\s*[:=]\s*bearer\s+)\S+"), r"\1[REDACTED]"),
     (re.compile(r"device_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"), "[REDACTED_DEVICE_CREDENTIAL]"),
     (re.compile(r"(?i)((?:postgresql|postgres)\+?[^:]*://[^:/\s]+:)[^@\s]+@"), r"\1[REDACTED]@"),

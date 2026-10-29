@@ -158,3 +158,14 @@ idempotency including lost acknowledgements, heartbeat and signed update endpoin
 in the independent cloud repository. Temporary backend and admin scripts can then
 be removed in a later cleanup commit. The device is ready for that connection;
 this change does not certify an untested external cloud deployment.
+
+
+## Student identity foundation (Phase 2)
+
+See [identity contract](STUDENT_IDENTITY_CONTRACT.md). Existing v1 wire formats are unchanged;
+verified student/profile ownership is separate from device credentials.
+
+## Profile-scoped student content (Phase 4)
+
+See [student library contract](STUDENT_LIBRARY_CONTRACT.md). Existing assignment endpoints retain
+their behavior; the new profile-content namespace validates an explicit ProfileDeviceLink.

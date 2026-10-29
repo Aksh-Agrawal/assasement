@@ -17,6 +17,12 @@ from app.data.db import (
 from app.data.repo import Repository, RepositoryError
 
 EXPECTED_TABLES = {
+    "institute_work", "attempt_institute_context",
+    "private_pack_versions",
+    "profile_library",
+    "student_account_context",
+    "profile_link_context",
+    "attempt_ownership",
     "attempt_questions",
     "attempts",
     "profiles",
@@ -79,9 +85,9 @@ def test_fresh_database_migrates_and_second_run_is_idempotent(tmp_path: Path) ->
     finally:
         reopened.close()
 
-    assert first_version == 2
-    assert second_version == 2
-    assert recorded_version == 2
+    assert first_version == 6
+    assert second_version == 6
+    assert recorded_version == 6
     assert first_tables == EXPECTED_TABLES
     assert second_tables == first_tables
 
@@ -128,7 +134,7 @@ def test_integrity_check_and_online_backup(tmp_path: Path) -> None:
     try:
         assert result.ok is True
         assert result.messages == ("ok",)
-        assert get_schema_version(backup_connection) == 2
+        assert get_schema_version(backup_connection) == 6
         assert check_integrity(backup_connection).ok is True
     finally:
         backup_connection.close()
@@ -139,7 +145,7 @@ def test_repository_context_manager_closes_connection(tmp_path: Path) -> None:
     repository = Repository(database_path)
 
     with repository:
-        assert repository.schema_version == 2
+        assert repository.schema_version == 6
 
     with pytest.raises(RepositoryError, match="closed"):
         _ = repository.schema_version
@@ -224,7 +230,7 @@ def test_phase_8_schema_migrates_without_losing_assessment_data(tmp_path: Path) 
         connection.close()
 
     with Repository(database_path) as repository:
-        assert repository.schema_version == 2
+        assert repository.schema_version == 6
         assert repository.get_profile("profile-1") is not None
         assert repository.get_question_set("set-1", 1) is not None
         assert repository.get_attempt("attempt-1") is not None

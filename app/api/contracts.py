@@ -1,6 +1,6 @@
 """Version 1 wire contracts, independent of server frameworks and persistence."""
 
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from app.auth.pairing import PairingRequest as PairingStartResponse
 from app.content.catalog import ContentCatalog, RemotePack
@@ -63,7 +63,14 @@ class AttemptResponse(TypedDict):
     answered_at: str | None
 
 
+class AttemptOwnership(TypedDict):
+    study_profile_id: str
+    link_id: str
+
+
 class AttemptUpload(TypedDict):
+    institute_assignment_id: NotRequired[str]
+    ownership: NotRequired[AttemptOwnership]
     payload_version: Literal[1]
     attempt_id: str
     device_id: str | None

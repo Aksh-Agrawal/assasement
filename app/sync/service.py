@@ -55,6 +55,11 @@ def run_cycle(config: AppConfig, *, heartbeat: bool = True, refresh: bool = Fals
             else:
                 repository.set_setting("last_heartbeat_state", "OK")
         if refresh:
+            # Student delivery jobs run in this background worker, never the GUI thread.
+            from app.content.profile_library import sync_profile_deliveries
+            sync_profile_deliveries(repository, api, config)
+            from app.content.institute_work import sync_institute_work
+            sync_institute_work(repository, api, config)
             # Refresh metadata only; content installation and update activation are explicit.
             for name, make_client, fetch in (
                 ("catalogue", api.content, lambda client: client.fetch_catalog()),

@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from app.api.client import DeviceApi
 from app.api.transport import failure_state
 from app.auth.credentials import CredentialStore
+from app.auth.profile_links import ProfileLinkError
 from app.config import AppConfig
 from app.content.sync import _install_one
 from app.data.repo import Repository
@@ -40,12 +41,15 @@ class DeviceConsole:
         self.operation = ""
         self.message = ""
         self.failure = None
+        self.link_error = None
+        self.link_result = None
         self.network = None
         self.wifi_connected = False
         self.diagnostics = None
         self.networks = ()
         self.saved_networks = ()
         self.catalog = ()
+        self.catalog_profile_id = None
         self.pairing = None
         self.available_update = None
         self.staged = None
@@ -74,17 +78,24 @@ class DeviceConsole:
             "update_download",
             "pair_request",
             "pair_poll",
+            "profile_claim", "profile_unlink", "profile_status", "institute_refresh", "institute_download",
         }
         if operation in remote and not self.config.api_base_url:
-            self.message = "Server not configured. Local assessment remains available."
+            self.message = ("Network unavailable. Local assessment remains available." if operation.startswith("profile_")
+                            else "Server not configured. Local assessment remains available.")
             return
         if operation in remote - {"pair_request", "pair_poll"} and not self.credentials.load_safe():
             self.message = (
-                "Authentication required. Pair this device; local assessment remains available."
+                "Device authentication required. Pair this device; local assessment remains available."
+                if operation.startswith("profile_") else "Authentication required. Pair this device; local assessment remains available."
             )
             return
+        self.link_error = None
         self.operation = operation
         self.message = {
+            "profile_claim": "Submitting link...",
+            "profile_unlink": "Unlinking profile...",
+            "profile_status": "Checking link status...",
             "download": "Downloading and validating question pack...",
             "update_download": "Downloading, verifying and staging update...",
             "diagnostics": "Checking local device...",
@@ -98,6 +109,9 @@ class DeviceConsole:
             try:
                 result = self._execute(operation, generation=generation, **arguments)
                 future.set_result((generation, result))
+            except ProfileLinkError as error:
+                self.link_error = error.code
+                future.set_exception(error)
             except Exception as error:
                 self.failure = failure_state(error)
                 # Network errors, OS diagnostics, and URLs never become user-facing text.
@@ -119,6 +133,15 @@ class DeviceConsole:
                 self.message = "Pairing cancelled."
                 return True
             op = self.operation
+            if op in {"profile_claim", "profile_unlink", "profile_status"}:
+                self.link_result = value
+                self.message = (
+                    "Linked to account: " + value["account_display_name"] +
+                    " / Study profile: " + value["study_profile_name"]
+                    if value["status"] == "linked" else
+                    "Profile unlinked. Local data and historical ownership are preserved."
+                )
+                return True
             if op == "diagnostics":
                 self.diagnostics = value
             elif op == "network":
@@ -135,7 +158,7 @@ class DeviceConsole:
                 self.wifi_connected = bool(value)
                 self.network = None
             elif op == "catalog":
-                self.catalog = value
+                self.catalog_profile_id, self.catalog = value
             elif op == "pair_request":
                 self.pairing = value
             elif op == "pair_poll":
@@ -149,19 +172,22 @@ class DeviceConsole:
                 self.available_update = value
             elif op == "update_download":
                 self.staged = value
-            elif op == "download":
+            elif op in {"download", "institute_download"}:
                 self.download_state[(value.set_id, value.version)] = value.status.value
                 self.message = {
                     "INSTALLED": "Downloaded and verified.",
                     "ALREADY_PRESENT": "Downloaded.",
-                }.get(value.status.value, "Validation or download failed. Retry available.")
+                }.get(value.status.value, "Downloaded content is available offline." if value.status.value == "ALREADY_PRESENT"
+                      else "Validation or download failed. Retry available.")
                 return True
             elif op == "sync":
                 self.message = (
                     "Authentication required."
                     if value.authentication_failures
+                    else "Sync attention required. Data retained; ask your operator."
+                    if value.permanent_failures
                     else "Failed - retry available."
-                    if value.transient_failures or value.permanent_failures
+                    if value.transient_failures
                     else "Up to date."
                     if value.selected == 0
                     else f"Synced {value.synced + value.already_synced} assessments."
@@ -175,12 +201,34 @@ class DeviceConsole:
                 if op not in {"wifi_connect", "wifi_forget"}
                 else "Network action completed. Check internet separately."
             )
+        except ProfileLinkError as error:
+            self.message = str(error)
         except Exception:
             self.message = "Action unavailable. Check connection or device configuration and retry."
         return True
 
     def _execute(self, operation, **args):
         config = self.config
+        if operation in {"profile_claim", "profile_unlink", "profile_status"}:
+            with Repository(self.database_path) as repository:
+                profile = repository.get_profile(args["local_profile_id"])
+                if profile is None:
+                    raise ProfileLinkError("LINK_PROFILE_CONFLICT")
+                if operation == "profile_claim" and profile.link_state == "linked":
+                    raise ProfileLinkError("LINK_PROFILE_CONFLICT")
+                with DeviceApi(config, store=self.credentials).profile_links() as client:
+                    if operation == "profile_claim":
+                        result = client.claim(args["code"], profile.id)
+                    elif operation == "profile_unlink":
+                        context = repository.get_profile_link_context(profile.id)
+                        if context is None:
+                            raise ProfileLinkError("LINK_PROFILE_CONFLICT")
+                        result = client.unlink(profile.id, context["link_id"])
+                    else:
+                        result = client.current(profile.id)
+                if result["status"] != "unlinked":
+                    repository.apply_profile_link(profile.id, result)
+                return result
         if operation == "wifi_scan":
             return self.wifi.saved(), self.wifi.scan()
         if operation == "wifi_connect":
@@ -246,14 +294,41 @@ class DeviceConsole:
 
                 return run_cycle(replace(config, database_path=self.database_path,
                                          credential_path=self.credentials.path), refresh=True)
+            if operation in {"institute_refresh", "institute_download"}:
+                from app.content.institute_work import download_work, refresh_work
+                profile_id = args["local_profile_id"]
+                context = repository.get_profile_link_context(profile_id)
+                if not context:
+                    raise RuntimeError("Link profile first")
+                with DeviceApi(config, store=self.credentials).institute_content(
+                    local_profile_id=profile_id, link_id=context["link_id"]) as client:
+                    if operation == "institute_refresh":
+                        return refresh_work(repository, client, profile_id, context["link_id"])
+                    return download_work(repository, client, profile_id, context["link_id"], args["assignment_id"],
+                        temp_directory=config.content_download_directory, max_pack_bytes=config.content_max_pack_bytes)
             if operation in {"catalog", "download"}:
-                with DeviceApi(config, store=self.credentials).content() as client:
+                profile_id = args.get("local_profile_id")
+                profile = repository.get_profile(profile_id) if profile_id else None
+                context = repository.get_profile_link_context(profile_id) if profile_id else None
+                scoped = bool(profile and profile.ownership_state == "owned")
+                if scoped and (profile.link_state != "linked" or not context):
+                    raise RuntimeError("Link the study profile before refreshing its library")
+                options = {"local_profile_id": profile_id, "link_id": context["link_id"]} if scoped else {}
+                with DeviceApi(config, store=self.credentials).content(**options) as client:
                     if operation == "catalog":
-                        return client.fetch_catalog().packs
+                        if scoped:
+                            from app.content.profile_library import refresh_library
+                            return profile_id, refresh_library(repository, client, profile_id, context["link_id"])
+                        return None, client.fetch_catalog().packs
+                    if scoped:
+                        from app.content.profile_library import download_for_profile
+                        return download_for_profile(
+                            repository, client, profile_id, context["link_id"], args["pack"],
+                            temp_directory=config.content_download_directory,
+                            max_pack_bytes=config.content_max_pack_bytes,
+                        )
                     return _install_one(
-                        repository,
-                        client,
-                        args["pack"],
+                        repository, client, args["pack"],
                         temp_directory=config.content_download_directory,
                         max_pack_bytes=config.content_max_pack_bytes,
                     )

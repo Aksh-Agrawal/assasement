@@ -41,8 +41,11 @@ def create_support_bundle(
         value
         for value in (
             credential.token if credential else None,
-            os.environ.get("DATABASE_URL"),
-            os.environ.get("TEST_DATABASE_URL"),
+            *(os.environ.get(name) for name in (
+                "DATABASE_URL", "TEST_DATABASE_URL", "SUPABASE_SERVICE_ROLE_KEY",
+                "SUPABASE_SECRET_KEY", "ADMIN_AUTH_SECRET", "WIFI_PASSWORD",
+                "PGPASSWORD", "PRIVATE_SIGNING_KEY", "ACCESS_TOKEN", "REFRESH_TOKEN",
+            )),
         )
         if value
     )

@@ -9,7 +9,7 @@ from app.ui.screens.common import text
 
 def render(surface, c, fonts):
     controls = []
-    header(surface, controls, "HOME > SUBJECTS", c, fonts)
+    header(surface, controls, "MY LIBRARY > SUBJECTS", c, fonts)
     text(
         surface,
         f"Select subject   |   {len(c.question_sets)} local pack versions",

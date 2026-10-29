@@ -473,7 +473,7 @@ def test_pairing_cancel_invalidates_pending_result_and_keeps_local_profile(tmp_p
     path = tmp_path / "pairing.db"
     with Repository(path) as repo:
         seed(repo)
-        device = DeviceConsole(path)
+        device = DeviceConsole(path, AppConfig(database_path=path, credential_path=tmp_path / "credential.json"))
         c = student(repo, device)
         choose(c, "route", UIScreen.SETTINGS)
         choose(c, "route", UIScreen.ACCOUNT)

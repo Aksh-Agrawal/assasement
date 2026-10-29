@@ -8,6 +8,7 @@ import httpx
 from app.api.heartbeat import HeartbeatClient
 from app.auth.credentials import CredentialStore
 from app.auth.pairing import PairingClient
+from app.auth.profile_links import ProfileLinkClient
 from app.config import AppConfig
 from app.content.client import ContentApiClient
 from app.sync.client import SyncApiClient
@@ -39,10 +40,16 @@ class DeviceApi:
             transport=self.transport,
         )
 
-    def content(self) -> ContentApiClient:
+    def institute_content(self, *, local_profile_id, link_id):
+        from app.content.institute_work import InstituteContentClient
+        return InstituteContentClient(self.config.api_base_url, auth_token=self._token(),
+            local_profile_id=local_profile_id, link_id=link_id, transport=self.transport)
+
+    def content(self, *, local_profile_id=None, link_id=None) -> ContentApiClient:
         return ContentApiClient(
             self.config.api_base_url,
             auth_token=self._token(),
+            local_profile_id=local_profile_id, link_id=link_id,
             connect_timeout=self.config.sync_connect_timeout,
             read_timeout=self.config.sync_read_timeout,
             transport=self.transport,
@@ -55,6 +62,13 @@ class DeviceApi:
             connect_timeout=self.config.sync_connect_timeout,
             read_timeout=self.config.sync_read_timeout,
             transport=self.transport,
+        )
+
+    def profile_links(self) -> ProfileLinkClient:
+        return ProfileLinkClient(
+            self.config.api_base_url, auth_token=self._token(), transport=self.transport,
+            connect_timeout=self.config.sync_connect_timeout,
+            read_timeout=self.config.sync_read_timeout,
         )
 
     def heartbeat(self) -> HeartbeatClient:

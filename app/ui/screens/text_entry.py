@@ -17,7 +17,9 @@ def render(surface, c, fonts):
     controls = []
     is_pin = c.screen is UIScreen.PIN
     label = (
-        "PIN UNLOCK"
+        "LINK STUDY PROFILE"
+        if c.screen is UIScreen.LINK_PROFILE
+        else "PIN UNLOCK"
         if is_pin
         else "ADD LOCAL PROFILE"
         if c.screen is UIScreen.ADD_PROFILE
@@ -25,7 +27,9 @@ def render(surface, c, fonts):
     )
     header(surface, controls, label, c, fonts)
     prompt = (
-        c.selected_profile.display_name
+        "Local profile: " + c.selected_profile.display_name
+        if c.screen is UIScreen.LINK_PROFILE
+        else c.selected_profile.display_name
         if is_pin
         else "Profile name"
         if c.screen is UIScreen.ADD_PROFILE

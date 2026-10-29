@@ -170,6 +170,7 @@ def _install_one(
             expected_sha256=pack.sha256,
             make_active=make_active,
             max_bytes=max_pack_bytes,
+            profile_only=getattr(client, "profile_scoped", False),
         )
         LOGGER.info("pack import success set_id=%s version=%d", pack.set_id, pack.version)
         return PackSyncResult(pack.set_id, pack.version, ContentSyncStatus.INSTALLED)

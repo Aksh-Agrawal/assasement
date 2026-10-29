@@ -19,10 +19,32 @@ def main() -> int:
     parser.add_argument("--temp-dir", type=Path, default=config.content_download_directory)
     parser.add_argument("--limit", type=int, default=config.content_max_downloads_per_cycle)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--profile", help="Linked local profile ID for personal library sync")
     args = parser.parse_args()
     if not args.base_url:
         parser.error("--base-url is required when no API base URL is configured")
     credential = CredentialStore(args.credentials).load_safe()
+    with Repository(args.db) as repository:
+        if args.profile:
+            profile = repository.get_profile(args.profile)
+            context = repository.get_profile_link_context(args.profile)
+            if not profile or profile.link_state != "linked" or not context:
+                parser.error("--profile must identify an explicitly linked local profile")
+            from app.content.profile_library import download_for_profile, refresh_library
+            with ContentApiClient(
+                args.base_url, auth_token=credential.token if credential else None,
+                local_profile_id=args.profile, link_id=context["link_id"],
+            ) as client:
+                packs = refresh_library(repository, client, args.profile, context["link_id"])
+                for pack in packs[:args.limit]:
+                    if args.dry_run:
+                        print(f"{pack.set_id} v{pack.version} available")
+                    else:
+                        result = download_for_profile(
+                            repository, client, args.profile, context["link_id"], pack,
+                            temp_directory=args.temp_dir, max_pack_bytes=config.content_max_pack_bytes)
+                        print(f"{pack.set_id} v{pack.version} {result.status.value}")
+            return 0
     with Repository(args.db) as repository, ContentApiClient(
         args.base_url,
         auth_token=credential.token if credential else None,

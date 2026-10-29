@@ -154,3 +154,37 @@ For background upload and heartbeat, install the example
 Adjust its account, install path and environment file to match the Pi. It does not
 need a display. With no API URL/credential it remains idle. Heartbeat requires the
 new endpoint described in DEVICE_CLOUD_CONTRACT.md to exist on the cloud.
+
+
+## Phase 8 boot-to-app kiosk (prepared; physical verification pending)
+
+Use the existing installed package and shared environment file described above. On the
+Pi OS Lite X11 path, install display dependencies once as the operator:
+
+```sh
+sudo apt-get update
+sudo apt-get install --no-install-recommends xserver-xorg xinit xserver-xorg-legacy
+sudo chmod 755 /opt/assessment-device/scripts/kiosk-session.sh
+sudo install -m 644 /opt/assessment-device/scripts/systemd/assessdev-ui.service /etc/systemd/system/assessdev-ui.service
+sudo install -m 644 /opt/assessment-device/scripts/systemd/assessdev-sync.service /etc/systemd/system/assessdev-sync.service
+sudo systemctl daemon-reload
+sudo systemctl enable assessdev-ui assessdev-sync
+sudo systemctl start assessdev-ui assessdev-sync
+```
+
+Confirm the assess account has local console/display/input access and a valid PAM/logind
+session. The unit takes tty1 and conflicts with getty@tty1; Xorg uses vt1, no TCP listener,
+and xinit execs pygame directly without a desktop menu. Do not loosen Xorg.wrap to
+arbitrary users to work around a failed console session. Inspect the actual Pi's display
+stack and adjust the reviewed unit if using Wayland instead; this unit is specifically
+for X11 Pi OS Lite. Failure to start is an acceptance failure, not proof of compatibility.
+No runtime network target is required: startup must work offline.
+
+The normal use path after installation is power -> X11 -> app -> local profile/Home.
+Unexpected exit restarts after 10 seconds, bounded to five starts per 120 seconds.
+Operator maintenance exit: `sudo systemctl stop assessdev-ui` over SSH. After repair,
+`sudo systemctl reset-failed assessdev-ui; sudo systemctl start assessdev-ui` recovers a
+rate-limited service. Never make Escape a student shell shortcut. See ROLLBACK.md.
+
+Physical boot-to-app, crash/reboot/resume and graphics/input permissions are NOT TESTED
+in this workspace: assessdev-proto1.local did not resolve on 29 October 2026.

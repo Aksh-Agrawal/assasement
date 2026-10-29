@@ -49,10 +49,17 @@ class AssessmentApplication:
         version: int,
         *,
         shuffle_seed: int | None = None,
+        institute_assignment_id: str | None = None,
     ) -> Attempt:
         """Create and persist a new attempt with an authoritative fixed order."""
         if self.repository.find_in_progress_attempt(profile_id) is not None:
             raise RuntimeError("Profile already has an in-progress attempt")
+        allowed = self.repository.can_start_pack(profile_id, set_id, version)
+        if institute_assignment_id:
+            allowed = any(a["assignment_id"] == institute_assignment_id and a["set_id"] == set_id
+                and a["version"] == version for a in self.repository.institute_work(profile_id))
+        if not allowed:
+            raise ValueError("This pack is not available for the selected profile")
         question_set = self.repository.get_question_set(set_id, version)
         if question_set is None:
             raise ValueError(f"Unknown question set {set_id!r} version {version}")
@@ -67,7 +74,8 @@ class AssessmentApplication:
             status=AttemptStatus.IN_PROGRESS,
             started_at=self._now(),
         )
-        self.repository.create_attempt(attempt, question_order=ordered_ids)
+        self.repository.create_attempt(attempt, question_order=ordered_ids,
+            institute_assignment_id=institute_assignment_id)
         self.engine.select_test(question_set)
         self.engine.start_test(attempt, tuple(ordered_ids))
         self._activate_current_question()

@@ -165,12 +165,26 @@ class Profile:
     id: str
     display_name: str
     server_user_id: str | None = None
+    cloud_account_id: str | None = None
+    cloud_profile_id: str | None = None
+    ownership_state: str = "legacy_unclaimed"
+    link_state: str = "unlinked"
 
     def __post_init__(self) -> None:
         _require_text("Profile ID", self.id)
         _require_text("Profile display name", self.display_name)
         if self.server_user_id is not None:
             _require_text("Server user ID", self.server_user_id)
+        if self.ownership_state not in {"legacy_unclaimed", "owned"}:
+            raise ValueError("Invalid profile ownership state")
+        if self.link_state not in {"unlinked", "link_pending", "linked", "link_error"}:
+            raise ValueError("Invalid profile link state")
+        if self.ownership_state == "legacy_unclaimed":
+            if self.cloud_account_id or self.cloud_profile_id or self.link_state != "unlinked":
+                raise ValueError("Legacy profiles cannot imply cloud ownership")
+        elif not self.cloud_account_id or not self.cloud_profile_id:
+            raise ValueError("Owned profiles require cloud account and profile identifiers")
+
 
 
 class AttemptStatus(StrEnum):

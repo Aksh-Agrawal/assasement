@@ -349,3 +349,16 @@ See [Cloud connection](docs/CLOUD_CONNECTION.md) for the configuration-only futu
 connection procedure and [Hosted acceptance](docs/HOSTED_ACCEPTANCE_TEST.md) for
 the pending physical-Pi golden tests. Run `python -m tools.cloud_check` for a safe
 connection report; an empty API URL is an expected waiting state.
+
+## Student identity foundation
+
+See [Phase 2 implementation and migration notes](docs/STUDENT_IDENTITY.md) and the
+[shared identity contract](docs/STUDENT_IDENTITY_CONTRACT.md).
+
+
+## Phase 8 migration and pilot gate
+
+See [pilot evidence](docs/PILOT_ACCEPTANCE.md), [migration runbook](docs/MIGRATION_RUNBOOK.md),
+[rollback](docs/ROLLBACK.md) and [compatibility](docs/COMPATIBILITY_MATRIX.md). Local test
+success is recorded separately from hosted and physical evidence. Physical Pi acceptance
+is pending; no production migration or deployment was performed.

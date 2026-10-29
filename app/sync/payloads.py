@@ -49,7 +49,7 @@ def build_upload_payload(repository: Repository, attempt_id: str) -> dict[str, A
 
     metadata = repository.get_schema_meta()
     device_id = metadata.get("device_id") or None
-    return {
+    payload = {
         "payload_version": PAYLOAD_VERSION,
         "attempt_id": attempt.id,
         "device_id": device_id,
@@ -72,3 +72,10 @@ def build_upload_payload(repository: Repository, attempt_id: str) -> dict[str, A
         "result": {"score": attempt.score},
         "responses": response_items,
     }
+    assignment = repository.get_attempt_institute_context(attempt_id)
+    if assignment:
+        payload["institute_assignment_id"] = assignment["assignment_id"]
+    ownership = repository.get_attempt_ownership(attempt_id)
+    if ownership:
+        payload["ownership"] = ownership
+    return payload
