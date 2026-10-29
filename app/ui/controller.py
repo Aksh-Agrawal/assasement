@@ -1,5 +1,7 @@
 """Framework-neutral student UI routing over real application and repository APIs."""
 
+import json
+import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -472,6 +474,16 @@ class UIController(LegacyController):
 
     def refresh_catalog(self):
         super().refresh_catalog()
+        if self.student_flow and os.environ.get("ASSESS_MAINTENANCE") != "1":
+            context = self.repository.get_student_account_context()
+            cached = json.loads(self.repository.get_setting("account_profiles") or "{}")
+            active_ids = {p["local_profile_id"] for p in cached.get("profiles", [])}
+            self.profiles = tuple(p for p in self.profiles if context and
+                p.cloud_account_id == context["cloud_account_id"] and p.id in active_ids)
+            self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
+        if os.environ.get("ASSESS_MAINTENANCE") == "1" and getattr(self, "legacy_mode", False):
+            self.profiles = tuple(p for p in self.profiles if p.ownership_state == "legacy_unclaimed")
+            self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
         if self.student_flow:
             profile_id = self.selected_profile.id if self.selected_profile else None
             self.question_sets = self.repository.visible_question_sets(profile_id)
@@ -507,7 +519,15 @@ class UIController(LegacyController):
             if not self.repository.quick_check().ok:
                 self.route(UIScreen.RECOVERY)
             else:
-                self.route(UIScreen.PROFILE)
+                if self.repository.get_student_account_context() or os.environ.get("ASSESS_MAINTENANCE") == "1":
+                    self.route(UIScreen.PROFILE)
+                    self._job("account_sync")
+                else:
+                    self.route(UIScreen.PAIRING)
+                    if self.device and self.device.credentials.load_safe():
+                        self._job("account_sync")
+                    else:
+                        self._job("pair_request", device_id=self.repository.get_or_create_device_id())
 
     @property
     def chapters(self):
@@ -574,30 +594,7 @@ class UIController(LegacyController):
                 Choice("Confirm link", "profile_claim"),
                 Choice("Back", "route", UIScreen.LINK_PROFILE),
             ),
-            UIScreen.ACCOUNT: lambda: (
-                Choice("Link Study Profile", "profile_link"),
-                Choice("Refresh link status", "profile_status"),
-                Choice("Confirm unlink" if getattr(self, "unlink_pending", False)
-                       else "Unlink profile", "profile_unlink"),
-
-                Choice(
-                    "Re-pair"
-                    if self.device and self.device.credentials.load_safe()
-                    else "Pair Device",
-                    "pair",
-                ),
-                Choice(
-                    "Cancel removal"
-                    if getattr(self, "remove_pair_pending", False)
-                    else "Remove pairing",
-                    "remove_pair_confirm",
-                ),
-                *(
-                    (Choice("Confirm remove pairing", "remove_pair"),)
-                    if getattr(self, "remove_pair_pending", False)
-                    else ()
-                ),
-            ),
+            UIScreen.ACCOUNT: self._account_choices,
             UIScreen.CONTENT_UPDATES: self._content_choices,
             UIScreen.SOFTWARE_UPDATE: self._update_choices,
             UIScreen.DIAGNOSTICS: lambda: (
@@ -606,7 +603,7 @@ class UIController(LegacyController):
             ),
             UIScreen.DEVICE_INFO: lambda: (Choice("Diagnostics", "route", UIScreen.DIAGNOSTICS),),
             UIScreen.ABOUT: lambda: (Choice("Licences", "licences"),),
-            UIScreen.PAIRING: lambda: (Choice("Request pairing code", "request_pair"),),
+            UIScreen.PAIRING: lambda: (Choice("Refresh Code", "request_pair"), Choice("Wi-Fi", "route", UIScreen.WIFI)),
             UIScreen.RECOVERY: lambda: (
                 Choice("Retry checks", "retry"),
                 Choice("Diagnostics", "route", UIScreen.DIAGNOSTICS),
@@ -616,19 +613,34 @@ class UIController(LegacyController):
         return tuple(providers.get(self.screen, lambda: ())())
 
     def _profile_choices(self):
-        return tuple(Choice(p.display_name, "profile", i) for i, p in enumerate(self.profiles)) + (
-            Choice("Add local profile", "route", UIScreen.ADD_PROFILE),
-            Choice("Add / Pair device", "pair"),
-        )
+        result = tuple(Choice(p.display_name, "profile", i) for i, p in enumerate(self.profiles))
+        if self.repository.get_student_account_context():
+            cached = json.loads(self.repository.get_setting("account_profiles") or "{}")
+            if cached.get("profile_count", 3) < 3:
+                result += (Choice("+ Create Profile", "route", UIScreen.ADD_PROFILE),)
+            result += (Choice("Sync Profiles", "job", "account_sync"),)
+        else:
+            result += (Choice("Connect Raspberry Pi", "pair"),)
+        if os.environ.get("ASSESS_MAINTENANCE") == "1":
+            result += (Choice("Link legacy Study Profile", "profile_link"),)
+            result += (Choice("Legacy Profiles / Import", "legacy_profiles"),)
+        return result
+
+    def _account_choices(self):
+        if not self.repository.get_student_account_context():
+            return ((Choice("Link legacy Study Profile", "profile_link"),) if os.environ.get("ASSESS_MAINTENANCE") == "1" else ()) + (Choice("Connect Raspberry Pi", "pair"),)
+        return tuple(c for c in self._profile_choices() if c.command != "profile") + (
+            Choice("Disconnect Device" if not getattr(self, "disconnect_pending", False)
+                   else "Confirm Disconnect Device", "account_disconnect"),)
 
     def _home_choices(self):
         resume = self.resume_summary
         label = f"CONTINUE TEST\n{resume[0]}" if resume else "CONTINUE TEST\nNo unfinished test"
         return (
             Choice(label, "resume", enabled=bool(resume)),
-            Choice("PRACTICE\nChoose subject and chapter", "route", UIScreen.SUBJECTS),
+            Choice("Practice & Downloads\nChoose subject and chapter", "route", UIScreen.SUBJECTS),
             Choice("Institute Work", "route", UIScreen.INSTITUTE_WORK),
-            Choice("Progress", "route", UIScreen.PROGRESS),
+            Choice("History", "route", UIScreen.PROGRESS),
             Choice("Settings", "route", UIScreen.SETTINGS),
         )
 
@@ -719,17 +731,16 @@ class UIController(LegacyController):
         )
 
     def _settings_choices(self):
-        paired = bool(self.device and self.device.credentials.load_safe())
         return tuple(
             Choice(label, "route", route)
             for label, route in zip(
                 (
+                    "Account & Profiles | " + ("Connected" if self.repository.get_student_account_context() else "Not connected"),
                     "Wi-Fi",
                     f"Sync | {self.pending_sync_count} pending",
-                    "Account / Pair | " + ("Paired" if paired else "Not paired"),
-                    "Content Updates",
+                    "Content & Downloads",
                     f"Software Update | {self.software_version}",
-                    "Device / Storage",
+                    "Device",
                     "Diagnostics",
                     "About",
                 ),
@@ -965,6 +976,17 @@ class UIController(LegacyController):
             self.focus = 1
         elif command == "job":
             self._job(value)
+        elif command == "legacy_profiles" and os.environ.get("ASSESS_MAINTENANCE") == "1":
+            self.legacy_mode = True
+            self.profiles = tuple(p for p in self.repository.list_profiles() if p.ownership_state == "legacy_unclaimed")
+            self.route(UIScreen.PROFILE)
+        elif command == "account_disconnect":
+            if getattr(self, "disconnect_pending", False):
+                self._job("account_disconnect")
+                self.disconnect_pending = False
+            else:
+                self.disconnect_pending = True
+                self.message = "Confirm disconnect. Profiles and history will be preserved."
         elif command == "profile_link":
             if self.selected_profile is None:
                 self.message = "Select a local profile first."
@@ -1272,12 +1294,9 @@ class UIController(LegacyController):
             if not self.text_value.strip():
                 self.message = "Enter a profile name."
                 return
-            profile = Profile(id=str(uuid4()), display_name=self.text_value.strip())
-            self.repository.create_profile(profile)
-            self.refresh_catalog()
-            self.profile_index = next(i for i, p in enumerate(self.profiles) if p.id == profile.id)
+            self._job("account_create", create={"name": self.text_value.strip(), "exam_context": self.text_value.strip()})
             self.text_value = ""
-            self._unlocked()
+            self.route(UIScreen.PROFILE)
         elif self.screen is UIScreen.WIFI and self.selected_wifi:
             name, saved = self.selected_wifi
             self._job("wifi_connect", ssid=name, password=self.text_value, saved=saved)
@@ -1292,6 +1311,12 @@ class UIController(LegacyController):
             self.message = self.device.message
             self.refresh_catalog()
             self.message = self.device.message
+            if self.device.operation == "pair_poll" and self.device.credentials.load_safe() and not self.device.pairing:
+                self._job("account_sync")
+            elif self.device.operation in {"account_sync", "account_create"} and self.repository.get_student_account_context():
+                self.route(UIScreen.PROFILE)
+            elif self.device.operation in {"account_disconnect", "account_sync"} and not self.repository.get_student_account_context():
+                self.route(UIScreen.PAIRING)
             self.focus = min(self.focus, max(0, len(self.choices) - 1))
         if (
             self.screen is UIScreen.PAIRING

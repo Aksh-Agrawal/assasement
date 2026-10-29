@@ -1,64 +1,30 @@
-# Device UI flow
+# Consolidated student UI flow
 
-The device UI follows `Offline_First_Assessment_Device_Product_Implementation_Playbook_v2.docx`
-(version 2, 13 October 2026), particularly sections 3–5 and the navigation invariants.
-Local implementation and verification were updated on 27 October 2026.
+See [STUDENT_WORKFLOW.md](STUDENT_WORKFLOW.md) for the current product model and setup contract.
 
-## Run locally
-
-```powershell
-.\.venv\Scripts\python.exe -m app.ui.app
+```mermaid
+flowchart TD
+  Boot --> Checks[Startup checks]
+  Checks --> Cached{Cached connected account?}
+  Cached -->|No| Connect[Connect Your Device: website Account & Devices]
+  Connect --> Code[Pi code entered and confirmed on web]
+  Code --> Claim[Claim credential and sync cloud profiles]
+  Claim --> Picker[Choose Study Profile]
+  Cached -->|Yes, offline cache usable| Picker
+  Picker --> Home
+  Home --> Practice[Practice & Downloads]
+  Home --> History
+  Home --> Institute[Institute Work]
+  Home --> Settings
 ```
 
-The existing Pi command remains supported:
+Settings: Account & Profiles, Wi-Fi, Sync, Content & Downloads, Software Update, Device,
+Diagnostics, About. Account & Profiles provides cloud profile creation, Sync Profiles and
+confirmed Disconnect Device. No normal anonymous profile creation or manual per-profile pairing.
 
-```bash
-cd ~/assasement
-source .venv/bin/activate
-DISPLAY=:0 python -m app.ui.app
-```
-
-Optional flags: `--db PATH`, `--base-url URL`, `--fullscreen`, and `--gpio`.
-The GUI uses the existing database by default. Do not replace it with a preview database.
-No systemd or display-server configuration is changed by this UI work.
-
-## Route graph
-
-```text
-Startup checks -> Profile picker -> PIN (when protected) -> Home
-       |
-       +-> Recovery -> Retry / startup diagnostics / recovery guidance
-
-Profile -> Add local profile / Pair device
-Home -> Continue test
-     -> Practice / Subjects -> Subject -> Chapter -> Question set -> Test setup
-     -> Progress
-     -> Settings
-
-Test setup -> Start / Resume -> Question -> Confidence -> Question
-Question -> Previous / Next / Review flag / Full text
-         -> Assessment menu -> Navigator / Resume / Submit / Device status / Home confirmation
-Submit confirmation -> Continue test / explicit Submit -> Result
-Result -> Review all / wrong / guessed / sure-but-wrong / guessed-right -> Result -> Home
-
-Settings -> Wi-Fi / Sync / Account-pairing / Content updates / Software update
-         -> Device-storage / Diagnostics / About
-```
-
-The welcome screen is the profile picker. There is no extra welcome gate or online/offline mode.
-`app/ui/router.py` declares routes. `app/ui/screens/console.py` is the renderer registry;
-each major screen has its own module. Historical direct-controller integration calls are
-retained with `startup=False`; the GUI always selects the complete device flow.
-
-## Startup and recovery
-
-The window appears before opening SQLite. `StartupSession` advances real local checks:
-configuration, repository open/integrity validation, applied migration version, device identity,
-credential availability, installed content, interrupted attempts, update metadata, and quick check.
-There is no timed splash, fabricated success animation, or internet requirement. A malformed
-update-state file is advisory; inability to safely open/check the local database is blocking.
-Recovery never deletes, overwrites, or automatically restores data. Its diagnostics show completed
-startup checks and a safe support code. See `RECOVERY.md` for the support procedure.
+Cached cloud profiles, downloaded questions, paused attempts, result and answer review remain
+usable offline. Account refresh requires network and never silently adopts legacy profiles.
+Legacy operator flows require `ASSESS_MAINTENANCE=1` and retain their original records.
 
 ## Input and layout
 
@@ -90,7 +56,7 @@ file/pixel sizes are bounded, and scaled surfaces are cached. Missing media has 
 
 Only `AssessmentApplication` writes assessment events and transitions the engine. The UI does not
 execute SQL or calculate scores. Result accuracy, correctness counts, confidence matrices and
-priority-review IDs come from the engine's `ScoreResult`. Local Progress shows the most recent 20
+priority-review IDs come from the engine's `ScoreResult`. Local History shows the most recent 20
 completed attempts for the selected profile, using persisted scores and sync state.
 
 An in-progress attempt always resumes its exact stored version and question order. The existing
@@ -109,7 +75,7 @@ on the main thread. The assessment can continue while a network request fails or
   Association and internet/API reachability are checked separately.
 - Pairing reuses `PairingClient` and `CredentialStore`; only the user pairing code is displayed.
   Polling is bounded, expiry is handled, and cancelling invalidates pending results/credential saves.
-  Existing local profiles remain available. Removal of pairing has an explicit confirmation.
+  Cached account-owned profiles remain available offline. Disconnect Device has an explicit confirmation.
 - Sync reuses `SyncWorker`, preserving retry/idempotency behavior and local assessment independence.
 - Content uses `ContentApiClient` and the existing download/hash/schema/atomic-import pipeline.
   Local versions remain listed and usable. Fetched remote metadata adds catalogue entries without
@@ -128,7 +94,7 @@ fields through a read-only accessor; SQL remains in the data layer. The verifier
 encoded `pbkdf2_sha256$iterations$hex_digest` values with the separately stored UTF-8 salt, bounds
 iterations to 100,000–1,000,000, compares in constant time, and persists escalating lockout after
 five failures. No existing hashes are rewritten. Unknown/opaque formats stay locked and show
-recovery guidance. New local profiles have no PIN; PIN provisioning is not supplied by this UI.
+recovery guidance. Cloud profile creation does not provision a local PIN; PIN provisioning is not supplied by this UI.
 Confirm the deployed provisioning format before claiming compatibility with existing protected Pi
 profiles. Do not treat the test format as proof of that deployment policy.
 

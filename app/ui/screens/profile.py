@@ -93,7 +93,7 @@ def render(surface, c, fonts):
         return _legacy_render(surface, c, fonts)
     controls = []
     header(surface, controls, "ASSESS", c, fonts, back=False)
-    text(surface, "Who is using this device?", (24, 74), fonts.title)
+    text(surface, "Choose Study Profile", (24, 74), fonts.title)
     count = len(c.profiles)
     page = min(c.focus, max(0, count - 1)) // 2
     for i in range(page * 2, min(page * 2 + 2, count)):
@@ -106,7 +106,7 @@ def render(surface, c, fonts):
     if not count:
         text(
             surface,
-            "Add a local profile to begin practising offline.",
+            "Connect your account to sync study profiles.",
             (24, 170),
             fonts.body,
             color=THEME.muted,
@@ -120,6 +120,6 @@ def render(surface, c, fonts):
             fonts.small,
         )
         button(surface, controls, Rect(632, 288, 144, 48), "Choose >", Action.NEXT, fonts)
-    for i in range(2):
+    for i in range(len(c.choices) - count):
         choice_button(surface, controls, c, fonts, count + i, Rect(24 + i * 384, 350, 368, 64))
     return controls

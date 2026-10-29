@@ -15,7 +15,6 @@ from app.core.engine import AssessmentState
 from app.core.models import Confidence, Profile
 from app.data.repo import Repository
 from app.input.actions import Action
-from app.input.ui import keyboard_input
 from app.ui.app import run
 from app.ui.components import detail_pages, full_content
 from app.ui.controller import UIController
@@ -25,6 +24,11 @@ from app.ui.router import SETTINGS_ROUTES, UIScreen
 from app.ui.screens import console, recovery, startup
 from app.ui.screens.common import make_fonts
 from app.ui.startup import StartupSession
+
+
+@pytest.fixture(autouse=True)
+def legacy_engine_fixture_mode(monkeypatch):
+    monkeypatch.setenv("ASSESS_MAINTENANCE", "1")
 
 
 def seed(repository):
@@ -173,19 +177,15 @@ def test_pause_menu_home_confirmation_and_navigator_touch(tmp_path):
         assert c.can_resume
 
 
-def test_empty_profile_requires_explicit_creation_and_supports_text_adapter(tmp_path):
+def test_empty_profile_requires_cloud_connection_without_anonymous_creation(tmp_path, monkeypatch):
+    monkeypatch.delenv("ASSESS_MAINTENANCE")
     with Repository(tmp_path / "profiles.db") as repo:
         c = UIController(repo, startup=True)
         c.finish_splash()
+        assert c.screen is UIScreen.PAIRING
         assert not c.profiles
-        choose(c, "route", UIScreen.ADD_PROFILE)
-        for char in "Riya":
-            message = keyboard_input(char.lower(), character=char, text_entry=True)
-            c.handle(message.action, message.payload)
-        message = keyboard_input("return", text_entry=True)
-        c.handle(message.action, message.payload)
-        assert c.screen is UIScreen.HOME
-        assert repo.list_profiles()[0].display_name == "Riya"
+        assert not any(ch.value is UIScreen.ADD_PROFILE for ch in c.choices)
+        assert repo.list_profiles() == ()
 
 
 def test_protected_profile_pin_unlock_and_persistent_lockout(tmp_path):
@@ -520,7 +520,7 @@ def test_all_virtual_keyboard_targets_fit_and_every_character_is_reachable(tmp_p
     with Repository(path) as repo:
         c = UIController(repo, startup=True)
         c.finish_splash()
-        choose(c, "route", UIScreen.ADD_PROFILE)
+        c.route(UIScreen.ADD_PROFILE)
         surface, fonts = pygame.Surface((800, 480)), make_fonts()
         for mode in range(3):
             c.keyboard_mode = mode
@@ -537,7 +537,7 @@ def test_virtual_keyboard_more_keys_is_reachable_by_touch(tmp_path):
     with Repository(tmp_path / "more-keys.db") as repo:
         c = UIController(repo, startup=True)
         c.finish_splash()
-        choose(c, "route", UIScreen.ADD_PROFILE)
+        c.route(UIScreen.ADD_PROFILE)
         c.keyboard_mode = 2
         surface, fonts = pygame.Surface((800, 480)), make_fonts()
         controls = console.render(surface, c, fonts)

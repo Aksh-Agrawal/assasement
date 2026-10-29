@@ -7,15 +7,13 @@ from app.ui.screens.common import paragraph
 def render(surface, c, fonts):
     controls = []
     header(surface, controls, "SETTINGS > ACCOUNT / PROFILES", c, fonts)
-    profile = c.selected_profile
-    context = c.repository.get_profile_link_context(profile.id) if profile else None
     paired = bool(c.device and c.device.credentials.load_safe())
+    account = c.repository.get_student_account_context()
     rows = (
-        "Account: " + (context["account_display_name"] if context else "Unclaimed"),
-        "Study profile: " + (context["study_profile_name"] if context else "Unclaimed"),
-        "Local: " + (profile.display_name if profile else "None") +
-        " / " + (profile.link_state if profile else "unlinked"),
-        "Device: " + ("Authenticated" if paired else "Device authentication required"),
+        "Account: " + (account["display_name"] if account else "Not connected"),
+        "Profiles: " + (", ".join(p.display_name for p in c.profiles) or "None synced"),
+        "Device connection: " + ("Connected" if account and paired else "Connect your Raspberry Pi"),
+        "Create profiles online; cached profiles and downloads work offline.",
     )
     for i, value in enumerate(rows):
         paragraph(surface, value, Rect(24, 72 + i * 36, 752, 32), fonts.body, max_lines=1)

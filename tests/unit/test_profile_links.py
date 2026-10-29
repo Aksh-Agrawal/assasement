@@ -31,7 +31,8 @@ def choose(c, command):
     c.handle(Action.CONFIRM, ("choice", i))
 
 
-def test_explicit_ui_code_confirmation_and_cancel(tmp_path):
+def test_explicit_ui_code_confirmation_and_cancel(tmp_path, monkeypatch):
+    monkeypatch.setenv("ASSESS_MAINTENANCE", "1")
     pygame.font.init()
     with Repository(tmp_path / "db") as repo:
         repo.create_profile(Profile("p1", "NEET Practice"))

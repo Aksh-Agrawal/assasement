@@ -10,6 +10,7 @@ import threading
 from concurrent.futures import Future
 from pathlib import Path
 
+import httpx
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from app.api.client import DeviceApi
@@ -71,6 +72,7 @@ class DeviceConsole:
             self.message = "A device action is still running. Assessment remains available."
             return
         remote = {
+            "account_sync", "account_create", "account_disconnect",
             "sync",
             "catalog",
             "download",
@@ -91,6 +93,7 @@ class DeviceConsole:
             )
             return
         self.link_error = None
+        self.account_message = None
         self.operation = operation
         self.message = {
             "profile_claim": "Submitting link...",
@@ -114,6 +117,11 @@ class DeviceConsole:
                 future.set_exception(error)
             except Exception as error:
                 self.failure = failure_state(error)
+                if operation.startswith("account_"):
+                    if isinstance(error, httpx.RequestError):
+                        self.account_message = "Connect to the internet to create a new profile." if operation == "account_create" else "Network unavailable. Cached study profiles remain usable offline."
+                    elif isinstance(error, httpx.HTTPStatusError) and error.response.status_code == 409:
+                        self.account_message = "Profile limit reached: 3 / 3 profiles. Archived profiles count."
                 # Network errors, OS diagnostics, and URLs never become user-facing text.
                 future.set_exception(
                     RuntimeError(
@@ -204,11 +212,16 @@ class DeviceConsole:
         except ProfileLinkError as error:
             self.message = str(error)
         except Exception:
-            self.message = "Action unavailable. Check connection or device configuration and retry."
+            self.message = getattr(self, "account_message", None) or "Action unavailable. Check connection or device configuration and retry."
         return True
 
     def _execute(self, operation, **args):
         config = self.config
+        if operation in {"account_sync", "account_create", "account_disconnect"}:
+            from app.auth.account_device import sync_account
+            with Repository(self.database_path) as repository:
+                return sync_account(config, self.credentials, repository,
+                    create=args.get("create"), disconnect=operation == "account_disconnect")
         if operation in {"profile_claim", "profile_unlink", "profile_status"}:
             with Repository(self.database_path) as repository:
                 profile = repository.get_profile(args["local_profile_id"])

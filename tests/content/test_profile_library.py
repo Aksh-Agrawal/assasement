@@ -28,6 +28,13 @@ def setup(repo):
         "study_profile_id": str(uuid4()), "account_display_name": "A",
         "study_profile_name": "NEET", "status": "linked",
     })
+    repo.apply_profile_link("b", {
+        "local_profile_id": "b", "link_id": str(uuid4()), "student_account_id": repo.get_profile("a").cloud_account_id,
+        "study_profile_id": str(uuid4()), "account_display_name": "A",
+        "study_profile_name": "JEE", "status": "linked",
+    })
+    repo.cache_student_account_context(repo.get_profile("a").cloud_account_id, "A")
+    repo.set_setting("account_profiles", json.dumps({"profiles": [{"local_profile_id": "a"}, {"local_profile_id": "b"}], "profile_count": 2}))
     return repo.get_profile_link_context("a")["link_id"]
 
 
@@ -182,12 +189,7 @@ def test_two_explicit_profiles_share_one_physical_pack_with_independent_grants(t
     state = {"data": data, "packs": [item]}
     with Repository(tmp_path / "db") as repo:
         link_a = setup(repo)
-        link_b = str(uuid4())
-        repo.apply_profile_link("b", {
-            "local_profile_id": "b", "link_id": link_b, "student_account_id": str(uuid4()),
-            "study_profile_id": str(uuid4()), "account_display_name": "B",
-            "study_profile_name": "JEE", "status": "linked",
-        })
+        link_b = repo.get_profile_link_context("b")["link_id"]
         for local, link in (("a", link_a), ("b", link_b)):
             with ContentApiClient("https://cloud.test", auth_token="device", link_id=link,
                                   local_profile_id=local, transport=transport(state)) as client:
@@ -210,12 +212,6 @@ def test_background_delivery_budget_rotates_between_profile_jobs(tmp_path):
     state = {"data": data, "packs": [item]}
     with Repository(tmp_path / "db") as repo:
         setup(repo)
-        link_b = str(uuid4())
-        repo.apply_profile_link("b", {
-            "local_profile_id": "b", "link_id": link_b, "student_account_id": str(uuid4()),
-            "study_profile_id": str(uuid4()), "account_display_name": "B",
-            "study_profile_name": "JEE", "status": "linked",
-        })
         class Api:
             def content(self, *, local_profile_id, link_id):
                 return ContentApiClient("https://cloud.test", auth_token="device",

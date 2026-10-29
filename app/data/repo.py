@@ -394,6 +394,12 @@ class Repository:
                  datetime_to_text(last_verified_at) if last_verified_at else None),
             )
 
+    def update_cloud_profile_name(self, profile_id: str, account_id: str, name: str) -> None:
+        """Refresh cloud metadata only for the already-owned identity."""
+        with transaction(self._connection) as connection:
+            connection.execute("UPDATE profiles SET display_name=? WHERE id=? AND cloud_account_id=? AND ownership_state='owned'",
+                               (name, profile_id, account_id))
+
     def clear_student_account_context(self) -> None:
         """Clear the context without changing profiles, attempts or pending uploads."""
         with transaction(self._connection) as connection:

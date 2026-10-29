@@ -49,9 +49,9 @@ class UIScreen(StrEnum):
 
 
 SETTINGS_ROUTES = (
+    UIScreen.ACCOUNT,
     UIScreen.WIFI,
     UIScreen.SYNC,
-    UIScreen.ACCOUNT,
     UIScreen.CONTENT_UPDATES,
     UIScreen.SOFTWARE_UPDATE,
     UIScreen.DEVICE_INFO,
