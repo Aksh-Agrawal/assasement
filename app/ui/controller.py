@@ -559,14 +559,12 @@ class UIController(LegacyController):
 
     @property
     def network_label(self):
-        verified = account_status(self.repository,
-            verified_this_run=bool(self.device and self.device.account_verified)) == "Connected"
-        measured = bool(self.device and self.device.network and self.device.network.backend_reachable
-                        and time.monotonic() - self.device.network_checked_at < 180)
-        if verified or measured:
-            return "Cloud: Available"
-        # A persisted flag is not proof of a current connection.
-        return "Cloud: Unreachable (Wi-Fi connected)" if self.device and self.device.wifi_connected else "Cloud: Offline / unverified"
+        network = self.device.network if self.device else None
+        if not network or not network.checked or time.monotonic() - self.device.network_checked_at >= 180:
+            return "Cloud: Unverified"
+        if not network.backend_reachable:
+            return "Cloud: Unreachable"
+        return "Cloud: Ready" if network.database_ready else "Cloud: Reachable / not ready"
 
     @property
     def greeting(self):

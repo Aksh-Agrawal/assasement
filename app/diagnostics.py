@@ -323,17 +323,19 @@ def collect_network_status(
             update = client.get("/api/v1/device-updates/latest", headers=headers)
     except httpx.RequestError:
         return NetworkStatus(checked=True, backend_reachable=False, error_code="BACKEND-001")
-    auth_ok = bool(auth_token) and catalog.status_code == 200
+    auth_ok = (catalog.status_code == 200 if auth_token else None)
+    if catalog.status_code not in {200, 401, 403}:
+        auth_ok = None
     try:
         database_ready = ready.status_code == 200 and json_object(ready).get("database") == "ok"
     except (ValueError, TypeError):
         database_ready = False
     return NetworkStatus(
         checked=True,
-        backend_reachable=health.status_code == 200,
+        backend_reachable=True,
         database_ready=database_ready,
         auth_accepted=auth_ok,
         catalog_reachable=catalog.status_code == 200,
         update_endpoint_reachable=update.status_code in {200, 404},
-        error_code=None if auth_ok else SupportCode.AUTH_REJECTED.value,
+        error_code=SupportCode.AUTH_REJECTED.value if auth_ok is False else None,
     )

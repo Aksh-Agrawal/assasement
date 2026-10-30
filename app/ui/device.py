@@ -146,7 +146,7 @@ class DeviceConsole:
                 self.message = "Pairing cancelled."
                 return True
             op = self.operation
-            if op in {"account_sync", "account_create", "sync"}:
+            if op in {"account_sync", "account_create"}:
                 self.account_verified = True
             elif op == "account_disconnect":
                 self.account_verified = False
@@ -165,9 +165,11 @@ class DeviceConsole:
                 self.wifi_connected, self.network, self.internet_status = value
                 self.network_checked_at = time.monotonic()
                 self.message = (
-                    "Internet available."
-                    if self.network.backend_reachable
-                    else "Internet unavailable. Local assessment remains available."
+                    f"Internet: {self.internet_status}. Cloud: "
+                    + ("not checked" if not self.network.checked else
+                       "unreachable" if not self.network.backend_reachable else
+                       "ready" if self.network.database_ready else "reachable, not ready")
+                    + ". Local assessment remains available."
                 )
                 return True
             elif op == "wifi_scan":
