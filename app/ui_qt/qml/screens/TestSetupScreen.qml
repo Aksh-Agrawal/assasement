@@ -206,7 +206,7 @@ Rectangle {
                         }
                     }
 
-                    Item { Layout.fillHeight: true; height: 1 }
+                    Item { width: 1; height: 8 }
 
                     // Bottom start button
                     Row {

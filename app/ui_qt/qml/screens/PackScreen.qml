@@ -37,6 +37,15 @@ Rectangle {
                 onBackClicked: appController.navigate("chapters")
             }
 
+            EmptyState {
+                anchors.centerIn: parent
+                visible: libraryController.packs.length === 0
+                title: "No Assessment Packs Found"
+                description: "There are currently no practice packs for " + libraryController.selectedSubject + "."
+                actionText: "Back to Topics"
+                onActionClicked: appController.navigate("chapters")
+            }
+
             ListView {
                 width: parent.width
                 height: parent.height - Theme.headerHeight
@@ -44,6 +53,7 @@ Rectangle {
                 spacing: 10
                 topMargin: 8
                 bottomMargin: 16
+                visible: libraryController.packs.length > 0
 
                 model: libraryController.packs
 

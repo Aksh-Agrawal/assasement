@@ -210,6 +210,12 @@ class SettingsController(QObject):
     # Diagnostics Properties
     # -------------------------------------------------------------------------
     @Property(str, notify=diagnosticsChanged)
+    def apiBaseUrl(self) -> str:
+        if self.app.config and self.app.config.api_base_url:
+            return self.app.config.api_base_url
+        return "https://startup-cloud.onrender.com"
+
+    @Property(str, notify=diagnosticsChanged)
     def overallHealth(self) -> str:
         return "Everything looks good!"
 

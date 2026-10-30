@@ -62,13 +62,13 @@ Rectangle {
                             border.color: root.selectedIndex === index ? Theme.primary : Theme.border
                             border.width: root.selectedIndex === index ? 2 : 1
 
-                            Row {
+                            Item {
                                 anchors.fill: parent
                                 anchors.leftMargin: 10
                                 anchors.rightMargin: 10
-                                spacing: 8
 
                                 Text {
+                                    anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: "Q" + modelData.index
                                     font.pixelSize: 14
@@ -76,9 +76,8 @@ Rectangle {
                                     color: Theme.textPrimary
                                 }
 
-                                Item { Layout.fillWidth: true; width: 1 }
-
                                 Text {
+                                    anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: modelData.isCorrect ? "✓ Correct" : "✕ Incorrect"
                                     color: modelData.isCorrect ? Theme.success : Theme.warning
@@ -206,7 +205,7 @@ Rectangle {
                             width: parent.width
                         }
 
-                        Item { Layout.fillHeight: true; height: 1 }
+                        Item { width: 1; height: 10 }
 
                         // Bottom navigation between items
                         Row {

@@ -310,21 +310,46 @@ class AssessmentController(QObject):
     # -------------------------------------------------------------------------
     @Slot(str, int)
     def startTest(self, mode: str = "practice", timer_minutes: int = 0):
-        if not self.app.ui_controller or not self.app.ui_controller.selected_profile:
+        if not self.app.ui_controller:
+            self.app.showNotification("Application is still initializing.", "warning")
+            return
+
+        profile = self.app.ui_controller.selected_profile
+        if not profile and self.app.ui_controller.profiles:
+            self.app.ui_controller.profile_index = 0
+            profile = self.app.ui_controller.selected_profile
+
+        if not profile:
             self.app.showNotification("Please select a profile first.", "warning")
             return
 
-        set_item = self.app.ui_controller.selected_question_set
+        set_item = None
+        lib_ctrl = getattr(self.app, "library_controller", None)
+        target_id = getattr(lib_ctrl, "_selected_pack_id", "") if lib_ctrl else ""
+        target_version = getattr(lib_ctrl, "_selected_pack_version", 1) if lib_ctrl else 1
+
+        if target_id and self.app.repository:
+            set_item = self.app.repository.get_question_set(target_id, target_version)
+
+        if not set_item and self.app.ui_controller:
+            if target_id:
+                for qs in self.app.ui_controller.question_sets:
+                    if qs.id == target_id and qs.version == target_version:
+                        set_item = qs
+                        break
+            if not set_item:
+                set_item = self.app.ui_controller.selected_question_set
+
         if not set_item:
             self.app.showNotification("No question set selected.", "warning")
             return
 
         try:
-            profile_id = self.app.ui_controller.selected_profile.id
+            profile_id = profile.id
             self._app_service.start_test(profile_id, set_item.id, set_item.version)
             self._active = True
             self._subject = set_item.subject
-            self._chapter = set_item.chapter
+            self._chapter = getattr(set_item, "chapter", "") or ""
 
             if timer_minutes > 0:
                 self._timer_enabled = True
@@ -345,18 +370,30 @@ class AssessmentController(QObject):
 
     @Slot()
     def resumeTest(self):
-        if not self.app.ui_controller or not self.app.ui_controller.selected_profile:
+        if not self.app.ui_controller:
+            return
+        profile = self.app.ui_controller.selected_profile
+        if not profile and self.app.ui_controller.profiles:
+            self.app.ui_controller.profile_index = 0
+            profile = self.app.ui_controller.selected_profile
+        if not profile:
+            self.app.showNotification("Please select a profile first.", "warning")
             return
         try:
-            profile_id = self.app.ui_controller.selected_profile.id
-            self._app_service.resume_attempt(profile_id)
-            self._active = True
-            self.questionChanged.emit()
-            self.navigatorChanged.emit()
-            self.app.navigate("question")
+            if self._app_service and self._app_service.resume_attempt(profile.id):
+                self._active = True
+                if self.app.ui_controller.selected_question_set:
+                    self._subject = self.app.ui_controller.selected_question_set.subject
+                    self._chapter = getattr(self.app.ui_controller.selected_question_set, "chapter", "") or ""
+                self.questionChanged.emit()
+                self.timerChanged.emit()
+                self.navigatorChanged.emit()
+                self.app.navigate("question")
+            else:
+                self.app.showNotification("No in-progress test found to resume.", "info")
         except Exception as err:
             LOGGER.error("Failed to resume assessment: %s", err)
-            self.app.showNotification("Could not resume test.", "error")
+            self.app.showNotification(f"Unable to resume: {err}", "error")
 
     @Slot(str)
     def selectAnswer(self, key: str):

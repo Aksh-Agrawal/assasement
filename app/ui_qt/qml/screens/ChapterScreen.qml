@@ -37,6 +37,16 @@ Rectangle {
                 onBackClicked: appController.navigate("subjects")
             }
 
+            // Empty state if no chapters
+            EmptyState {
+                anchors.centerIn: parent
+                visible: libraryController.chapters.length === 0
+                title: "No Topics Available"
+                description: "No topics or chapters found for " + libraryController.selectedSubject + "."
+                actionText: "Back to Subjects"
+                onActionClicked: appController.navigate("subjects")
+            }
+
             // Scrollable Chapters List
             ListView {
                 width: parent.width
@@ -45,6 +55,7 @@ Rectangle {
                 spacing: 8
                 topMargin: 8
                 bottomMargin: 16
+                visible: libraryController.chapters.length > 0
 
                 model: libraryController.chapters
 
@@ -59,23 +70,26 @@ Rectangle {
                         interactive: true
                         onClicked: libraryController.selectChapter(modelData)
 
-                        Row {
+                        Item {
                             anchors.fill: parent
                             anchors.leftMargin: 18
                             anchors.rightMargin: 18
 
                             Text {
+                                anchors.left: parent.left
+                                anchors.right: chevronIcon.left
+                                anchors.rightMargin: 12
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData
                                 color: Theme.textPrimary
                                 font.pixelSize: Theme.fontSizeBody
                                 font.bold: true
                                 font.family: Theme.fontFamily
+                                elide: Text.ElideRight
                             }
 
-                            Item { Layout.fillWidth: true; width: 1 }
-
                             Image {
+                                id: chevronIcon
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 20

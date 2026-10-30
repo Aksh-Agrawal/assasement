@@ -12,6 +12,7 @@ class LibraryController(QObject):
     def __init__(self, app_controller: AppController, parent=None):
         super().__init__(parent)
         self.app = app_controller
+        self.app.library_controller = self
         self._selected_subject = "Mathematics"
         self._selected_chapter = ""
         self._selected_pack_id = ""
@@ -143,6 +144,22 @@ class LibraryController(QObject):
     def selectPack(self, pack_id: str, version: int):
         self._selected_pack_id = pack_id
         self._selected_pack_version = version
+
+        if self.app.ui_controller:
+            for qs in self.app.ui_controller.question_sets:
+                if qs.id == pack_id and qs.version == version:
+                    if qs.subject in self.app.ui_controller.subjects:
+                        self.app.ui_controller.subject_index = self.app.ui_controller.subjects.index(qs.subject)
+                        self._selected_subject = qs.subject
+                    if getattr(qs, "chapter", None):
+                        self._selected_chapter = qs.chapter
+                    matching_sets = self.app.ui_controller.subject_question_sets
+                    for s_idx, s_item in enumerate(matching_sets):
+                        if s_item.id == pack_id and s_item.version == version:
+                            self.app.ui_controller.set_index = s_idx
+                            break
+                    break
+
         self.selectionChanged.emit()
         self.app.navigate("test_setup")
 

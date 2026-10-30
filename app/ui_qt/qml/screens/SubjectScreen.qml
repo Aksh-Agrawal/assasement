@@ -41,10 +41,20 @@ Rectangle {
                 width: parent.width
                 height: parent.height - Theme.headerHeight
 
+                EmptyState {
+                    anchors.centerIn: parent
+                    visible: libraryController.subjects.length === 0
+                    title: "No Subjects Available"
+                    description: "Connect to Wi-Fi to sync your curriculum catalogue."
+                    actionText: "Back to Home"
+                    onActionClicked: appController.navigate("home")
+                }
+
                 Grid {
                     anchors.centerIn: parent
                     columns: 2
                     spacing: 16
+                    visible: libraryController.subjects.length > 0
 
                     Repeater {
                         model: libraryController.subjects

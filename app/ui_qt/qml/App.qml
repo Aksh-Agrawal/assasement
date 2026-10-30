@@ -46,9 +46,12 @@ Window {
                 case "profile_picker": return "screens/ProfilePickerScreen.qml";
                 case "create_profile": return "screens/CreateProfileScreen.qml";
                 case "home": return "screens/HomeScreen.qml";
+                case "library":
                 case "subjects": return "screens/SubjectScreen.qml";
                 case "chapters": return "screens/ChapterScreen.qml";
                 case "packs": return "screens/PackScreen.qml";
+                case "practice":
+                case "content": return "screens/ContentScreen.qml";
                 case "test_setup": return "screens/TestSetupScreen.qml";
                 case "question": return "screens/QuestionScreen.qml";
                 case "question_detail": return "screens/QuestionDetailScreen.qml";
@@ -61,13 +64,72 @@ Window {
                 case "wifi": return "screens/WifiScreen.qml";
                 case "sync": return "screens/SyncScreen.qml";
                 case "account": return "screens/AccountScreen.qml";
-                case "content": return "screens/ContentScreen.qml";
                 case "software_update": return "screens/SoftwareUpdateScreen.qml";
                 case "device_info": return "screens/DeviceInfoScreen.qml";
                 case "diagnostics": return "screens/DiagnosticsScreen.qml";
                 case "about": return "screens/AboutScreen.qml";
                 case "institute_work": return "screens/InstituteWorkScreen.qml";
                 default: return "screens/HomeScreen.qml";
+            }
+        }
+
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[QML Loader Error] Failed to load screen for route: " + appController.screen);
+            }
+        }
+    }
+
+    // Error Boundary: Never show a silent blank white screen on loader error
+    Rectangle {
+        id: errorFallback
+        anchors.fill: parent
+        color: Theme.background
+        visible: screenLoader.status === Loader.Error
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 16
+            width: 480
+
+            Rectangle {
+                width: 56
+                height: 56
+                radius: 28
+                color: "#FFEBEE"
+                anchors.horizontalCenter: parent.horizontalCenter
+                Text {
+                    anchors.centerIn: parent
+                    text: "!"
+                    color: Theme.warning
+                    font.pixelSize: 32
+                    font.bold: true
+                }
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Screen Could Not Be Loaded"
+                color: Theme.textPrimary
+                font.pixelSize: Theme.fontSizeHeading
+                font.bold: true
+                font.family: Theme.fontFamily
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "An error occurred while loading: " + appController.screen + "\nPlease return to the home screen."
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSecondary
+                font.family: Theme.fontFamily
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            PrimaryButton {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Back to Home"
+                iconSource: "icons/home.svg"
+                onClicked: appController.goHome()
             }
         }
     }

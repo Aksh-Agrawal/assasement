@@ -67,7 +67,7 @@ Rectangle {
                         width: parent.width
                     }
 
-                    Item { Layout.fillHeight: true; height: 1 }
+                    Item { width: 1; height: 10 }
 
                     PrimaryButton {
                         width: parent.width
@@ -101,7 +101,7 @@ Rectangle {
                     model: [
                         { name: "System Hardware", detail: "Raspberry Pi Zero 2 W • ARM64 • 512 MB RAM", status: "Healthy" },
                         { name: "Local Database", detail: "SQLite 3 WAL mode • Schema v8 • Integrity verified", status: "Healthy" },
-                        { name: "API & Cloud Connection", detail: "Base URL: " + appConfigUrl + " • Handshake verified", status: "Connected" },
+                        { name: "API & Cloud Connection", detail: "Base URL: " + settingsController.apiBaseUrl + " • Handshake verified", status: "Connected" },
                         { name: "Assessment Storage", detail: "Flash storage healthy • Database write latency 4ms", status: "Healthy" },
                         { name: "System Logs", detail: "Diagnostic log rotation active • No fatal exceptions", status: "Ready" }
                     ]

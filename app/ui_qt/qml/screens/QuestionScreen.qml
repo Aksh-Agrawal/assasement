@@ -96,9 +96,19 @@ Rectangle {
         anchors.right: parent.right
         anchors.margins: 14
 
+        EmptyState {
+            anchors.centerIn: parent
+            visible: !assessmentController.isActive || assessmentController.questionText.length === 0
+            title: "No Question Available"
+            description: "Please select an assessment pack from the library to begin practice."
+            actionText: "Browse Library"
+            onActionClicked: appController.navigate("subjects")
+        }
+
         Column {
             anchors.fill: parent
             spacing: 12
+            visible: assessmentController.isActive && assessmentController.questionText.length > 0
 
             // Question Text (Flickable for long text)
             Flickable {

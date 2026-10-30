@@ -78,7 +78,7 @@ Rectangle {
                         }
                     }
 
-                    Item { Layout.fillHeight: true; height: 1 }
+                    Item { width: 1; height: 8 }
 
                     PrimaryButton {
                         width: parent.width
@@ -127,11 +127,21 @@ Rectangle {
                         }
                     }
 
+                    EmptyState {
+                        anchors.centerIn: parent
+                        visible: profileController.profiles.length === 0
+                        title: "No Study Profiles Found"
+                        description: "Add a local profile or sync your cloud account to link profiles."
+                        actionText: "Create Profile"
+                        onActionClicked: appController.navigate("create_profile")
+                    }
+
                     ListView {
                         width: parent.width
                         height: parent.height - 40
                         clip: true
                         spacing: 8
+                        visible: profileController.profiles.length > 0
                         model: profileController.profiles
 
                         delegate: Rectangle {
@@ -142,29 +152,33 @@ Rectangle {
                             border.color: modelData.isActive ? Theme.primary : Theme.border
                             border.width: modelData.isActive ? 2 : 1
 
-                            Row {
+                            Item {
                                 anchors.fill: parent
                                 anchors.margins: 12
-                                spacing: 10
 
-                                Rectangle {
-                                    width: 32; height: 32; radius: 16
-                                    color: modelData.isActive ? Theme.primaryLight : Theme.surface
-                                    Image { anchors.centerIn: parent; width: 18; height: 18; source: "../icons/account.svg" }
-                                }
-
-                                Column {
+                                Row {
+                                    anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: modelData.name; font.bold: true; font.pixelSize: 15; color: Theme.textPrimary }
-                                    Text { text: modelData.grade; font.pixelSize: 12; color: Theme.textSecondary }
-                                }
+                                    spacing: 10
 
-                                Item { Layout.fillWidth: true; width: 1 }
+                                    Rectangle {
+                                        width: 32; height: 32; radius: 16
+                                        color: modelData.isActive ? Theme.primaryLight : Theme.surface
+                                        Image { anchors.centerIn: parent; width: 18; height: 18; source: "../icons/account.svg" }
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        Text { text: modelData.name; font.bold: true; font.pixelSize: 15; color: Theme.textPrimary }
+                                        Text { text: modelData.grade; font.pixelSize: 12; color: Theme.textSecondary }
+                                    }
+                                }
 
                                 StatusBadge {
                                     visible: modelData.isActive
                                     text: "Active Profile"
                                     statusType: "success"
+                                    anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }

@@ -101,11 +101,21 @@ Rectangle {
                     }
 
                     // Installed packs list
+                    EmptyState {
+                        anchors.centerIn: parent
+                        visible: settingsController.installedPacks.length === 0
+                        title: "No Practice Packs Downloaded"
+                        description: "Connect to Wi-Fi to download packs, or explore available subjects in the library."
+                        actionText: "Browse Library"
+                        onActionClicked: appController.navigate("subjects")
+                    }
+
                     ListView {
                         width: parent.width
                         height: parent.height - 74 - 40 - 24
                         clip: true
                         spacing: 8
+                        visible: settingsController.installedPacks.length > 0
                         model: settingsController.installedPacks
 
                         delegate: AppCard {
@@ -113,7 +123,7 @@ Rectangle {
                             height: 60
                             interactive: true
                             onClicked: {
-                                appController.navigate("packs");
+                                libraryController.selectPack(modelData.id, modelData.version);
                             }
 
                             Row {

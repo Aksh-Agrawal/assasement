@@ -93,6 +93,8 @@ def mock_repo(tmp_path):
     repo.institute_work.return_value = ()
     repo.find_in_progress_attempt.return_value = None
     repo.list_attempts.return_value = ()
+    repo.save_response.side_effect = lambda resp, *args, **kwargs: resp
+    repo.create_attempt.return_value = Mock(id="att-01", profile_id="prof-01", set_id="bio-pack-01", set_version=1)
     return repo
 
 
@@ -337,3 +339,131 @@ def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
     assert win.height() == 600
 
     app_ctrl.close()
+
+
+def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo):
+    """Verify that every single QML screen component compiles with zero errors."""
+    from PySide6.QtQml import QQmlComponent
+
+    db_path = tmp_path / "test_screens.db"
+    db_path.touch()
+    config = AppConfig(database_path=db_path)
+    creds = CredentialStore(tmp_path / "creds.json")
+
+    engine = QQmlApplicationEngine()
+    qml_dir = Path("app/ui_qt/qml").resolve()
+    engine.addImportPath(str(qml_dir))
+
+    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl.startup_session.repository = mock_repo
+    app_ctrl.startup_session.complete = True
+    app_ctrl._initialize_runtime()
+
+    ctx = engine.rootContext()
+    ctx.setContextProperty("appController", app_ctrl)
+    ctx.setContextProperty("profileController", ProfileController(app_ctrl))
+    ctx.setContextProperty("libraryController", LibraryController(app_ctrl))
+    ctx.setContextProperty("assessmentController", AssessmentController(app_ctrl))
+    ctx.setContextProperty("settingsController", SettingsController(app_ctrl))
+
+    screens_dir = qml_dir / "screens"
+    for qml_path in screens_dir.glob("*.qml"):
+        comp = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_path)))
+        assert not comp.isError(), f"Compilation error in {qml_path.name}: {[e.toString() for e in comp.errors()]}"
+
+    app_ctrl.close()
+
+
+def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):
+    """Verify navigating across all reported routes loads without Loader error."""
+    from PySide6.QtCore import QCoreApplication
+
+    db_path = tmp_path / "test_routes.db"
+    db_path.touch()
+    config = AppConfig(database_path=db_path)
+    creds = CredentialStore(tmp_path / "creds.json")
+
+    engine = QQmlApplicationEngine()
+    qml_dir = Path("app/ui_qt/qml").resolve()
+    engine.addImportPath(str(qml_dir))
+
+    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl.startup_session.repository = mock_repo
+    app_ctrl.startup_session.complete = True
+    app_ctrl._initialize_runtime()
+
+    ctx = engine.rootContext()
+    ctx.setContextProperty("appController", app_ctrl)
+    ctx.setContextProperty("profileController", ProfileController(app_ctrl))
+    ctx.setContextProperty("libraryController", LibraryController(app_ctrl))
+    ctx.setContextProperty("assessmentController", AssessmentController(app_ctrl))
+    ctx.setContextProperty("settingsController", SettingsController(app_ctrl))
+
+    engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
+    assert len(engine.rootObjects()) > 0
+    win = engine.rootObjects()[0]
+    screen_loader = win.findChild(object, "screenLoader")
+
+    # Test all reported routes
+    routes_to_test = [
+        "home",
+        "library",
+        "subjects",
+        "chapters",
+        "packs",
+        "test_setup",
+        "practice",
+        "content",
+        "history",
+        "settings",
+        "wifi",
+        "sync",
+        "account",
+        "diagnostics",
+        "software_update",
+        "device_info",
+        "about",
+    ]
+
+    for route in routes_to_test:
+        app_ctrl.navigate(route)
+        QCoreApplication.processEvents()
+        if screen_loader is not None:
+            # Loader status: 1 is Ready, 0 is Null, 3 is Error
+            assert screen_loader.property("status") != 3, f"Screen Loader Error for route '{route}'"
+
+    app_ctrl.close()
+
+
+def test_offline_pack_to_question_flow(qapp, tmp_path, mock_repo):
+    """Verify offline downloaded pack -> test setup -> start test -> question -> answers."""
+    db_path = tmp_path / "test_flow.db"
+    db_path.touch()
+    config = AppConfig(database_path=db_path)
+    creds = CredentialStore(tmp_path / "creds.json")
+
+    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl.startup_session.repository = mock_repo
+    app_ctrl.startup_session.complete = True
+    app_ctrl._initialize_runtime()
+
+    lib_ctrl = LibraryController(app_ctrl)
+    assess_ctrl = AssessmentController(app_ctrl)
+
+    # 1. Select downloaded pack
+    lib_ctrl.selectPack("bio-pack-01", 1)
+    assert app_ctrl.screen == "test_setup"
+
+    # 2. Start Test
+    assess_ctrl.startTest(mode="practice", timer_minutes=0)
+    assert app_ctrl.screen == "question"
+    assert assess_ctrl.isActive
+    assert assess_ctrl.questionText == "What fraction is shaded?"
+    assert len(assess_ctrl.options) == 4
+
+    # 3. Answer question
+    assess_ctrl.selectAnswer("A")
+    assert any(opt["selected"] and opt["key"] == "A" for opt in assess_ctrl.options)
+
+    app_ctrl.close()
+

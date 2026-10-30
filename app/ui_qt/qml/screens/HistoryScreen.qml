@@ -37,6 +37,15 @@ Rectangle {
                 onBackClicked: appController.navigate("home")
             }
 
+            EmptyState {
+                anchors.centerIn: parent
+                visible: assessmentController.historyList.length === 0
+                title: "No Completed Attempts Yet"
+                description: "Assessments you complete will appear here with your scores."
+                actionText: "Start a Practice Session"
+                onActionClicked: appController.navigate("subjects")
+            }
+
             ListView {
                 width: parent.width
                 height: parent.height - Theme.headerHeight
@@ -44,18 +53,9 @@ Rectangle {
                 spacing: 8
                 topMargin: 8
                 bottomMargin: 16
+                visible: assessmentController.historyList.length > 0
 
                 model: assessmentController.historyList
-
-                // Empty state if no attempts
-                EmptyState {
-                    anchors.centerIn: parent
-                    visible: assessmentController.historyList.length === 0
-                    title: "No Completed Attempts Yet"
-                    description: "Assessments you complete will appear here with your scores."
-                    actionText: "Start a Practice Session"
-                    onActionClicked: appController.navigate("subjects")
-                }
 
                 delegate: Item {
                     width: parent.width

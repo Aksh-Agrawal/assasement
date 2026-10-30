@@ -98,7 +98,7 @@ Rectangle {
                         }
                     }
 
-                    Item { Layout.fillHeight: true; height: 1 }
+                    Item { width: 1; height: 12 }
 
                     PrimaryButton {
                         width: parent.width
@@ -131,11 +131,21 @@ Rectangle {
                         }
                     }
 
+                    EmptyState {
+                        anchors.centerIn: parent
+                        visible: settingsController.availableNetworks.length === 0
+                        title: "No Wi-Fi Networks Found"
+                        description: "Tap 'Scan Networks' to search for wireless networks."
+                        actionText: "Scan Now"
+                        onActionClicked: settingsController.scanWifi()
+                    }
+
                     ListView {
                         width: parent.width
                         height: parent.height - 40
                         clip: true
                         spacing: 6
+                        visible: settingsController.availableNetworks.length > 0
                         model: settingsController.availableNetworks
 
                         delegate: Rectangle {
@@ -146,42 +156,55 @@ Rectangle {
                             border.color: modelData.connected ? Theme.primary : Theme.border
                             border.width: modelData.connected ? 2 : 1
 
-                            Row {
+                            Item {
                                 anchors.fill: parent
                                 anchors.leftMargin: 12
                                 anchors.rightMargin: 12
-                                spacing: 10
 
-                                Image {
+                                Row {
+                                    anchors.left: parent.left
+                                    anchors.right: statusBadgeRow.left
+                                    anchors.rightMargin: 8
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: 20
-                                    height: 20
-                                    source: "../icons/wifi.svg"
+                                    spacing: 10
+
+                                    Image {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 20
+                                        height: 20
+                                        source: "../icons/wifi.svg"
+                                    }
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: modelData.ssid
+                                        color: Theme.textPrimary
+                                        font.pixelSize: 15
+                                        font.bold: modelData.connected
+                                        elide: Text.ElideRight
+                                        width: parent.width - 30
+                                    }
                                 }
 
-                                Text {
+                                Row {
+                                    id: statusBadgeRow
+                                    anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.ssid
-                                    color: Theme.textPrimary
-                                    font.pixelSize: 15
-                                    font.bold: modelData.connected
-                                }
+                                    spacing: 8
 
-                                Item { Layout.fillWidth: true; width: 1 }
+                                    StatusBadge {
+                                        visible: modelData.connected
+                                        text: "Connected"
+                                        statusType: "online"
+                                    }
 
-                                StatusBadge {
-                                    visible: modelData.connected
-                                    text: "Connected"
-                                    statusType: "online"
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-
-                                Image {
-                                    visible: modelData.encrypted && !modelData.connected
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: 16
-                                    height: 16
-                                    source: "../icons/lock.svg"
+                                    Image {
+                                        visible: modelData.encrypted && !modelData.connected
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 16
+                                        height: 16
+                                        source: "../icons/lock.svg"
+                                    }
                                 }
                             }
 

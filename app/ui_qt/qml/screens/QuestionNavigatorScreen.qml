@@ -75,7 +75,7 @@ Rectangle {
                         }
                     }
 
-                    Item { Layout.fillHeight: true; height: 1 }
+                    Item { width: 1; height: 10 }
 
                     PrimaryButton {
                         width: parent.width
