@@ -6,10 +6,12 @@ Rectangle {
 
     property string title: ""
     property string profileText: ""
-    property string networkText: "Online"
-    property string syncText: "Synced"
+    property string networkText: "Checking…"
+    property string syncText: "Up to date"
     property bool isOnline: true
     property bool showBack: false
+    property bool allowProfileSwitch: false
+    signal switchProfileClicked()
     signal backClicked()
 
     height: Theme.headerHeight
@@ -29,8 +31,15 @@ Rectangle {
             onClicked: root.backClicked()
         }
 
-        // Student Profile pill or Title
+        // Full identity area is a touchscreen profile control on Home.
         Row {
+            id: identity
+            height: 48
+            Accessible.name: "Switch Profile"
+            TapHandler {
+                enabled: root.allowProfileSwitch
+                onTapped: root.switchProfileClicked()
+            }
             spacing: 8
             anchors.verticalCenter: parent.verticalCenter
 
@@ -50,13 +59,24 @@ Rectangle {
                 }
             }
 
-            Text {
+            Column {
                 anchors.verticalCenter: parent.verticalCenter
-                text: root.title.length > 0 ? root.title : root.profileText
-                color: Theme.textPrimary
-                font.pixelSize: root.title.length > 0 ? Theme.fontSizeHeading : Theme.fontSizeBody
-                font.bold: true
-                font.family: Theme.fontFamily
+                Text {
+                    width: Math.min(implicitWidth, root.allowProfileSwitch ? 220 : 300)
+                    elide: Text.ElideRight
+                    text: root.title.length > 0 ? root.title : root.profileText + (root.allowProfileSwitch ? " ▾" : "")
+                    color: Theme.textPrimary
+                    font.pixelSize: root.title.length > 0 ? Theme.fontSizeHeading : Theme.fontSizeBody
+                    font.bold: true
+                    font.family: Theme.fontFamily
+                }
+                Text {
+                    visible: root.title.length > 0 && root.profileText.length > 0
+                    text: root.profileText
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeCaption
+                    font.family: Theme.fontFamily
+                }
             }
         }
     }
@@ -75,8 +95,8 @@ Rectangle {
 
         StatusBadge {
             text: root.syncText
-            statusType: root.syncText.indexOf("Syncing") >= 0 ? "syncing" : (root.syncText.indexOf("Synced") >= 0 ? "success" : "neutral")
-            symbol: root.syncText.indexOf("Synced") >= 0 ? "✓" : ""
+            statusType: root.syncText.indexOf("Syncing") >= 0 ? "syncing" : (root.syncText.indexOf("Up to date") >= 0 ? "success" : "neutral")
+            symbol: root.syncText.indexOf("Up to date") >= 0 ? "✓" : ""
         }
     }
 }

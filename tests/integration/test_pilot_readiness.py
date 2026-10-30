@@ -126,7 +126,7 @@ def test_operator_retry_preserves_exact_upload_evidence(tmp_path, monkeypatch):
         repo.mark_attempt_syncing(attempt, started_at=datetime.now(UTC))
         repo.mark_attempt_sync_failed(attempt, error="HTTP 404: upload rejected",
                                       error_kind="permanent", next_sync_at=None)
-        assert UIController(repo).sync_label == "Sync attention required"
+        assert UIController(repo).sync_label == "Failed"
     monkeypatch.setenv("ASSESS_SQLITE_PATH", str(database))
     monkeypatch.setattr("sys.argv", ["retry_upload", attempt])
     assert main() == 0

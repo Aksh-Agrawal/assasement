@@ -13,7 +13,8 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         title: "Account & Profiles"
-        networkText: appController.networkLabel
+        profileText: appController.activeProfileName
+                networkText: appController.networkLabel
         syncText: appController.syncLabel
         isOnline: appController.isOnline
         showBack: true
@@ -151,6 +152,10 @@ Rectangle {
                             color: Theme.surfaceActive
                             border.color: modelData.isActive ? Theme.primary : Theme.border
                             border.width: modelData.isActive ? 2 : 1
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: profileController.selectProfileId(modelData.id)
+                            }
 
                             Item {
                                 anchors.fill: parent
@@ -176,7 +181,7 @@ Rectangle {
 
                                 StatusBadge {
                                     visible: modelData.isActive
-                                    text: "Active Profile"
+                                    text: "Currently using"
                                     statusType: "success"
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter

@@ -35,8 +35,10 @@ def _sync_account(config, credentials, repository, *, create=None, disconnect=Fa
     credential = credentials.load_safe()
     if not credential:
         raise RuntimeError("Connect this Raspberry Pi to your account.")
+    from app.connectivity import ObservedTransport
+
     with create_client(
-        config.api_base_url, auth_token=credential.token, transport=transport
+        config.api_base_url, auth_token=credential.token, transport=ObservedTransport(repository.database_path, transport)
     ) as client:
         if disconnect:
             response = client.post("/api/v1/device-account/disconnect")

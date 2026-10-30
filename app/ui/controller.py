@@ -116,12 +116,8 @@ class LegacyController:
 
     @property
     def network_label(self) -> str:
-        value = (self.repository.get_setting("network_state") or "offline").casefold()
-        return {
-            "online": "Online",
-            "syncing": "Syncing",
-            "authentication_required": "Sign-in needed",
-        }.get(value, "Offline")
+        from app.connectivity import cloud_label
+        return cloud_label(self.repository)
 
     @property
     def pending_sync_count(self) -> int:
@@ -131,11 +127,8 @@ class LegacyController:
 
     @property
     def sync_label(self) -> str:
-        if self.repository.sync_diagnostic_summary()["attention_required"]:
-            return "Sync attention required"
-        if self.network_label == "Offline":
-            return "Offline"
-        return f"{self.pending_sync_count} pending" if self.pending_sync_count else "Synced"
+        from app.connectivity import sync_label
+        return sync_label(self.repository)
 
     @property
     def history_items(self) -> tuple[HistoryItem, ...]:
@@ -477,17 +470,20 @@ class UIController(LegacyController):
         self.message = ""
 
     def refresh_catalog(self):
+        previous = self.selected_profile.id if getattr(self, "profiles", ()) and self.profile_index < len(self.profiles) else None
         super().refresh_catalog()
         if self.student_flow and os.environ.get("ASSESS_MAINTENANCE") != "1":
             context = self.repository.get_student_account_context()
             cached = json.loads(self.repository.get_setting("account_profiles") or "{}")
             active_ids = {p["local_profile_id"] for p in cached.get("profiles", [])}
             self.profiles = tuple(p for p in self.profiles if context and
-                p.cloud_account_id == context["cloud_account_id"] and p.id in active_ids)
+                p.cloud_account_id == context["cloud_account_id"] and p.id in active_ids and p.link_state == "linked")
             self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
         if os.environ.get("ASSESS_MAINTENANCE") == "1" and getattr(self, "legacy_mode", False):
             self.profiles = tuple(p for p in self.profiles if p.ownership_state == "legacy_unclaimed")
             self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
+        if previous in {p.id for p in self.profiles}:
+            self.profile_index = next(i for i, p in enumerate(self.profiles) if p.id == previous)
         if self.student_flow:
             profile_id = self.selected_profile.id if self.selected_profile else None
             self.question_sets = self.repository.visible_question_sets(profile_id)
@@ -563,12 +559,8 @@ class UIController(LegacyController):
 
     @property
     def network_label(self):
-        network = self.device.network if self.device else None
-        if not network or not network.checked or time.monotonic() - self.device.network_checked_at >= 180:
-            return "Cloud: Unverified"
-        if not network.backend_reachable:
-            return "Cloud: Unreachable"
-        return "Cloud: Ready" if network.database_ready else "Cloud: Reachable / not ready"
+        from app.connectivity import cloud_label
+        return cloud_label(self.repository)
 
     @property
     def greeting(self):

@@ -59,6 +59,7 @@ def mock_repo(tmp_path):
         cloud_account_id="acc-01",
         cloud_profile_id="cprof-01",
         ownership_state="owned",
+        link_state="linked",
     )
     repo.list_profiles.return_value = (profile,)
 
@@ -285,7 +286,7 @@ def test_settings_controller_operations(qapp, tmp_path, mock_repo):
 
     settings_ctrl = SettingsController(app_ctrl)
     assert len(settings_ctrl.availableNetworks) >= 1
-    assert settings_ctrl.overallHealth == "Everything looks good!"
+    assert settings_ctrl.overallHealth == app_ctrl.networkLabel
     assert settings_ctrl.storageUsedGb > 0
     assert settings_ctrl.storageTotalGb > 0
 
@@ -522,4 +523,173 @@ def test_background_removal_refreshes_qt_models_and_session(qapp, tmp_path):
         assert ctrl.ui_controller.application.engine.attempt is None
         assert repo.get_attempt(attempt.id).status.value == "abandoned"
         assert ctrl.screen == "home"
+        ctrl.close()
+
+
+def test_runtime_switch_isolates_profile_state_and_preserves_offline_attempts(qapp, tmp_path):
+    import json
+
+    from app.assessment import AssessmentApplication
+    from app.connectivity import record_cloud
+    from app.content.importer import import_pack
+    from app.data.repo import Repository
+    from tests.content.test_profile_library import metadata, setup
+
+    path = tmp_path / "switch.db"
+    with Repository(path) as repo:
+        link_a = setup(repo)
+        data = Path("content/sample_biology.json").read_bytes()
+        pack_a = import_pack(Path("content/sample_biology.json"), repo).pack.question_set
+        other = json.loads(data)
+        other["set"]["id"] = "maya-biology"
+        other["set"]["title"] = "Maya Biology"
+        file_b = tmp_path / "b.json"
+        file_b.write_text(json.dumps(other), encoding="utf-8")
+        pack_b = import_pack(file_b, repo).pack.question_set
+        repo.cache_profile_library("a", link_a, [metadata(data)])
+        repo.cache_profile_library("b", repo.get_profile_link_context("b")["link_id"],
+                                   [metadata(file_b.read_bytes())])
+        for profile, pack in (("a", pack_a), ("b", pack_b)):
+            service = AssessmentApplication(repo)
+            service.start_test(profile, pack.id, 1)
+            service.request_submit()
+            service.submit()
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "cred.json"))
+        ctrl.startup_session.repository = repo
+        ctrl.startup_session.complete = True
+        ctrl._initialize_runtime()
+        profiles = ProfileController(ctrl)
+        library = LibraryController(ctrl)
+        assessment = AssessmentController(ctrl)
+        settings = SettingsController(ctrl)
+        profiles.selectProfile(0)
+        assert ctrl.screen == "home"
+        assert ctrl.activeProfileName == "Student A"
+        attempt = ctrl.ui_controller.application.start_test("a", pack_a.id, 1)
+        ctrl.ui_controller.application.select_answer("A")
+        ctrl.ui_controller.application.continue_unrated()
+        library.selectSubject(pack_a.subject)
+        library.selectChapter(pack_a.chapter)
+        library.selectPack(pack_a.id, 1)
+        ctrl.goHome()
+        record_cloud(path, "Offline")
+        profiles.switchProfile()
+        assert profiles.switchMode and ctrl.screen == "profile_picker"
+        profiles.selectProfile(1)
+        assert ctrl.screen == "home" and ctrl.activeProfileName == "Student B"
+        assert ctrl.networkLabel == settings.cloudStatus == "Offline"
+        assert {p["id"] for p in settings.installedPacks} == {pack_b.id}
+        assert {p.id for p in ctrl.ui_controller.question_sets} == {pack_b.id}
+        assert library._selected_pack_id == ""
+        assert ctrl.ui_controller.application.engine.attempt is None
+        assert not library.canResume
+        assert len(assessment.historyList) == 1
+        assert assessment.historyList[0]["title"] == "Maya Biology"
+        assert repo.find_in_progress_attempt("a").id == attempt.id
+        assert repo.get_setting("last_active_profile_id") == "b"
+        profiles.switchProfile()
+        profiles.cancelSwitch()
+        assert ctrl.activeProfileName == "Student B" and ctrl.screen == "home"
+        profiles.switchProfile()
+        profiles.selectProfile(0)
+        assert library.canResume
+        assert ctrl.ui_controller.application.resume_attempt("a").id == attempt.id
+        assert repo.get_attempt_responses(attempt.id)[0].selected_key == "A"
+        ctrl.navigate("question")
+        profiles.switchProfile()
+        profiles.selectProfile(1)
+        assert ctrl.activeProfileName == "Student A" and ctrl.screen == "question"
+        ctrl.goHome()
+        profiles.switchProfile()
+        profiles.selectProfile(1)
+        # A complete cloud snapshot archives B while it was selected.
+        repo.set_setting("account_profiles", json.dumps({"profiles": [{"local_profile_id": "a"}]}))
+        ctrl._on_tick()
+        assert ctrl.screen == "profile_picker"
+        assert [p["id"] for p in profiles.profiles] == ["a"]
+        profiles.selectProfile(1)
+        assert ctrl.screen == "profile_picker"
+        ctrl.close()
+
+
+def test_authenticated_contact_notifies_header_and_settings_without_restart(qapp, tmp_path):
+    import httpx
+
+    from app.api.client import DeviceApi
+    from app.auth.credentials import DeviceCredential
+    from app.data.repo import Repository
+
+    path = tmp_path / "status.db"
+    config = AppConfig(database_path=path, api_base_url="https://cloud.test")
+    store = CredentialStore(tmp_path / "credentials.json")
+    store.save(DeviceCredential("device", "token"))
+    with Repository(path) as repo:
+        ctrl = AppController(path, config, store)
+        ctrl.device.start = lambda *args, **kwargs: None
+        ctrl.startup_session.repository = repo
+        ctrl.startup_session.complete = True
+        ctrl._initialize_runtime()
+        settings = SettingsController(ctrl)
+        notifications = []
+        settings.wifiChanged.connect(lambda: notifications.append(True))
+        ctrl._on_tick()
+        notifications.clear()
+        api = DeviceApi(config, store=store, transport=httpx.MockTransport(lambda request:
+            httpx.Response(200, json={"schema_version": 1, "packs": []})))
+        with api.content() as client:
+            client.fetch_catalog()
+        ctrl._on_tick()
+        assert notifications
+        assert ctrl.networkLabel == settings.cloudStatus == "Online"
+        assert ctrl.isOnline
+        ctrl.close()
+
+
+def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path):
+    import hashlib
+
+    from app.data.repo import Repository
+    from tests.content.test_profile_library import setup
+
+    path = tmp_path / "profiles.db"
+    with Repository(path) as repo:
+        setup(repo)
+        repo.set_setting("last_active_profile_id", "b")
+        digest = hashlib.pbkdf2_hmac("sha256", b"1234", b"salt", 100000).hex()
+        repo._connection.execute("UPDATE profiles SET pin_hash=?, pin_salt='salt' WHERE id='a'",
+                                 ("pbkdf2_sha256$100000$" + digest,))
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"))
+        ctrl.startup_session.repository = repo
+        ctrl.startup_session.complete = True
+        ctrl._initialize_runtime()
+        profiles = ProfileController(ctrl)
+        assert ctrl.ui_controller.selected_profile.id == "b"
+        assert ctrl.screen == "profile_picker"  # Highlight only; preserve shared-device picker.
+        profiles.selectProfileId("a")
+        assert profiles.pinLocked
+        profiles.submitPin("1234")
+        assert ctrl.activeProfileName == "Student A" and ctrl.screen == "home"
+        profiles.switchProfile()
+        profiles.selectProfileId("a")
+        assert profiles.pinLocked
+        context = repo.get_profile_link_context("a")
+        p = repo.get_profile("a")
+        repo.apply_profile_link("a", {"status": "revoked", "local_profile_id": "a",
+            "link_id": context["link_id"], "student_account_id": p.cloud_account_id,
+            "study_profile_id": p.cloud_profile_id, "account_display_name": "Account",
+            "study_profile_name": "A"})
+        profiles.submitPin("1234")
+        assert not profiles.pinLocked
+        assert [p["id"] for p in profiles.profiles] == ["b"]
+        profiles.selectProfileId("a")
+        assert ctrl.screen == "profile_picker"
+        ctrl.close()
+
+    with Repository(path) as repo:
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"))
+        ctrl.startup_session.repository = repo
+        ctrl.startup_session.complete = True
+        ctrl._initialize_runtime()
+        assert ctrl.screen == "profile_picker"
+        assert ctrl.ui_controller.selected_profile.id == "b"
         ctrl.close()

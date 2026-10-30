@@ -97,6 +97,7 @@ class DeviceStatus:
     offline_assessment_ready: bool
     attempts: tuple[AttemptSummary, ...]
     network: NetworkStatus
+    cloud_status: str = "Checking…"
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -224,6 +225,8 @@ def collect_device_status(
     update = update_manager.metadata()
     content = _parse_json(repository.get_setting("last_content_sync_status"))
     persisted_failure = _parse_json(repository.get_setting("last_sync_failure"))
+    from app.connectivity import cloud_label
+
     selected_network = network or NetworkStatus()
     auth_required = int(sync["auth_required"])
     codes: list[str] = []
@@ -302,6 +305,7 @@ def collect_device_status(
         offline_assessment_ready=quick.ok and bool(installed),
         attempts=attempts,
         network=selected_network,
+        cloud_status=cloud_label(repository),
     )
 
 

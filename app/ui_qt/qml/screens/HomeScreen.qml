@@ -31,6 +31,8 @@ Rectangle {
 
             AppHeader {
                 width: parent.width
+                allowProfileSwitch: true
+                onSwitchProfileClicked: profileController.switchProfile()
                 profileText: appController.activeProfileName + (appController.activeProfileGrade.length > 0 ? " • " + appController.activeProfileGrade : "")
                 networkText: appController.networkLabel
                 syncText: appController.syncLabel

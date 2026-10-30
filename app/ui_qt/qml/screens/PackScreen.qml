@@ -30,6 +30,7 @@ Rectangle {
             AppHeader {
                 width: parent.width
                 title: libraryController.selectedChapter.length > 0 ? libraryController.selectedChapter : libraryController.selectedSubject
+                profileText: appController.activeProfileName
                 networkText: appController.networkLabel
                 syncText: appController.syncLabel
                 isOnline: appController.isOnline

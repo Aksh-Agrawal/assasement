@@ -1,5 +1,6 @@
 """Central Application Controller bridging device services to QML views."""
 
+import json
 import logging
 from pathlib import Path
 
@@ -26,6 +27,8 @@ class AppController(QObject):
     def __init__(self, database_path: Path, config: AppConfig = None, credentials: CredentialStore = None, parent=None):
         super().__init__(parent)
         self.database_path = Path(database_path)
+        from app.connectivity import record_cloud
+        record_cloud(self.database_path, "Checking…")
         self.config = config or AppConfig(database_path=self.database_path)
         self.credentials = credentials or CredentialStore(
             self.config.credential_path if self.database_path == self.config.database_path
@@ -85,7 +88,9 @@ class AppController(QObject):
     @Property(str, notify=activeProfileChanged)
     def activeProfileGrade(self) -> str:
         if self.ui_controller and self.ui_controller.selected_profile:
-            return getattr(self.ui_controller.selected_profile, "grade", "") or "Primary"
+            cached = json.loads(self.repository.get_setting("account_profiles") or "{}")
+            return next((p.get("exam_context", "") for p in cached.get("profiles", [])
+                         if p["local_profile_id"] == self.ui_controller.selected_profile.id), "")
         return ""
 
     @Property(str, notify=statusChanged)
@@ -187,6 +192,12 @@ class AppController(QObject):
             self.ui_controller = UIController(self.repository, startup=True, device=self.device)
             self.ui_controller.startup_rows = tuple(self.startup_session.rows)
             self.ui_controller.finish_splash()
+            last = self.repository.get_setting("last_active_profile_id")
+            for index, profile in enumerate(self.ui_controller.profiles):
+                if profile.id == last:
+                    self.ui_controller.profile_index = index
+                    self.ui_controller.refresh_catalog()
+                    break
 
             # Route to next appropriate screen
             if self.ui_controller.screen is UIScreen.RECOVERY:
@@ -296,8 +307,25 @@ class AppController(QObject):
             ctrl_updated = self.ui_controller.tick()
 
         if device_updated or ctrl_updated or content_updated:
+            if self.ui_controller:
+                self.ui_controller.refresh_catalog()
+            if device_updated and self.device.operation == "account_create" and not self.device.failure:
+                self.navigate("profile_picker")
             if getattr(self, "library_controller", None):
                 self.library_controller.refreshLibrary()
+            if self.ui_controller:
+                active = getattr(self, "_active_profile_id", None)
+                if active and active not in {p.id for p in self.ui_controller.profiles}:
+                    self.ui_controller.application.pause()
+                    from app.assessment import AssessmentApplication
+                    self.ui_controller.application = AssessmentApplication(self.repository)
+                    self._active_profile_id = None
+                    if getattr(self, "assessment_controller", None):
+                        self.assessment_controller.resetProfileState()
+                    self.navigate("profile_picker")
+                self.activeProfileChanged.emit()
+            if getattr(self, "profile_controller", None):
+                self.profile_controller.profilesChanged.emit()
             self.statusChanged.emit()
             if self.device.message:
                 self.showNotification(self.device.message, "info")

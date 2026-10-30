@@ -117,7 +117,7 @@ def test_student_flow_real_engine_result_review_and_offline_history(tmp_path):
         choose(controller, "route", UIScreen.PROGRESS)
         assert len(controller.history_items) == 1
         assert controller.history_items[0].score == 80
-        assert controller.network_label == "Cloud: Unverified"
+        assert controller.network_label == "Checking…"
 
 
 def test_restart_retains_answer_confidence_flag_order_and_original_version(tmp_path):

@@ -164,6 +164,9 @@ class DeviceConsole:
             elif op == "network":
                 self.wifi_connected, self.network, self.internet_status = value
                 self.network_checked_at = time.monotonic()
+                if hasattr(self, "database_path"):
+                    from app.connectivity import record_probe
+                    record_probe(self.database_path, self.network)
                 self.message = (
                     f"Internet: {self.internet_status}. Cloud: "
                     + ("not checked" if not self.network.checked else

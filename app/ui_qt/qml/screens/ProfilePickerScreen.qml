@@ -12,10 +12,22 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "Who's studying today?"
+        title: profileController.switchMode ? "Switch Study Profile" : "Who's studying today?"
+        showBack: profileController.switchMode
+        onBackClicked: profileController.cancelSwitch()
         networkText: appController.networkLabel
         syncText: appController.syncLabel
         isOnline: appController.isOnline
+    }
+
+    SecondaryButton {
+        visible: profileController.switchMode
+        text: "Cancel"
+        preferredHeight: 48
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 12
+        onClicked: profileController.cancelSwitch()
     }
 
     Item {
@@ -38,7 +50,7 @@ Rectangle {
                     height: 240
                     interactive: true
                     selected: modelData.isActive
-                    onClicked: profileController.selectProfile(modelData.index)
+                    onClicked: profileController.selectProfileId(modelData.id)
 
                     Column {
                         anchors.centerIn: parent
@@ -109,10 +121,10 @@ Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: parent.width
                             preferredHeight: 44
-                            text: "Continue →"
+                            text: modelData.isActive && profileController.switchMode ? "Currently using" : "Use this profile"
                             buttonColor: modelData.isActive ? Theme.primary : Theme.surfaceActive
                             textColor: modelData.isActive ? Theme.textOnPrimary : Theme.textPrimary
-                            onClicked: profileController.selectProfile(modelData.index)
+                            onClicked: profileController.selectProfileId(modelData.id)
                         }
                     }
                 }

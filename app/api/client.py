@@ -27,10 +27,14 @@ class DeviceApi:
             raise ValueError("Set ASSESS_API_URL before using cloud services")
         self.config = config
         self.store = store or CredentialStore(config.credential_path)
-        self.transport = transport
+        from app.connectivity import ObservedTransport
+        self.transport = ObservedTransport(config.database_path, transport)
 
     def _token(self) -> str | None:
         credential = self.store.load_safe()
+        if not credential:
+            from app.connectivity import record_cloud
+            record_cloud(self.config.database_path, "Authentication required")
         return credential.token if credential else None
 
     def pairing(self) -> PairingClient:

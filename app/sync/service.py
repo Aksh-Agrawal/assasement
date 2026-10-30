@@ -6,6 +6,7 @@ import shutil
 import signal
 import threading
 import time
+from datetime import UTC, datetime
 
 from app.api.client import DeviceApi
 from app.api.heartbeat import Heartbeat
@@ -20,6 +21,7 @@ LOGGER = logging.getLogger(__name__)
 def run_cycle(config: AppConfig, *, heartbeat: bool = True, refresh: bool = False):
     if not config.api_base_url:
         return
+    started_at = datetime.now(UTC).isoformat()
     api = DeviceApi(config)
     if not api.store.load_safe():
         return
@@ -82,6 +84,13 @@ def run_cycle(config: AppConfig, *, heartbeat: bool = True, refresh: bool = Fals
                 finally:
                     if client is not None:
                         client.close()
+        from app.connectivity import cloud_state
+        contact = cloud_state(repository)
+        if (contact.get("state") == "Online"
+                and contact.get("last_cloud_success", "") >= started_at
+                and not (result.authentication_failures or result.permanent_failures
+                         or result.transient_failures)):
+            repository.set_setting("last_sync_success", datetime.now(UTC).isoformat())
         return result
 
 

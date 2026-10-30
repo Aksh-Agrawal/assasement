@@ -54,6 +54,7 @@ class SyncWorker:
 
     def run_sync_once(self) -> SyncCycleResult:
         """Recover stale work and process at most one configured batch without sleeping."""
+        self.repository.set_setting("connectivity_sync", "Syncing")
         now = self.clock()
         self.repository.set_setting("last_sync_attempt", now.isoformat())
         recovered = self.repository.recover_stale_syncing(
@@ -115,6 +116,10 @@ class SyncWorker:
                 counts["synced"] += 1
                 LOGGER.info("sync upload success attempt_id=%s", attempt.id)
 
+        self.repository.set_setting("connectivity_sync",
+            "Authentication required" if counts["authentication_failures"] else
+            "Failed" if counts["permanent_failures"] or counts["transient_failures"] else
+            "Up to date")
         return SyncCycleResult(
             recovered_stale=recovered,
             selected=len(attempts),

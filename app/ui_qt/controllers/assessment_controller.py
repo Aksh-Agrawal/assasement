@@ -39,6 +39,18 @@ class AssessmentController(QObject):
         self._countdown_timer.setInterval(1000)
         self._countdown_timer.timeout.connect(self._on_timer_second)
 
+    def resetProfileState(self):
+        self._countdown_timer.stop()
+        self._active = self._timer_enabled = False
+        self._timer_seconds = 0
+        self._subject = self._chapter = ""
+        self._review_items = []
+        self._result_cache = None
+        self._selected_review_index = 0
+        for signal in (self.questionChanged, self.timerChanged, self.navigatorChanged,
+                       self.resultChanged, self.reviewChanged, self.historyChanged):
+            signal.emit()
+
     # -------------------------------------------------------------------------
     # Active Question Properties
     # -------------------------------------------------------------------------

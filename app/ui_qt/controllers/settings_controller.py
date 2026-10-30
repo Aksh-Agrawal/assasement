@@ -1,7 +1,6 @@
 """Settings Controller managing Wi-Fi, Sync, Account Pairing, Updates, and Diagnostics."""
 
 import shutil
-import time
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
@@ -21,10 +20,14 @@ class SettingsController(QObject):
     def __init__(self, app_controller: AppController, parent=None):
         super().__init__(parent)
         self.app = app_controller
+        self.app.statusChanged.connect(self.wifiChanged.emit)
+        self.app.statusChanged.connect(self.syncChanged.emit)
+        self.app.activeProfileChanged.connect(self.accountChanged.emit)
+        self.app.activeProfileChanged.connect(self.instituteChanged.emit)
+        self.app.activeProfileChanged.connect(self.storageChanged.emit)
         self._diagnostics_data = None
         self._pairing_code = ""
         self._pairing_status = "idle"
-        self._last_sync_time = "Never"
 
     # -------------------------------------------------------------------------
     # Wi-Fi & Network Properties
@@ -49,15 +52,7 @@ class SettingsController(QObject):
 
     @Property(str, notify=wifiChanged)
     def cloudStatus(self) -> str:
-        if self.app.device and self.app.device.network:
-            if not self.app.device.network.checked:
-                return "Not checked"
-            if not self.app.device.network.backend_reachable:
-                return "Unreachable"
-            if self.app.device.network.database_ready:
-                return "Ready"
-            return "Reachable, not ready"
-        return "Available" if self.app.isOnline else "Unavailable"
+        return self.app.networkLabel
 
     @Property(list, notify=wifiChanged)
     def availableNetworks(self) -> list:
@@ -87,13 +82,12 @@ class SettingsController(QObject):
     # -------------------------------------------------------------------------
     @Property(bool, notify=syncChanged)
     def isSyncing(self) -> bool:
-        if self.app.device:
-            return self.app.device.operation == "sync" and self.app.device.busy
-        return False
+        return self.app.syncLabel == "Syncing"
 
     @Property(str, notify=syncChanged)
     def lastSyncTime(self) -> str:
-        return self._last_sync_time
+        value = self.app.repository.get_setting("last_sync_success") if self.app.repository else None
+        return value or "Never"
 
     @Property(int, notify=syncChanged)
     def pendingAttemptsCount(self) -> int:
@@ -217,7 +211,7 @@ class SettingsController(QObject):
 
     @Property(str, notify=diagnosticsChanged)
     def overallHealth(self) -> str:
-        return "Everything looks good!"
+        return self.app.networkLabel
 
     @Property(str, notify=diagnosticsChanged)
     def deviceId(self) -> str:
@@ -253,7 +247,6 @@ class SettingsController(QObject):
     def startSync(self):
         if self.app.device:
             self.app.device.start("sync")
-            self._last_sync_time = time.strftime("%H:%M")
             self.app.showNotification("Syncing assessments…", "info")
             self.syncChanged.emit()
 

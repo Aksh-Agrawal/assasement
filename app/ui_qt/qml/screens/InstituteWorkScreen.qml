@@ -30,6 +30,7 @@ Rectangle {
             AppHeader {
                 width: parent.width
                 title: "Institute Work & Homework"
+                profileText: appController.activeProfileName
                 networkText: appController.networkLabel
                 syncText: appController.syncLabel
                 isOnline: appController.isOnline

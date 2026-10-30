@@ -131,6 +131,7 @@ class Repository:
         device_id: str | None = None,
         fault_hook: FaultHook = no_fault,
     ) -> None:
+        self.database_path = database_path
         try:
             self._connection = connect_database(database_path)
         except sqlite3.DatabaseError as error:
