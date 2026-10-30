@@ -1,4 +1,7 @@
 """Profile-specific eligibility around the existing exact-byte installation pipeline."""
+import json
+
+from app.content.catalog import RemotePack
 from app.content.client import ContentAuthError, ContentProtocolError
 from app.content.sync import ContentSyncStatus, PackSyncResult, _install_one
 
@@ -59,21 +62,61 @@ def download_for_profile(repository, client, profile_id, link_id, pack, *,
 
 def sync_profile_deliveries(repository, api, config):
     """Bounded rotating work prevents one profile or cached pack starving another."""
-    import json
     jobs = []
+    failures = 0
     for profile in repository.list_profiles():
         context = repository.get_profile_link_context(profile.id)
         if profile.link_state != "linked" or not context:
             continue
         try:
             with api.content(local_profile_id=profile.id, link_id=context["link_id"]) as client:
-                packs = refresh_library(repository, client, profile.id, context["link_id"])
-                jobs.extend((profile.id, context["link_id"], pack) for pack in packs)
+                changes = client.fetch_changes() if hasattr(client, "fetch_changes") else None
+                key = "profile_manifest:" + context["link_id"]
+                cached = json.loads(repository.get_setting(key) or "{}")
+                removals = changes.get("removals", []) if changes else []
+                for operation in removals:
+                    client.acknowledge_removal(operation, "device_seen")
+                    client.acknowledge_removal(operation, "removing")
+                if changes is None or changes["snapshot_token"] != cached.get("token") or removals:
+                    try:
+                        packs = refresh_library(repository, client, profile.id, context["link_id"])
+                    except Exception:
+                        for operation in removals:
+                            try:
+                                client.acknowledge_removal(operation, "failed")
+                            except Exception:
+                                pass  # The persisted operation is retried after reconnection.
+                        raise
+                    if changes:
+                        repository.set_setting(key, json.dumps({"token": changes["snapshot_token"],
+                                                               "packs": client.catalog_metadata}))
+                else:
+                    packs = tuple(RemotePack.from_dict(p) for p in cached.get("packs", []))
+                    repository.cache_profile_library(profile.id, context["link_id"], cached.get("packs", []))
+                try:
+                    for operation in removals:
+                        if any(p["set_id"] == operation["set_id"]
+                               for p in repository.profile_library_catalog(profile.id)):
+                            raise ContentProtocolError("Removal is inconsistent with desired catalogue")
+                        repository.reconcile_content_state(profile.id)
+                        client.acknowledge_removal(operation, "removed")
+                except Exception:
+                    for operation in removals:
+                        try:
+                            client.acknowledge_removal(operation, "failed")
+                        except Exception:
+                            pass
+                    raise
+                states = {i["set_id"]: i["status"] for i in changes.get("installations", [])} if changes else {}
+                jobs.extend((profile.id, context["link_id"], pack) for pack in packs
+                            if states.get(pack.set_id) != "installed"
+                            or repository.get_question_set(pack.set_id, pack.version) is None)
         except Exception as error:
+            failures += 1
             repository.set_setting("last_profile_library_check",
                                    json.dumps({"state": "UNAVAILABLE", "kind": type(error).__name__}))
     if not jobs:
-        return
+        return failures == 0
     try:
         cursor = int(repository.get_setting("profile_library_delivery_cursor") or "0") % len(jobs)
     except (ValueError, TypeError):
@@ -83,10 +126,15 @@ def sync_profile_deliveries(repository, api, config):
         profile_id, link_id, pack = jobs[(cursor + i) % len(jobs)]
         try:
             with api.content(local_profile_id=profile_id, link_id=link_id) as client:
-                download_for_profile(repository, client, profile_id, link_id, pack,
+                result = download_for_profile(repository, client, profile_id, link_id, pack,
                     temp_directory=config.content_download_directory,
                     max_pack_bytes=config.content_max_pack_bytes)
+                if result.status not in {ContentSyncStatus.INSTALLED, ContentSyncStatus.ALREADY_PRESENT}:
+                    failures += 1
         except Exception as error:
+            failures += 1
             repository.set_setting("last_profile_library_check",
                                    json.dumps({"state": "UNAVAILABLE", "kind": type(error).__name__}))
     repository.set_setting("profile_library_delivery_cursor", str((cursor + count) % len(jobs)))
+
+    return failures == 0

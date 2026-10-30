@@ -177,8 +177,8 @@ def test_v4_migration_keeps_shared_legacy_profiles_and_content(tmp_path):
     con = connect_database(path)
     assert run_migrations(con, old) == 4
     con.execute("INSERT INTO profiles(id,display_name,created_at) VALUES ('old','Old','2026-10-28T00:00:00Z')")
-    assert run_migrations(con) == 6
-    assert run_migrations(con) == 6
+    assert run_migrations(con) == 7
+    assert run_migrations(con) == 7
     con.close()
     with Repository(path) as repo:
         assert repo.get_profile("old").ownership_state == "legacy_unclaimed"

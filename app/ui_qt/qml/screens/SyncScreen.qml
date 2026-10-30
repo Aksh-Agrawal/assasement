@@ -36,7 +36,7 @@ Rectangle {
                 id: contentCol
                 anchors.centerIn: parent
                 width: parent.width - 48
-                spacing: 16
+                spacing: 10
 
                 // Status Icon & Title
                 Row {
@@ -63,9 +63,7 @@ Rectangle {
                         spacing: 2
 
                         Text {
-                            text: settingsController.pendingAttemptsCount > 0
-                                ? settingsController.pendingAttemptsCount + " Assessments Waiting to Sync"
-                                : "All Progress Up to Date!"
+                            text: settingsController.syncStatusSummary
                             color: Theme.textPrimary
                             font.pixelSize: Theme.fontSizeHeading
                             font.bold: true
@@ -94,7 +92,7 @@ Rectangle {
                         Text { text: "Cloud Status"; color: Theme.textSecondary; font.pixelSize: 13 }
                         StatusBadge {
                             text: settingsController.cloudStatus
-                            statusType: settingsController.cloudStatus === "Ready" || settingsController.cloudStatus === "Available" ? "success" : "neutral"
+                            statusType: settingsController.cloudStatus === "Online" ? "success" : "neutral"
                         }
                     }
 
@@ -112,12 +110,27 @@ Rectangle {
 
                     Column {
                         spacing: 2
-                        Text { text: "Sync Policy"; color: Theme.textSecondary; font.pixelSize: 13 }
-                        Text { text: "Automatic on Wi-Fi"; color: Theme.textPrimary; font.bold: true; font.pixelSize: 15 }
+                        Text { text: "Next automatic sync"; color: Theme.textSecondary; font.pixelSize: 13 }
+                        Text { text: settingsController.nextAutomaticSync; color: Theme.textPrimary; font.bold: true; font.pixelSize: 15 }
                     }
                 }
 
-                Item { width: 1; height: 6 }
+                Row {
+                    spacing: 12
+                    SecondaryButton {
+                        text: "Automatic Sync: " + (settingsController.automaticSync ? "ON" : "OFF")
+                        preferredHeight: 48
+                        onClicked: settingsController.setAutomaticSync(!settingsController.automaticSync)
+                    }
+                    Text {
+                        width: 270
+                        wrapMode: Text.WordWrap
+                        text: "Automatically keep profiles, practice sets and results up to date."
+                        font.pixelSize: Theme.fontSizeCaption
+                        color: Theme.textSecondary
+                    }
+                }
+
 
                 PrimaryButton {
                     anchors.horizontalCenter: parent.horizontalCenter

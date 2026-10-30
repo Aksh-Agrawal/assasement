@@ -127,19 +127,30 @@ def run_migrations(
         if version <= current_version:
             continue
         sql = path.read_text(encoding="utf-8")
+        rebuild = "-- requires_foreign_keys_off" in sql
+        if rebuild and connection.in_transaction:
+            raise MigrationError("Table rebuild requires no active transaction")
+        foreign_keys = connection.execute("PRAGMA foreign_keys").fetchone()[0]
+        if rebuild:
+            connection.execute("PRAGMA foreign_keys = OFF")
         script = (
             "BEGIN IMMEDIATE;\n"
             f"{sql}\n"
             "INSERT INTO schema_meta(key, value) VALUES ('schema_version', "
             f"'{version}') ON CONFLICT(key) DO UPDATE SET value = excluded.value;\n"
-            "COMMIT;"
         )
         try:
             connection.executescript(script)
-        except sqlite3.Error:
+            if rebuild and connection.execute("PRAGMA foreign_key_check").fetchall():
+                raise MigrationError("Foreign-key check failed during table rebuild")
+            connection.commit()
+        except (sqlite3.Error, MigrationError):
             if connection.in_transaction:
                 connection.rollback()
             raise
+        finally:
+            if rebuild:
+                connection.execute(f"PRAGMA foreign_keys = {int(foreign_keys)}")
         current_version = version
     return current_version
 

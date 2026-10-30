@@ -69,10 +69,9 @@
         },
         "subject": {
           "type": "string",
-          "enum": [
-            "Biology",
-            "Chemistry"
-          ]
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "\\S"
         },
         "chapter": {
           "type": "string",

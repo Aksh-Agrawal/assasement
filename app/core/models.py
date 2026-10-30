@@ -139,8 +139,9 @@ class QuestionSet:
             or self.version < 1
         ):
             raise ValueError("Question-set version must be a positive integer")
-        if self.subject not in {"Biology", "Chemistry"}:
-            raise ValueError("Question-set subject must be Biology or Chemistry")
+        _require_text("Question-set subject", self.subject)
+        if len(self.subject) > 64:
+            raise ValueError("Question-set subject must be at most 64 characters")
 
         questions = tuple(self.questions)
         object.__setattr__(self, "questions", questions)

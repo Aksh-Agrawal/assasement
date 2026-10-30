@@ -146,6 +146,12 @@ class DeviceConsole:
                 self.message = "Pairing cancelled."
                 return True
             op = self.operation
+            if hasattr(self, "database_path") and (
+                    op in {"account_sync", "account_create"} or
+                    (op == "wifi_connect" and value) or
+                    (op == "network" and value[1].backend_reachable)):
+                from app.data.scheduler_state import request_sync
+                request_sync(self.database_path)
             if op in {"account_sync", "account_create"}:
                 self.account_verified = True
             elif op == "account_disconnect":

@@ -21,8 +21,8 @@ def test_v2_migration_preserves_every_legacy_row_and_is_repeatable(tmp_path):
         "VALUES ('legacy', 'Student', 'arbitrary-legacy-string', '2026-10-17T06:00:00Z')"
     )
     before = tuple(connection.execute("SELECT * FROM profiles").fetchone())
-    assert run_migrations(connection) == 6
-    assert run_migrations(connection) == 6
+    assert run_migrations(connection) == 7
+    assert run_migrations(connection) == 7
     after = tuple(connection.execute("SELECT * FROM profiles").fetchone())
     assert after[:len(before)] == before
     connection.close()

@@ -693,3 +693,26 @@ def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path):
         assert ctrl.screen == "profile_picker"
         assert ctrl.ui_controller.selected_profile.id == "b"
         ctrl.close()
+
+
+def test_auto_sync_toggle_persists_and_manual_sync_remains_available(qapp, tmp_path):
+    from unittest.mock import Mock
+
+    from app.data.repo import Repository
+
+    path = tmp_path / "toggle.db"
+    with Repository(path) as repo:
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"))
+        ctrl.repository = repo
+        settings = SettingsController(ctrl)
+        assert settings.automaticSync
+        settings.setAutomaticSync(False)
+        assert not settings.automaticSync
+        assert settings.nextAutomaticSync == "Off"
+        ctrl.device.start = Mock()
+        settings.startSync()
+        ctrl.device.start.assert_called_once_with("sync")
+        assert repo.get_setting("automatic_sync") == "0"
+        ctrl._poll_timer.stop()
+    with Repository(path) as repo:
+        assert repo.get_setting("automatic_sync") == "0"

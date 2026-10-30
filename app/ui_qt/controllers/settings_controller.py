@@ -2,7 +2,7 @@
 
 import shutil
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from app.ui_qt.controllers.app_controller import AppController
 from app.version import __version__
@@ -25,6 +25,10 @@ class SettingsController(QObject):
         self.app.activeProfileChanged.connect(self.accountChanged.emit)
         self.app.activeProfileChanged.connect(self.instituteChanged.emit)
         self.app.activeProfileChanged.connect(self.storageChanged.emit)
+        self._sync_countdown = QTimer(self)
+        self._sync_countdown.setInterval(1000)
+        self._sync_countdown.timeout.connect(self.syncChanged.emit)
+        self._sync_countdown.start()
         self._diagnostics_data = None
         self._pairing_code = ""
         self._pairing_status = "idle"
@@ -81,13 +85,46 @@ class SettingsController(QObject):
     # Sync Properties
     # -------------------------------------------------------------------------
     @Property(bool, notify=syncChanged)
+    def automaticSync(self):
+        return not self.app.repository or self.app.repository.get_setting("automatic_sync") != "0"
+
+    @Slot(bool)
+    def setAutomaticSync(self, enabled):
+        if self.app.repository:
+            self.app.repository.set_setting("automatic_sync", "1" if enabled else "0")
+        self.syncChanged.emit()
+
+    @Property(str, notify=syncChanged)
+    def nextAutomaticSync(self):
+        from datetime import UTC, datetime
+        if not self.automaticSync:
+            return "Off"
+        value = self.app.repository.get_setting("next_automatic_sync") if self.app.repository else None
+        try:
+            seconds = max(0, int((datetime.fromisoformat(value) - datetime.now(UTC)).total_seconds()))
+            return f"In {seconds} seconds" if seconds else "Due now"
+        except (TypeError, ValueError):
+            return "Starting…"
+
+    @Property(bool, notify=syncChanged)
     def isSyncing(self) -> bool:
         return self.app.syncLabel == "Syncing"
 
     @Property(str, notify=syncChanged)
     def lastSyncTime(self) -> str:
         value = self.app.repository.get_setting("last_sync_success") if self.app.repository else None
-        return value or "Never"
+        if not value:
+            return "Never"
+        from datetime import UTC, datetime
+        try:
+            elapsed = max(0, int((datetime.now(UTC) - datetime.fromisoformat(value)).total_seconds()))
+            if elapsed < 60:
+                return "Just now"
+            if elapsed < 3600:
+                return f"{elapsed // 60} minutes ago"
+            return datetime.fromisoformat(value).strftime("%d %b %H:%M")
+        except (TypeError, ValueError):
+            return "Never"
 
     @Property(int, notify=syncChanged)
     def pendingAttemptsCount(self) -> int:

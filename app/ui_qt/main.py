@@ -96,9 +96,15 @@ def run(
         app_controller.close()
         return 0
 
+    from dataclasses import replace
+
+    from app.sync.scheduler import AutoSyncScheduler
+    scheduler = AutoSyncScheduler(replace(config, database_path=database_path, credential_path=credentials.path))
+    scheduler.start()
     try:
         return app.exec()
     finally:
+        scheduler.close()
         app_controller.close()
 
 

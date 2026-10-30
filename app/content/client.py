@@ -116,6 +116,25 @@ class ContentApiClient:
         self.catalog_metadata = packs
         return ContentCatalog.from_dict({"schema_version": 1, "packs": packs})
 
+    def fetch_changes(self):
+        response = self._client.get(f"/api/v1/profile-content/{self.link_id}/operations",
+            params={"local_profile_id": self.local_profile_id})
+        if response.status_code == 404:
+            return None  # Compatible with a cloud rollout preceding/following the Pi.
+        self._check_response(response)
+        body = json_object(response)
+        if "snapshot_token" not in body or "removals" not in body:
+            return None  # Never interpret an old response as an empty authoritative catalogue.
+        return body
+
+    def acknowledge_removal(self, operation, status):
+        response = self._client.post(
+            f"/api/v1/profile-content/{self.link_id}/operations/{operation['id']}/status",
+            json={"local_profile_id": self.local_profile_id, "revision": operation["revision"],
+                  "status": status, **({"error_code": "LOCAL_RECONCILIATION_FAILED"}
+                                       if status == "failed" else {})})
+        self._check_response(response)
+
     def acknowledge(self, pack, status):
         if self.profile_scoped:
             response = self._client.post(f"/api/v1/profile-content/{self.link_id}/status", json={

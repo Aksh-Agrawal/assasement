@@ -16,6 +16,8 @@ class Heartbeat:
     free_storage_bytes: int
     diagnostic_summary: Literal["OK", "DEGRADED", "ACTION_REQUIRED", "ERROR"] = "OK"
 
+    auto_sync_enabled: bool | None = None
+
     def to_dict(self) -> dict[str, str | int]:
         if self.diagnostic_summary not in {"OK", "DEGRADED", "ACTION_REQUIRED", "ERROR"}:
             raise ValueError("Heartbeat diagnostic summary must be a safe health level")
@@ -31,13 +33,16 @@ class Heartbeat:
             )
         ):
             raise ValueError("Heartbeat counts must be non-negative integers")
-        return {
+        result = {
             "software_version": self.software_version,
             "installed_pack_count": self.installed_pack_count,
             "pending_attempt_count": self.pending_attempt_count,
             "free_storage_bytes": self.free_storage_bytes,
             "diagnostic_summary": self.diagnostic_summary,
         }
+        if self.auto_sync_enabled is not None:
+            result["auto_sync_enabled"] = self.auto_sync_enabled
+        return result
 
 
 class HeartbeatClient:

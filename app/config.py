@@ -48,10 +48,10 @@ class AppConfig:
         default_factory=lambda: float(os.getenv("ASSESS_READ_TIMEOUT", "15.0"))
     )
     sync_interval_seconds: float = field(
-        default_factory=lambda: float(os.getenv("ASSESS_SYNC_INTERVAL", "60"))
+        default_factory=lambda: float(os.getenv("ASSESS_SYNC_INTERVAL", "25"))
     )
     heartbeat_interval_seconds: float = field(
-        default_factory=lambda: float(os.getenv("ASSESS_HEARTBEAT_INTERVAL", "300"))
+        default_factory=lambda: float(os.getenv("ASSESS_HEARTBEAT_INTERVAL", "60"))
     )
     sync_batch_size: int = 10
     sync_max_automatic_retries: int = 5
