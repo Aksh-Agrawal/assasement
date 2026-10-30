@@ -83,3 +83,11 @@ class WifiService:
             return False
         rows = self._run("-t", "-f", "TYPE,STATE", "device", "status")
         return any(self._fields(row)[:2] == ["wifi", "connected"] for row in rows.splitlines())
+
+    def internet_status(self):
+        """NetworkManager's independent connectivity observation, without a new probe."""
+        if not self.available:
+            return "Unknown"
+        value = self._run("-t", "-f", "CONNECTIVITY", "general", "status").strip().lower()
+        return {"full": "Available", "limited": "Limited", "portal": "Sign-in required",
+                "none": "Offline", "unknown": "Unknown"}.get(value, "Unknown")

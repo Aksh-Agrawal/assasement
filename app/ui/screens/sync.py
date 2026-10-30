@@ -1,5 +1,6 @@
 """Document-aligned device screens; all controls emit canonical actions."""
 
+from app.auth.product_state import account_status
 from app.ui.components import (
     choice_button,
     header,
@@ -13,9 +14,9 @@ def render(surface, c, fonts):
     controls = []
     header(surface, controls, "SETTINGS > SYNC", c, fonts)
     rows = (
-        ("Server", "Not configured" if not c.device or not c.device.config.api_base_url
-         else "Reachable" if c.device.network and c.device.network.backend_reachable else "Offline"),
-        ("Pairing", "Paired" if c.device and c.device.credentials.load_safe() else "Not paired"),
+        ("Cloud", c.network_label.removeprefix("Cloud: ")),
+        ("Account connection", account_status(c.repository,
+            verified_this_run=bool(c.device and c.device.account_verified)).split(" - ")[0]),
         ("Completed attempts pending", str(c.pending_sync_count)),
         ("Last successful sync", c.repository.get_setting("last_sync_success") or "Not yet synced"),
     )

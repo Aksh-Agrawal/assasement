@@ -137,6 +137,7 @@ def _install_one(
     *,
     temp_directory: Path,
     max_pack_bytes: int,
+    on_downloaded=None,
 ) -> PackSyncResult:
     temporary: Path | None = None
     LOGGER.info("pack download started set_id=%s version=%d", pack.set_id, pack.version)
@@ -163,6 +164,8 @@ def _install_one(
                 "catalog metadata does not match pack",
             )
         current = repository.get_active_question_set(pack.set_id)
+        if on_downloaded is not None:
+            on_downloaded()
         make_active = current is None or pack.version > current.version
         import_pack(
             temporary,

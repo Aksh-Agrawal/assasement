@@ -21,7 +21,7 @@ def render(surface, c, fonts):
         if c.screen is UIScreen.LINK_PROFILE
         else "PIN UNLOCK"
         if is_pin
-        else "CREATE CLOUD STUDY PROFILE"
+        else "CREATE STUDY PROFILE"
         if c.screen is UIScreen.ADD_PROFILE
         else "WI-FI PASSWORD"
     )

@@ -17,7 +17,7 @@ def render(surface, c, fonts):
         if c.device
         else (
             ("Software", c.software_version),
-            ("Device", c.repository.get_or_create_device_id()[:8]),
+            ("Device", "Assessment Device"),
         )
     )
     for i, (label, value) in enumerate(rows):

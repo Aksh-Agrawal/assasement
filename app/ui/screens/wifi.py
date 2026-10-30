@@ -14,7 +14,9 @@ def render(surface, c, fonts):
         return text_entry.render(surface, c, fonts)
     controls = []
     header(surface, controls, "SETTINGS > WI-FI", c, fonts)
-    text(surface, "Wi-Fi connection and internet reachability are separate.", (24, 74), fonts.body)
+    wifi = "Connected" if c.device and c.device.wifi_connected else "Offline / unverified"
+    internet = c.device.internet_status if c.device else "Unknown"
+    text(surface, f"Wi-Fi: {wifi} / Internet: {internet}", (24, 74), fonts.small)
     if not c.device or not c.device.wifi.available:
         text(
             surface,

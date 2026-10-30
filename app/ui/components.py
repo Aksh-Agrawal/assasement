@@ -54,6 +54,14 @@ def footer(surface, controller, fonts):
             color=THEME.warning,
             max_lines=1,
         )
+    elif controller.selected_profile:
+        pending = controller.pending_sync_count
+        summary = f"Profile: {controller.selected_profile.display_name} / Sync: "
+        summary += f"{pending} pending" if pending else "No pending attempts"
+        if controller.repository.sync_diagnostic_summary()["attention_required"]:
+            summary = "Sync needs attention. Assessment data is retained."
+        paragraph(surface, summary, Rect(24, 422, 752, 22), fonts.small,
+                  color=THEME.muted, max_lines=1)
 
 
 def choice_button(surface, controls, controller, fonts, index, rect, *, primary=False):

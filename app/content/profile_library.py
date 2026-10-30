@@ -3,6 +3,16 @@ from app.content.client import ContentAuthError, ContentProtocolError
 from app.content.sync import ContentSyncStatus, PackSyncResult, _install_one
 
 
+def _report(repository, client, profile_id, pack, status):
+    try:
+        client.acknowledge(pack, status)
+    except ContentAuthError:
+        repository.revoke_profile_library(profile_id)
+    except Exception:
+        # The next rotating delivery cycle rechecks installed bytes and retries.
+        repository.set_setting("delivery_ack_pending", "1")
+
+
 def refresh_library(repository, client, profile_id, link_id):
     try:
         catalog = client.fetch_catalog()
@@ -10,6 +20,8 @@ def refresh_library(repository, client, profile_id, link_id):
         repository.revoke_profile_library(profile_id)
         raise
     repository.cache_profile_library(profile_id, link_id, client.catalog_metadata)
+    for pack in catalog.packs:
+        _report(repository, client, profile_id, pack, "device_seen")
     return catalog.packs
 
 
@@ -27,13 +39,16 @@ def download_for_profile(repository, client, profile_id, link_id, pack, *,
             raise ContentProtocolError("Cached content hash mismatch")
         result = PackSyncResult(pack.set_id, pack.version, ContentSyncStatus.ALREADY_PRESENT)
     else:
+        _report(repository, client, profile_id, pack, "downloading")
         result = _install_one(repository, client, pack, temp_directory=temp_directory,
-                              max_pack_bytes=max_pack_bytes)
+                              max_pack_bytes=max_pack_bytes,
+                              on_downloaded=lambda: _report(
+                                  repository, client, profile_id, pack, "downloaded"))
     if result.status is ContentSyncStatus.AUTH_REQUIRED:
         repository.revoke_profile_library(profile_id)
     # Delivery acknowledgement is distinct from the durable installation and local grant.
     try:
-        client.acknowledge(pack, "downloaded" if result.status in {
+        client.acknowledge(pack, "installed" if result.status in {
             ContentSyncStatus.INSTALLED, ContentSyncStatus.ALREADY_PRESENT} else "failed")
     except ContentAuthError:
         repository.revoke_profile_library(profile_id)

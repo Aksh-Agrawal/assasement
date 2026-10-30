@@ -17,6 +17,10 @@ def test_scale_point_converts_window_to_logical_coordinates() -> None:
         LOGICAL_WIDTH / 2,
         LOGICAL_HEIGHT / 2,
     )
+    # The OS-forced 800x600 display uses the entire logical canvas, including
+    # the bottom controls, and maps touch coordinates back to that canvas.
+    assert scale_point((799, 599), (800, 600)) == (799, 479.2)
+    assert scale_point((400, 300), (800, 600)) == (400, 240)
 
 
 def test_wrap_text_handles_short_long_and_unicode_content() -> None:

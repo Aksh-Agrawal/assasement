@@ -24,6 +24,11 @@ def run_cycle(config: AppConfig, *, heartbeat: bool = True, refresh: bool = Fals
     if not api.store.load_safe():
         return
     with Repository(config.database_path) as repository:
+        if refresh and repository.get_student_account_context():
+            from app.auth.account_device import sync_account
+            # Verification/reconciliation precedes delivery. Failure preserves local work
+            # and stops this cycle rather than uploading under stale relationships.
+            sync_account(config, api.store, repository)
         with api.attempts() as client:
             result = SyncWorker(
                 repository,

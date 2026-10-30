@@ -76,7 +76,7 @@ def test_download_offline_switching_removal_and_pinned_version(tmp_path):
             result = download_for_profile(repo, client, "a", link, RemotePack.from_dict(pack),
                 temp_directory=tmp_path, max_pack_bytes=10**6)
             assert result.status.value == "INSTALLED"
-            assert state["acks"][-1]["status"] == "downloaded"
+            assert [a["status"] for a in state["acks"]][-4:] == ["device_seen", "downloading", "downloaded", "installed"]
             assert len(repo.visible_question_sets("a")) == 1
             assert repo.visible_question_sets("b") == ()
             with pytest.raises(ValueError, match="selected profile"):
@@ -218,9 +218,9 @@ def test_background_delivery_budget_rotates_between_profile_jobs(tmp_path):
                     link_id=link_id, local_profile_id=local_profile_id, transport=transport(state))
         config = AppConfig(content_max_downloads_per_cycle=1, content_download_directory=tmp_path)
         sync_profile_deliveries(repo, Api(), config)
-        assert [a["local_profile_id"] for a in state["acks"]] == ["a"]
+        assert [a["local_profile_id"] for a in state["acks"] if a["status"] == "installed"] == ["a"]
         sync_profile_deliveries(repo, Api(), config)
-        assert [a["local_profile_id"] for a in state["acks"]] == ["a", "b"]
+        assert [a["local_profile_id"] for a in state["acks"] if a["status"] == "installed"] == ["a", "b"]
         assert len(repo.list_question_sets()) == 1
 
 
@@ -239,3 +239,34 @@ def test_download_auth_rejection_revokes_cached_profile_eligibility(tmp_path):
                 temp_directory=tmp_path, max_pack_bytes=10**6)
             assert result.status.value == "AUTH_REQUIRED"
             assert repo.profile_library_catalog("a") == []
+
+
+def test_installed_ack_lost_then_retried_after_restart_without_redownload(tmp_path):
+    data = Path("content/sample_biology.json").read_bytes()
+    item = metadata(data)
+    state = {"data": data, "packs": [item]}
+    base_transport = transport(state)
+    fail_installed = True
+    downloads = []
+    def handler(request):
+        nonlocal fail_installed
+        if "/packs/" in request.url.path:
+            downloads.append(request.url.path)
+        if request.url.path.endswith("/status") and json.loads(request.content)["status"] == "installed" and fail_installed:
+            fail_installed = False
+            raise httpx.ConnectError("lost acknowledgement", request=request)
+        return base_transport.handle_request(request)
+    path = tmp_path / "ack-restart.db"
+    with Repository(path) as repo:
+        link = setup(repo)
+        with ContentApiClient("https://cloud.test", auth_token="device", link_id=link,
+                              local_profile_id="a", transport=httpx.MockTransport(handler)) as client:
+            assert download_for_profile(repo, client, "a", link, RemotePack.from_dict(item),
+                temp_directory=tmp_path, max_pack_bytes=10**6).status.value == "INSTALLED"
+    with Repository(path) as repo:
+        with ContentApiClient("https://cloud.test", auth_token="device", link_id=link,
+                              local_profile_id="a", transport=httpx.MockTransport(handler)) as client:
+            assert download_for_profile(repo, client, "a", link, RemotePack.from_dict(item),
+                temp_directory=tmp_path, max_pack_bytes=10**6).status.value == "ALREADY_PRESENT"
+            assert state["acks"][-1]["status"] == "installed"
+            assert len(downloads) == 1

@@ -94,3 +94,42 @@ def test_cloud_create_never_creates_local_anonymous_profile_on_failure(tmp_path)
                 transport=httpx.MockTransport(lambda request: httpx.Response(409)),
             )
         assert repo.list_profiles() == ()
+
+
+def test_account_labels_require_fresh_verification_and_explain_revocation(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    from app.auth.product_state import account_status
+    now = datetime.now(UTC)
+    with Repository(tmp_path / "status.db") as repo:
+        assert account_status(repo) == "Not connected"
+        repo.cache_student_account_context(str(uuid4()), "Student", last_verified_at=now)
+        repo.set_setting("account_connection_state", "connected")
+        assert account_status(repo) != "Connected"  # Restart cache alone proves nothing.
+        assert account_status(repo, verified_this_run=True, now=now) == "Connected"
+        assert account_status(repo, verified_this_run=True, now=now + timedelta(seconds=180)) != "Connected"
+        assert account_status(repo, busy=True) == "Verifying"
+        repo.set_setting("account_connection_state", "offline_cached")
+        assert account_status(repo).startswith("Offline - last verified")
+        repo.set_setting("account_connection_state", "revoked")
+        assert account_status(repo) == "Reconnection required"
+
+
+def test_account_sync_hides_archived_profiles_without_removing_cached_records(tmp_path):
+    account, pid, lid = str(uuid4()), str(uuid4()), str(uuid4())
+    data = {"account_id": account, "display_name": "Student", "profile_count": 1,
+            "profiles": [{"id": pid, "account_id": account, "name": "NEET",
+                          "local_profile_id": "cloud-" + pid, "link_id": lid}]}
+    store = CredentialStore(tmp_path / "credentials.json")
+    store.save(DeviceCredential(str(uuid4()), "device_test.secret"))
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=data))
+    with Repository(tmp_path / "archive.db") as repo:
+        config = AppConfig(api_base_url="https://example.test")
+        sync_account(config, store, repo, transport=transport)
+        data["profiles"] = []
+        data["profile_count"] = 0
+        sync_account(config, store, repo, transport=transport)
+        controller = UIController(repo, startup=True)
+        controller.finish_splash()
+        assert controller.profiles == ()
+        assert repo.get_profile("cloud-" + pid) is not None

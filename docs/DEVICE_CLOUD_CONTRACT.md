@@ -1,3 +1,5 @@
+> Current product behavior: [Product state and reconciliation contract](PRODUCT_STATE_CONTRACT.md). This phase contract retains legacy protocol details; the current contract supersedes conflicting student workflow, capacity and delivery wording.
+
 # Device/cloud API contract (v1)
 
 The device repository owns its HTTP clients and validation copies of formats. The

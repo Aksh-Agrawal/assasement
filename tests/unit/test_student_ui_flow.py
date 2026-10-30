@@ -117,7 +117,7 @@ def test_student_flow_real_engine_result_review_and_offline_history(tmp_path):
         choose(controller, "route", UIScreen.PROGRESS)
         assert len(controller.history_items) == 1
         assert controller.history_items[0].score == 80
-        assert controller.network_label == "Offline"
+        assert controller.network_label == "Cloud: Offline / unverified"
 
 
 def test_restart_retains_answer_confidence_flag_order_and_original_version(tmp_path):
@@ -583,3 +583,24 @@ def test_unconfigured_network_and_update_actions_are_clear_nonblocking_states(tm
         begin(c)
         assert c.application.engine.state is AssessmentState.IN_QUESTION
         c.close()
+
+
+def test_returning_account_refresh_does_not_interrupt_an_assessment(tmp_path):
+    from concurrent.futures import Future
+    from uuid import uuid4
+
+    path = tmp_path / "background-account.db"
+    with Repository(path) as repo:
+        seed(repo)
+        repo.cache_student_account_context(str(uuid4()), "Student")
+        device = DeviceConsole(path, AppConfig(database_path=path))
+        c = student(repo, device)
+        begin(c)
+        question_id = c.application.current_question().id
+        device.operation = "account_sync"
+        device.future = Future()
+        device.future.set_result((device.generation, {}))
+        c.tick()
+        assert c.screen is UIScreen.QUESTION
+        assert c.application.current_question().id == question_id
+        assert repo.find_in_progress_attempt("test-profile") is not None

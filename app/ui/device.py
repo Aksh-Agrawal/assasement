@@ -4,9 +4,9 @@ Only immutable results cross into the event loop; a network call never blocks
 assessment navigation or borrows its SQLite connection.
 """
 
-import platform
 import shutil
 import threading
+import time
 from concurrent.futures import Future
 from pathlib import Path
 
@@ -45,7 +45,10 @@ class DeviceConsole:
         self.link_error = None
         self.link_result = None
         self.network = None
+        self.network_checked_at = 0.0
+        self.account_verified = False
         self.wifi_connected = False
+        self.internet_status = "Unknown"
         self.diagnostics = None
         self.networks = ()
         self.saved_networks = ()
@@ -121,7 +124,9 @@ class DeviceConsole:
                     if isinstance(error, httpx.RequestError):
                         self.account_message = "Connect to the internet to create a new profile." if operation == "account_create" else "Network unavailable. Cached study profiles remain usable offline."
                     elif isinstance(error, httpx.HTTPStatusError) and error.response.status_code == 409:
-                        self.account_message = "Profile limit reached: 3 / 3 profiles. Archived profiles count."
+                        self.account_message = "Profile limit reached: 3 / 3 active Study Profiles. Archive a profile on the website first."
+                    elif isinstance(error, httpx.HTTPStatusError) and error.response.status_code in {401, 403}:
+                        self.account_message = "This device is no longer connected. Reconnect from Account & Devices. Assessment data is retained."
                 # Network errors, OS diagnostics, and URLs never become user-facing text.
                 future.set_exception(
                     RuntimeError(
@@ -141,6 +146,10 @@ class DeviceConsole:
                 self.message = "Pairing cancelled."
                 return True
             op = self.operation
+            if op in {"account_sync", "account_create", "sync"}:
+                self.account_verified = True
+            elif op == "account_disconnect":
+                self.account_verified = False
             if op in {"profile_claim", "profile_unlink", "profile_status"}:
                 self.link_result = value
                 self.message = (
@@ -153,7 +162,8 @@ class DeviceConsole:
             if op == "diagnostics":
                 self.diagnostics = value
             elif op == "network":
-                self.wifi_connected, self.network = value
+                self.wifi_connected, self.network, self.internet_status = value
+                self.network_checked_at = time.monotonic()
                 self.message = (
                     "Internet available."
                     if self.network.backend_reachable
@@ -288,9 +298,13 @@ class DeviceConsole:
                 connected = self.wifi.connected()
             except (OSError, RuntimeError):
                 connected = False
+            try:
+                internet = self.wifi.internet_status()
+            except (OSError, RuntimeError):
+                internet = "Unknown"
             return connected, collect_network_status(
                 config.api_base_url, auth_token=token, connect_timeout=2, read_timeout=3
-            )
+            ), internet
         with Repository(self.database_path) as repository:
             if operation == "diagnostics":
                 return collect_device_status(
@@ -380,12 +394,10 @@ class DeviceConsole:
         root = self.database_path.resolve().parent
         return (
             ("Software", self.config.application_version),
-            ("Device", repository.get_or_create_device_id()[:8]),
-            ("Platform", platform.system()),
-            ("Architecture", platform.machine()),
+            ("Device", "Assessment Device"),
             (
-                "Database",
-                self.diagnostics.local_db_status if self.diagnostics else "Run diagnostics",
+                "Assessment storage",
+                "Available offline",
             ),
             ("Question packs", str(len(repository.list_question_sets()))),
             ("Free storage", f"{shutil.disk_usage(root).free / 2**30:.1f} GB"),

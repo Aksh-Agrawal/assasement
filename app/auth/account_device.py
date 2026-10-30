@@ -4,11 +4,34 @@ import json
 from datetime import UTC, datetime
 from uuid import UUID
 
+import httpx
+
 from app.api.transport import create_client
 from app.core.models import Profile
 
 
 def sync_account(config, credentials, repository, *, create=None, disconnect=False, transport=None):
+    repository.set_setting("account_connection_state", "verification_required")
+    try:
+        result = _sync_account(config, credentials, repository, create=create,
+                               disconnect=disconnect, transport=transport)
+    except httpx.RequestError:
+        repository.set_setting("account_connection_state", "offline_cached"
+                               if repository.get_student_account_context() else "error")
+        raise
+    except httpx.HTTPStatusError as error:
+        if error.response.status_code in {401, 403}:
+            repository.clear_student_account_context()
+            repository.set_setting("account_connection_state", "revoked")
+        else:
+            repository.set_setting("account_connection_state", "error")
+        raise
+    else:
+        repository.set_setting("account_connection_state", "not_connected" if disconnect else "connected")
+        return result
+
+
+def _sync_account(config, credentials, repository, *, create=None, disconnect=False, transport=None):
     credential = credentials.load_safe()
     if not credential:
         raise RuntimeError("Connect this Raspberry Pi to your account.")

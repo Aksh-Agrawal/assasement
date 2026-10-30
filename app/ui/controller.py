@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from app.assessment import AssessmentApplication
 from app.auth.pin import PinUnlock
+from app.auth.product_state import account_status
 from app.core.engine import NavigationBoundary, ReviewItem
 from app.core.models import AttemptStatus, Confidence, Profile, QuestionSet, ScoreResult
 from app.data.repo import Repository, SyncStatus
@@ -558,10 +559,14 @@ class UIController(LegacyController):
 
     @property
     def network_label(self):
-        if self.device and self.device.network and self.device.network.backend_reachable:
-            return "Internet available"
+        verified = account_status(self.repository,
+            verified_this_run=bool(self.device and self.device.account_verified)) == "Connected"
+        measured = bool(self.device and self.device.network and self.device.network.backend_reachable
+                        and time.monotonic() - self.device.network_checked_at < 180)
+        if verified or measured:
+            return "Cloud: Available"
         # A persisted flag is not proof of a current connection.
-        return "Wi-Fi connected" if self.device and self.device.wifi_connected else "Offline"
+        return "Cloud: Unreachable (Wi-Fi connected)" if self.device and self.device.wifi_connected else "Cloud: Offline / unverified"
 
     @property
     def greeting(self):
@@ -630,6 +635,7 @@ class UIController(LegacyController):
         if not self.repository.get_student_account_context():
             return ((Choice("Link legacy Study Profile", "profile_link"),) if os.environ.get("ASSESS_MAINTENANCE") == "1" else ()) + (Choice("Connect Raspberry Pi", "pair"),)
         return tuple(c for c in self._profile_choices() if c.command != "profile") + (
+            Choice("Choose Study Profile", "route", UIScreen.PROFILE),
             Choice("Disconnect Device" if not getattr(self, "disconnect_pending", False)
                    else "Confirm Disconnect Device", "account_disconnect"),)
 
@@ -735,7 +741,8 @@ class UIController(LegacyController):
             Choice(label, "route", route)
             for label, route in zip(
                 (
-                    "Account & Profiles | " + ("Connected" if self.repository.get_student_account_context() else "Not connected"),
+                    "Account & Profiles | " + account_status(self.repository,
+                        verified_this_run=bool(self.device and self.device.account_verified)),
                     "Wi-Fi",
                     f"Sync | {self.pending_sync_count} pending",
                     "Content & Downloads",
@@ -1313,9 +1320,9 @@ class UIController(LegacyController):
             self.message = self.device.message
             if self.device.operation == "pair_poll" and self.device.credentials.load_safe() and not self.device.pairing:
                 self._job("account_sync")
-            elif self.device.operation in {"account_sync", "account_create"} and self.repository.get_student_account_context():
+            elif self.device.operation in {"account_sync", "account_create"} and self.repository.get_student_account_context() and self.screen in {UIScreen.PROFILE, UIScreen.ACCOUNT, UIScreen.ADD_PROFILE, UIScreen.PAIRING}:
                 self.route(UIScreen.PROFILE)
-            elif self.device.operation in {"account_disconnect", "account_sync"} and not self.repository.get_student_account_context():
+            elif self.device.operation in {"account_disconnect", "account_sync"} and not self.repository.get_student_account_context() and self.screen in {UIScreen.PROFILE, UIScreen.ACCOUNT, UIScreen.HOME, UIScreen.PAIRING}:
                 self.route(UIScreen.PAIRING)
             self.focus = min(self.focus, max(0, len(self.choices) - 1))
         if (

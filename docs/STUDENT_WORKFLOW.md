@@ -7,7 +7,7 @@ A Pi installation has one active account owner. DeviceCredential authenticates t
 AccountDeviceLink records product ownership. Active ProfileDeviceLinks are created automatically
 only after account-device authorization. No student account password is stored on the Pi.
 
-All profiles, including archived profiles, count toward the three-profile limit. Creation serializes
+Only active profiles count toward the three-profile limit. Archived profiles may be restored when capacity allows. Creation and restoration serialize
 on the account row, including concurrent web/device requests. Existing over-limit accounts are
 preserved and cannot create more profiles. Archive retains completed attempts and immutable content.
 
@@ -140,3 +140,8 @@ needs `WORKFLOW_TEST_ADMIN_URL` pointing to a disposable local PostgreSQL admini
 Web: `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`;
 Playwright: `node tests/student.browser.mjs`, `practice.browser.mjs`, `institutes.browser.mjs`.
 `PLAYWRIGHT_MODULE` can point at the bundled Playwright package.
+
+
+## Product consistency revision — 30 October 2026
+
+See [current state and reconciliation contract](PRODUCT_STATE_CONTRACT.md) for connection verification, active-profile capacity/restore, durable receipt/download/install acknowledgements, offline state and deployment order. Earlier phase reports describe historical behavior.

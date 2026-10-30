@@ -5,9 +5,11 @@ the repository sample pack; scores are produced by the assessment application.
 """
 
 import argparse
+import json
 import os
 import tempfile
 from pathlib import Path
+from uuid import uuid4
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -39,6 +41,8 @@ def previews(output):
         surface.fill(THEME.background)
         callback()
         pygame.image.save(surface, output / f"{name}.png")
+        pygame.image.save(pygame.transform.scale(surface, (800, 600)),
+                          output / f"{name}-800x600.png")
         images.append((name, surface.copy()))
 
     def choose(c, command, value=None):
@@ -62,7 +66,13 @@ def previews(output):
         session.close()
         with Repository(path) as repo:
             import_pack(Path("content/sample_biology.json"), repo, make_active=True)
-            repo.create_profile(Profile(id="preview-student", display_name="Demo student"))
+            account = str(uuid4())
+            repo.create_profile(Profile(id="preview-student", display_name="Demo student",
+                                        cloud_account_id=account, cloud_profile_id=str(uuid4()),
+                                        ownership_state="owned"))
+            repo.cache_student_account_context(account, "Demo account")
+            cached = {"profile_count": 1, "profiles": [{"local_profile_id": "preview-student"}]}
+            repo.set_setting("account_profiles", json.dumps(cached))
             device = DeviceConsole(path, config)
             c = UIController(repo, startup=True, device=device)
             c.finish_splash()
@@ -125,14 +135,17 @@ def previews(output):
             choose(c, "route", UIScreen.ADD_PROFILE)
             snap("add_profile")
             c.handle(Action.BACK)
-            choose(c, "pair")
+            c.route(UIScreen.PAIRING)
             snap("pairing")
             c.handle(Action.BACK)
             repo.create_profile(
-                Profile(id="protected-preview", display_name="Protected student"),
+                Profile(id="protected-preview", display_name="Protected student",
+                        cloud_account_id=account, cloud_profile_id=str(uuid4()), ownership_state="owned"),
                 pin_hash="opaque-existing-format",
                 pin_salt="preview-salt",
             )
+            cached["profiles"].append({"local_profile_id": "protected-preview"})
+            repo.set_setting("account_profiles", json.dumps(cached))
             c.refresh_catalog()
             choose(c, "profile", 1)
             snap("pin")

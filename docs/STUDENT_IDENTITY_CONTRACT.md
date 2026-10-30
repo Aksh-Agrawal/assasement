@@ -1,3 +1,5 @@
+> Current product behavior: [Product state and reconciliation contract](PRODUCT_STATE_CONTRACT.md). This phase contract retains legacy protocol details; the current contract supersedes conflicting student workflow, capacity and delivery wording.
+
 # Student identity and self-service profile linking contract (Phases 2-3)
 
 ## Identity boundaries

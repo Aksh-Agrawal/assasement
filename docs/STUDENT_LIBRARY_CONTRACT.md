@@ -1,3 +1,5 @@
+> Current product behavior: [Product state and reconciliation contract](PRODUCT_STATE_CONTRACT.md). This phase contract retains legacy protocol details; the current contract supersedes conflicting student workflow, capacity and delivery wording.
+
 # Phase 4 student library and profile-content contract
 
 ## Separate responsibilities
