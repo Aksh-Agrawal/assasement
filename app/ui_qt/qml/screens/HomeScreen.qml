@@ -93,7 +93,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     width: 28
                                     height: 28
-                                    source: libraryController.canResume ? "../icons/practice.svg" : "../icons/library.svg"
+                                    source: libraryController.canResume ? Assets.practice : Assets.library
                                     fillMode: Image.PreserveAspectFit
                                 }
                             }
@@ -174,7 +174,7 @@ Rectangle {
                                     color: Theme.primaryLight
                                     Image {
                                         anchors.centerIn: parent; width: 20; height: 20
-                                        source: "../icons/library.svg"
+                                        source: Assets.library
                                     }
                                 }
                                 Column {
@@ -199,7 +199,7 @@ Rectangle {
                                     color: "#FFF3E0"
                                     Image {
                                         anchors.centerIn: parent; width: 20; height: 20
-                                        source: "../icons/download.svg"
+                                        source: Assets.download
                                     }
                                 }
                                 Column {
@@ -224,7 +224,7 @@ Rectangle {
                                     color: "#E8F5E9"
                                     Image {
                                         anchors.centerIn: parent; width: 20; height: 20
-                                        source: "../icons/history.svg"
+                                        source: Assets.history
                                     }
                                 }
                                 Column {

@@ -87,9 +87,9 @@ Rectangle {
                                         width: 32
                                         height: 32
                                         source: {
-                                            if (modelData === "Mathematics") return "../icons/calculator.svg";
-                                            if (modelData === "Science") return "../icons/flask.svg";
-                                            return "../icons/library.svg";
+                                            if (modelData === "Mathematics") return Assets.calculator;
+                                            if (modelData === "Science") return Assets.flask;
+                                            return Assets.library;
                                         }
                                         fillMode: Image.PreserveAspectFit
                                     }
@@ -127,7 +127,7 @@ Rectangle {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: 20
                                     height: 20
-                                    source: "../icons/chevron_right.svg"
+                                    source: Assets.chevron_right
                                 }
                             }
                         }

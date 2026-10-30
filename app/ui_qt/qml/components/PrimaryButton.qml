@@ -5,7 +5,7 @@ Rectangle {
     id: root
 
     property string text: ""
-    property string iconSource: ""
+    property url iconSource: ""
     property int preferredHeight: Theme.touchNormal
     property color buttonColor: Theme.primary
     property color pressedColor: Theme.primaryDark
@@ -33,7 +33,7 @@ Rectangle {
             width: 22
             height: 22
             anchors.verticalCenter: parent.verticalCenter
-            visible: root.iconSource.length > 0
+            visible: root.iconSource.toString().length > 0
             source: root.iconSource
             fillMode: Image.PreserveAspectFit
             smooth: true

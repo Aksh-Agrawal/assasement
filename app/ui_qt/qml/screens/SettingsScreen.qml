@@ -46,14 +46,14 @@ Rectangle {
                 bottomMargin: 16
 
                 model: [
-                    { id: "wifi", title: "Wi-Fi / Network", desc: "Connect to the internet and networks", icon: "../icons/wifi.svg" },
-                    { id: "sync", title: "Sync", desc: "Sync progress and assessments with cloud", icon: "../icons/sync.svg" },
-                    { id: "account", title: "Account & Profiles", desc: "Manage device pairing and study profiles", icon: "../icons/account.svg" },
-                    { id: "content", title: "Content & Downloads", desc: "Installed packs and storage space", icon: "../icons/download.svg" },
-                    { id: "software_update", title: "Software Update", desc: "System updates and version checks", icon: "../icons/update.svg" },
-                    { id: "device_info", title: "Device & System", desc: "Hardware and OS status", icon: "../icons/device.svg" },
-                    { id: "diagnostics", title: "Diagnostics", desc: "Check hardware, database and API health", icon: "../icons/diagnostics.svg" },
-                    { id: "about", title: "About", desc: "App version and device license info", icon: "../icons/info.svg" }
+                    { id: "wifi", title: "Wi-Fi / Network", desc: "Connect to the internet and networks", icon: Assets.wifi },
+                    { id: "sync", title: "Sync", desc: "Sync progress and assessments with cloud", icon: Assets.sync },
+                    { id: "account", title: "Account & Profiles", desc: "Manage device pairing and study profiles", icon: Assets.account },
+                    { id: "content", title: "Content & Downloads", desc: "Installed packs and storage space", icon: Assets.download },
+                    { id: "software_update", title: "Software Update", desc: "System updates and version checks", icon: Assets.update },
+                    { id: "device_info", title: "Device & System", desc: "Hardware and OS status", icon: Assets.device },
+                    { id: "diagnostics", title: "Diagnostics", desc: "Check hardware, database and API health", icon: Assets.diagnostics },
+                    { id: "about", title: "About", desc: "App version and device license info", icon: Assets.info }
                 ]
 
                 delegate: Item {
@@ -115,7 +115,7 @@ Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 18
                                 height: 18
-                                source: "../icons/chevron_right.svg"
+                                source: Assets.chevron_right
                             }
                         }
                     }

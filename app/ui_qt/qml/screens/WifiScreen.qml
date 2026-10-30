@@ -104,7 +104,7 @@ Rectangle {
                         width: parent.width
                         preferredHeight: Theme.touchNormal
                         text: "Scan Networks"
-                        iconSource: "../icons/refresh.svg"
+                        iconSource: Assets.refresh
                         onClicked: settingsController.scanWifi()
                     }
                 }
@@ -172,7 +172,7 @@ Rectangle {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 20
                                         height: 20
-                                        source: "../icons/wifi.svg"
+                                        source: Assets.wifi
                                     }
 
                                     Text {
@@ -203,7 +203,7 @@ Rectangle {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 16
                                         height: 16
-                                        source: "../icons/lock.svg"
+                                        source: Assets.lock
                                     }
                                 }
                             }

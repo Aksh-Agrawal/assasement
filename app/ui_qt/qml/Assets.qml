@@ -1,0 +1,35 @@
+pragma Singleton
+import QtQuick 2.15
+
+// Resolve here so callers never depend on their directory depth.
+QtObject {
+    readonly property url account: Qt.resolvedUrl("icons/account.svg")
+    readonly property url arrow_back: Qt.resolvedUrl("icons/arrow_back.svg")
+    readonly property url calculator: Qt.resolvedUrl("icons/calculator.svg")
+    readonly property url check: Qt.resolvedUrl("icons/check.svg")
+    readonly property url chevron_left: Qt.resolvedUrl("icons/chevron_left.svg")
+    readonly property url chevron_right: Qt.resolvedUrl("icons/chevron_right.svg")
+    readonly property url close: Qt.resolvedUrl("icons/close.svg")
+    readonly property url device: Qt.resolvedUrl("icons/device.svg")
+    readonly property url diagnostics: Qt.resolvedUrl("icons/diagnostics.svg")
+    readonly property url download: Qt.resolvedUrl("icons/download.svg")
+    readonly property url flag: Qt.resolvedUrl("icons/flag.svg")
+    readonly property url flag_filled: Qt.resolvedUrl("icons/flag_filled.svg")
+    readonly property url flask: Qt.resolvedUrl("icons/flask.svg")
+    readonly property url history: Qt.resolvedUrl("icons/history.svg")
+    readonly property url home: Qt.resolvedUrl("icons/home.svg")
+    readonly property url info: Qt.resolvedUrl("icons/info.svg")
+    readonly property url library: Qt.resolvedUrl("icons/library.svg")
+    readonly property url lock: Qt.resolvedUrl("icons/lock.svg")
+    readonly property url plus: Qt.resolvedUrl("icons/plus.svg")
+    readonly property url practice: Qt.resolvedUrl("icons/practice.svg")
+    readonly property url question: Qt.resolvedUrl("icons/question.svg")
+    readonly property url raspberry: Qt.resolvedUrl("icons/raspberry.svg")
+    readonly property url refresh: Qt.resolvedUrl("icons/refresh.svg")
+    readonly property url settings: Qt.resolvedUrl("icons/settings.svg")
+    readonly property url star: Qt.resolvedUrl("icons/star.svg")
+    readonly property url sync: Qt.resolvedUrl("icons/sync.svg")
+    readonly property url update: Qt.resolvedUrl("icons/update.svg")
+    readonly property url wifi: Qt.resolvedUrl("icons/wifi.svg")
+    readonly property url wifi_off: Qt.resolvedUrl("icons/wifi_off.svg")
+}

@@ -128,7 +128,7 @@ Rectangle {
                     SecondaryButton {
                         text: "Review Answers"
                         preferredHeight: Theme.touchNormal
-                        iconSource: "../icons/library.svg"
+                        iconSource: Assets.library
                         onClicked: assessmentController.openReview("all")
                     }
 

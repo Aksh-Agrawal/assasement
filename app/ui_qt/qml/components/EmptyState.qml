@@ -7,7 +7,7 @@ Item {
     property string title: "Nothing here yet"
     property string description: ""
     property string actionText: ""
-    property string iconSource: "../icons/info.svg"
+    property url iconSource: Assets.info
     signal actionClicked()
 
     anchors.fill: parent
@@ -28,6 +28,7 @@ Item {
                 anchors.centerIn: parent
                 width: 28
                 height: 28
+                visible: root.iconSource.toString().length > 0
                 source: root.iconSource
                 fillMode: Image.PreserveAspectFit
             }

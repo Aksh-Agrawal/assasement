@@ -42,7 +42,7 @@ Rectangle {
                     width: 56; height: 56; radius: 28
                     color: Theme.primaryLight
                     anchors.horizontalCenter: parent.horizontalCenter
-                    Image { anchors.centerIn: parent; width: 28; height: 28; source: "../icons/update.svg" }
+                    Image { anchors.centerIn: parent; width: 28; height: 28; source: Assets.update }
                 }
 
                 Text {
@@ -79,7 +79,7 @@ Rectangle {
 
                     PrimaryButton {
                         text: "Check for Updates"
-                        iconSource: "../icons/refresh.svg"
+                        iconSource: Assets.refresh
                         onClicked: settingsController.checkUpdate()
                     }
 

@@ -39,7 +39,7 @@ Rectangle {
                 anchors.centerIn: parent
                 width: 24
                 height: 24
-                source: "../icons/raspberry.svg"
+                source: Assets.raspberry
                 fillMode: Image.PreserveAspectFit
             }
         }
@@ -48,11 +48,11 @@ Rectangle {
 
         Repeater {
             model: [
-                { id: "home", label: "Home", icon: "../icons/home.svg" },
-                { id: "library", label: "Library", icon: "../icons/library.svg" },
-                { id: "practice", label: "Practice", icon: "../icons/practice.svg" },
-                { id: "history", label: "History", icon: "../icons/history.svg" },
-                { id: "settings", label: "Settings", icon: "../icons/settings.svg" }
+                { id: "home", label: "Home", icon: Assets.home },
+                { id: "library", label: "Library", icon: Assets.library },
+                { id: "practice", label: "Practice", icon: Assets.practice },
+                { id: "history", label: "History", icon: Assets.history },
+                { id: "settings", label: "Settings", icon: Assets.settings }
             ]
 
             delegate: Rectangle {

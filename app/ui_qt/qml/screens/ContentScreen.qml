@@ -59,7 +59,7 @@ Rectangle {
                             Rectangle {
                                 width: 44; height: 44; radius: 12
                                 color: Theme.primaryLight
-                                Image { anchors.centerIn: parent; width: 24; height: 24; source: "../icons/download.svg" }
+                                Image { anchors.centerIn: parent; width: 24; height: 24; source: Assets.download }
                             }
 
                             Column {
@@ -134,7 +134,7 @@ Rectangle {
                                 Rectangle {
                                     width: 36; height: 36; radius: 8
                                     color: Theme.surfaceActive
-                                    Image { anchors.centerIn: parent; width: 20; height: 20; source: "../icons/practice.svg" }
+                                    Image { anchors.centerIn: parent; width: 20; height: 20; source: Assets.practice }
                                 }
 
                                 Column {

@@ -26,7 +26,7 @@ Rectangle {
 
             IconButton {
                 buttonSize: 38
-                iconSource: "../icons/arrow_back.svg"
+                iconSource: Assets.arrow_back
                 onClicked: leaveModal.visible = true
             }
 
@@ -81,7 +81,7 @@ Rectangle {
             // Flag / Mark for review button
             IconButton {
                 buttonSize: 38
-                iconSource: assessmentController.isMarkedForReview ? "../icons/flag_filled.svg" : "../icons/flag.svg"
+                iconSource: assessmentController.isMarkedForReview ? Assets.flag_filled : Assets.flag
                 backgroundColor: assessmentController.isMarkedForReview ? "#FFF3E0" : Theme.surface
                 onClicked: assessmentController.toggleMarkReview()
             }
@@ -180,7 +180,7 @@ Rectangle {
             SecondaryButton {
                 preferredHeight: 48
                 text: "Question Grid"
-                iconSource: "../icons/library.svg"
+                iconSource: Assets.library
                 onClicked: appController.navigate("question_nav")
             }
         }

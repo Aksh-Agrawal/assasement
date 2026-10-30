@@ -73,7 +73,7 @@ Rectangle {
                         width: parent.width
                         preferredHeight: Theme.touchNormal
                         text: "Run Diagnostics"
-                        iconSource: "../icons/diagnostics.svg"
+                        iconSource: Assets.diagnostics
                         onClicked: settingsController.runDiagnostics()
                     }
 
@@ -81,7 +81,7 @@ Rectangle {
                         width: parent.width
                         preferredHeight: Theme.touchNormal
                         text: "Export Bundle"
-                        iconSource: "../icons/download.svg"
+                        iconSource: Assets.download
                         onClicked: settingsController.exportSupportBundle()
                     }
                 }

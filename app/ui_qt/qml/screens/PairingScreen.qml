@@ -85,7 +85,7 @@ Rectangle {
                     width: parent.width
                     preferredHeight: Theme.touchNormal
                     text: "Generate New Code"
-                    iconSource: "../icons/refresh.svg"
+                    iconSource: Assets.refresh
                     onClicked: settingsController.requestPairingCode()
                 }
             }

@@ -4,7 +4,7 @@ import ".." 1.0
 Rectangle {
     id: root
 
-    property string iconSource: ""
+    property url iconSource: ""
     property int buttonSize: Theme.touchMin
     property color iconColor: Theme.textPrimary
     property color backgroundColor: Theme.surface
@@ -24,6 +24,7 @@ Rectangle {
         anchors.centerIn: parent
         width: root.buttonSize * 0.48
         height: root.buttonSize * 0.48
+        visible: root.iconSource.toString().length > 0
         source: root.iconSource
         fillMode: Image.PreserveAspectFit
         smooth: true

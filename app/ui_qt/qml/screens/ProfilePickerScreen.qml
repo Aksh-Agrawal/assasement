@@ -59,7 +59,7 @@ Rectangle {
                                 anchors.centerIn: parent
                                 width: 34
                                 height: 34
-                                source: "../icons/account.svg"
+                                source: Assets.account
                                 fillMode: Image.PreserveAspectFit
                             }
 
@@ -77,7 +77,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     width: 12
                                     height: 12
-                                    source: "../icons/lock.svg"
+                                    source: Assets.lock
                                     fillMode: Image.PreserveAspectFit
                                 }
                             }
@@ -144,7 +144,7 @@ Rectangle {
                             anchors.centerIn: parent
                             width: 28
                             height: 28
-                            source: "../icons/plus.svg"
+                            source: Assets.plus
                             fillMode: Image.PreserveAspectFit
                         }
                     }

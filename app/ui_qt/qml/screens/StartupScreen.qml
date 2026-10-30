@@ -26,7 +26,7 @@ Rectangle {
                 anchors.centerIn: parent
                 width: 44
                 height: 44
-                source: "../icons/raspberry.svg"
+                source: Assets.raspberry
                 fillMode: Image.PreserveAspectFit
             }
         }

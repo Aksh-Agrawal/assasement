@@ -94,7 +94,7 @@ Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 20
                                 height: 20
-                                source: "../icons/chevron_right.svg"
+                                source: Assets.chevron_right
                             }
                         }
                     }

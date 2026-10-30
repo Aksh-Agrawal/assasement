@@ -342,36 +342,52 @@ def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
 
 
 def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo):
-    """Verify that every single QML screen component compiles with zero errors."""
+    """Instantiate all screens, reusable components and App; catch asset warnings."""
+    from PySide6.QtCore import QEvent, qInstallMessageHandler
     from PySide6.QtQml import QQmlComponent
 
     db_path = tmp_path / "test_screens.db"
-    db_path.touch()
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
-
     engine = QQmlApplicationEngine()
     qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
-
     app_ctrl = AppController(db_path, config, creds)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
-
-    ctx = engine.rootContext()
-    ctx.setContextProperty("appController", app_ctrl)
-    ctx.setContextProperty("profileController", ProfileController(app_ctrl))
-    ctx.setContextProperty("libraryController", LibraryController(app_ctrl))
-    ctx.setContextProperty("assessmentController", AssessmentController(app_ctrl))
-    ctx.setContextProperty("settingsController", SettingsController(app_ctrl))
-
-    screens_dir = qml_dir / "screens"
-    for qml_path in screens_dir.glob("*.qml"):
-        comp = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_path)))
-        assert not comp.isError(), f"Compilation error in {qml_path.name}: {[e.toString() for e in comp.errors()]}"
-
-    app_ctrl.close()
+    controllers = {
+        "appController": app_ctrl,
+        "profileController": ProfileController(app_ctrl),
+        "libraryController": LibraryController(app_ctrl),
+        "assessmentController": AssessmentController(app_ctrl),
+        "settingsController": SettingsController(app_ctrl),
+    }
+    for name, controller in controllers.items():
+        engine.rootContext().setContextProperty(name, controller)
+    warnings = []
+    engine.warnings.connect(lambda errors: warnings.extend(e.toString() for e in errors))
+    previous = qInstallMessageHandler(lambda kind, context, message: warnings.append(message))
+    paths = sorted((qml_dir / "screens").glob("*.qml"))
+    paths += sorted((qml_dir / "components").glob("*.qml"))
+    paths += [qml_dir / "App.qml"]
+    try:
+        for path in paths:
+            component = QQmlComponent(engine, QUrl.fromLocalFile(str(path)))
+            assert not component.isError(), [e.toString() for e in component.errors()]
+            obj = component.create()
+            assert obj is not None, [e.toString() for e in component.errors()]
+            qapp.processEvents()
+            obj.deleteLater()
+            qapp.sendPostedEvents(None, QEvent.DeferredDelete)
+        failures = [message for message in warnings if any(
+            marker in message.lower() for marker in
+            ("cannot open", "cannot load", "file not found", "qqmlcomponent", "qml loader error")
+        )]
+        assert not failures, "\n".join(failures)
+    finally:
+        qInstallMessageHandler(previous)
+        app_ctrl.close()
 
 
 def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):

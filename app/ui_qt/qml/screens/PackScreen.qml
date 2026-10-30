@@ -91,7 +91,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     width: 22
                                     height: 22
-                                    source: modelData.isInstalled ? "../icons/practice.svg" : "../icons/download.svg"
+                                    source: modelData.isInstalled ? Assets.practice : Assets.download
                                     fillMode: Image.PreserveAspectFit
                                 }
                             }

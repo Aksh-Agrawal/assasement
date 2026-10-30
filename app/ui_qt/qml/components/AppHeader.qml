@@ -25,7 +25,7 @@ Rectangle {
         IconButton {
             visible: root.showBack
             buttonSize: 38
-            iconSource: "../icons/arrow_back.svg"
+            iconSource: Assets.arrow_back
             onClicked: root.backClicked()
         }
 
@@ -45,7 +45,7 @@ Rectangle {
                     anchors.centerIn: parent
                     width: 18
                     height: 18
-                    source: "../icons/account.svg"
+                    source: Assets.account
                     fillMode: Image.PreserveAspectFit
                 }
             }

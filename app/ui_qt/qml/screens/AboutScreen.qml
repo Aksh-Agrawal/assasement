@@ -43,7 +43,7 @@ Rectangle {
                     color: Theme.surfaceActive
                     border.color: Theme.border
                     anchors.horizontalCenter: parent.horizontalCenter
-                    Image { anchors.centerIn: parent; width: 36; height: 36; source: "../icons/raspberry.svg" }
+                    Image { anchors.centerIn: parent; width: 36; height: 36; source: Assets.raspberry }
                 }
 
                 Text {

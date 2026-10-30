@@ -87,7 +87,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     width: 20
                                     height: 20
-                                    source: "../icons/history.svg"
+                                    source: Assets.history
                                     fillMode: Image.PreserveAspectFit
                                 }
                             }

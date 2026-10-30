@@ -53,7 +53,7 @@ Rectangle {
                             anchors.centerIn: parent
                             width: 26
                             height: 26
-                            source: "../icons/sync.svg"
+                            source: Assets.sync
                             fillMode: Image.PreserveAspectFit
                         }
                     }
@@ -125,7 +125,7 @@ Rectangle {
                     preferredHeight: Theme.touchNormal
                     text: settingsController.isSyncing ? "Syncing Now…" : "Sync Now"
                     enabled: !settingsController.isSyncing
-                    iconSource: "../icons/sync.svg"
+                    iconSource: Assets.sync
                     onClicked: settingsController.startSync()
                 }
             }

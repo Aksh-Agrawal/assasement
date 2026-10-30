@@ -128,7 +128,7 @@ Window {
             PrimaryButton {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Back to Home"
-                iconSource: "icons/home.svg"
+                iconSource: Assets.home
                 onClicked: appController.goHome()
             }
         }

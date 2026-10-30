@@ -63,7 +63,7 @@ Rectangle {
                             Rectangle {
                                 width: 40; height: 40; radius: 20
                                 color: Theme.primaryLight
-                                Image { anchors.centerIn: parent; width: 22; height: 22; source: "../icons/account.svg" }
+                                Image { anchors.centerIn: parent; width: 22; height: 22; source: Assets.account }
                             }
 
                             Column {
@@ -84,7 +84,7 @@ Rectangle {
                         width: parent.width
                         preferredHeight: Theme.touchNormal
                         text: settingsController.isPaired ? "Sync Study Profiles" : "Pair This Raspberry Pi"
-                        iconSource: "../icons/sync.svg"
+                        iconSource: Assets.sync
                         onClicked: {
                             if (settingsController.isPaired) {
                                 settingsController.syncProfiles();
@@ -164,7 +164,7 @@ Rectangle {
                                     Rectangle {
                                         width: 32; height: 32; radius: 16
                                         color: modelData.isActive ? Theme.primaryLight : Theme.surface
-                                        Image { anchors.centerIn: parent; width: 18; height: 18; source: "../icons/account.svg" }
+                                        Image { anchors.centerIn: parent; width: 18; height: 18; source: Assets.account }
                                     }
 
                                     Column {

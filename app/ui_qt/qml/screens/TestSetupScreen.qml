@@ -54,7 +54,7 @@ Rectangle {
                             anchors.centerIn: parent
                             width: 28
                             height: 28
-                            source: "../icons/practice.svg"
+                            source: Assets.practice
                             fillMode: Image.PreserveAspectFit
                         }
                     }
