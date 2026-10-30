@@ -283,6 +283,10 @@ class AppController(QObject):
             self.advanceStartup()
             return
 
+        revision = self.repository.content_revision() if self.repository else None
+        content_updated = revision != getattr(self, "_content_revision", None)
+        self._content_revision = revision
+
         # Poll device console for background jobs
         device_updated = self.device.poll()
 
@@ -291,7 +295,9 @@ class AppController(QObject):
         if self.ui_controller:
             ctrl_updated = self.ui_controller.tick()
 
-        if device_updated or ctrl_updated:
+        if device_updated or ctrl_updated or content_updated:
+            if getattr(self, "library_controller", None):
+                self.library_controller.refreshLibrary()
             self.statusChanged.emit()
             if self.device.message:
                 self.showNotification(self.device.message, "info")

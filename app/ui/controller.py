@@ -92,6 +92,8 @@ class LegacyController:
     @property
     def can_resume(self) -> bool:
         profile = self.selected_profile
+        if profile:
+            self.repository.reconcile_content_state(profile.id)
         return bool(profile and self.repository.find_in_progress_attempt(profile.id))
 
     @property
@@ -99,6 +101,7 @@ class LegacyController:
         profile = self.selected_profile
         if profile is None:
             return None
+        self.repository.reconcile_content_state(profile.id)
         attempt = self.repository.find_in_progress_attempt(profile.id)
         if attempt is None:
             return None
@@ -488,6 +491,7 @@ class UIController(LegacyController):
         if self.student_flow:
             profile_id = self.selected_profile.id if self.selected_profile else None
             self.question_sets = self.repository.visible_question_sets(profile_id)
+            self.set_index = min(self.set_index, max(0, len(self.subject_question_sets) - 1))
             self.subjects = tuple(sorted({p.subject for p in self.question_sets} |
                                          {p.subject for p in self.remote_packs}))
             self.subject_index = min(self.subject_index, max(0, len(self.subjects) - 1))

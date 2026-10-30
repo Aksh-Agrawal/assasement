@@ -52,6 +52,7 @@ class AssessmentApplication:
         institute_assignment_id: str | None = None,
     ) -> Attempt:
         """Create and persist a new attempt with an authoritative fixed order."""
+        self.repository.reconcile_content_state(profile_id)
         if self.repository.find_in_progress_attempt(profile_id) is not None:
             raise RuntimeError("Profile already has an in-progress attempt")
         allowed = self.repository.can_start_pack(profile_id, set_id, version)
@@ -76,6 +77,8 @@ class AssessmentApplication:
         )
         self.repository.create_attempt(attempt, question_order=ordered_ids,
             institute_assignment_id=institute_assignment_id)
+        self.engine = AssessmentEngine()
+        self._timer = None
         self.engine.select_test(question_set)
         self.engine.start_test(attempt, tuple(ordered_ids))
         self._activate_current_question()
@@ -84,17 +87,40 @@ class AssessmentApplication:
 
     def resume_attempt(self, profile_id: str) -> Attempt | None:
         """Resume the profile's in-progress attempt from durable state."""
+        self.repository.reconcile_content_state(profile_id)
         attempt = self.repository.find_in_progress_attempt(profile_id)
         if attempt is None:
+            self.engine = AssessmentEngine()
+            self._timer = None
             return None
         question_set = self.repository.get_question_set(attempt.set_id, attempt.set_version)
         if question_set is None:
             raise RuntimeError("Attempt question-set version is not installed")
         order = self.repository.get_attempt_question_order(attempt.id)
+        if self.engine.attempt and self.engine.attempt.id == attempt.id:
+            self.pause()
         responses = self.repository.get_attempt_responses(attempt.id)
-        self.engine.resume_attempt(attempt, question_set, order, responses)
+        engine = AssessmentEngine()
+        engine.resume_attempt(attempt, question_set, order, responses)
+        self.engine = engine
+        self._timer = None
         self._activate_current_question()
         return attempt
+
+    def reconcile_session(self) -> bool:
+        """Drop an in-memory pointer only when its durable session stopped being active."""
+        attempt = self.engine.attempt
+        if attempt is None:
+            return False
+        stored = self.repository.get_attempt(attempt.id)
+        if stored is not None and stored.status != AttemptStatus.ABANDONED:
+            return False
+        if attempt.status != AttemptStatus.IN_PROGRESS:
+            return False
+        self.engine = AssessmentEngine()
+        self._timer = None
+        LOGGER.info("cleared resume pointer attempt_id=%s", attempt.id)
+        return True
 
     def current_question(self) -> Question:
         return self.engine.current_question()
@@ -227,6 +253,8 @@ class AssessmentApplication:
 
     def pause(self) -> None:
         """Persist accumulated timing before menu display or safe process exit."""
+        if self.reconcile_session():
+            return
         if self.engine.state in {
             AssessmentState.IN_QUESTION,
             AssessmentState.AWAITING_CONFIDENCE,

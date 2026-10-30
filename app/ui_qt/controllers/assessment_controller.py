@@ -22,6 +22,7 @@ class AssessmentController(QObject):
     def __init__(self, app_controller: AppController, parent=None):
         super().__init__(parent)
         self.app = app_controller
+        self.app.assessment_controller = self
 
         self._active = False
         self._subject = ""
@@ -391,9 +392,9 @@ class AssessmentController(QObject):
                 self.app.navigate("question")
             else:
                 self.app.showNotification("No in-progress test found to resume.", "info")
-        except Exception as err:
-            LOGGER.error("Failed to resume assessment: %s", err)
-            self.app.showNotification(f"Unable to resume: {err}", "error")
+        except Exception:
+            LOGGER.exception("Failed to resume assessment")
+            self.app.showNotification("This practice session can no longer be resumed. Your completed history is safe.", "error")
 
     @Slot(str)
     def selectAnswer(self, key: str):

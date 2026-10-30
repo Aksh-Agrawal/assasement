@@ -150,6 +150,7 @@ class Repository:
                 self.set_schema_meta("device_id", device_id)
             else:
                 self.get_or_create_device_id()
+            self.reconcile_content_state()
             LOGGER.info("local database opened path=%s schema_version=%d", database_path, self.schema_version)
         except sqlite3.DatabaseError as error:
             self._connection.close()
@@ -243,9 +244,12 @@ class Repository:
                     "DO UPDATE SET link_id=excluded.link_id,metadata_json=excluded.metadata_json,eligible=1",
                     (profile_id, item["assignment_id"], link_id, json.dumps(item)))
 
+            self._repair_content_attempts(c, profile_id)
+
     def revoke_institute_work(self, profile_id):
         with transaction(self._connection) as c:
             c.execute("UPDATE institute_work SET eligible=0 WHERE local_profile_id=?", (profile_id,))
+            self._repair_content_attempts(c, profile_id)
 
     def get_attempt_institute_context(self, attempt_id):
         row = self._connection.execute("SELECT * FROM attempt_institute_context WHERE attempt_id=?", (attempt_id,)).fetchone()
@@ -292,18 +296,24 @@ class Repository:
                      json.dumps(pack, separators=(",", ":"))),
                 )
 
+            self._repair_content_attempts(connection, profile_id)
+        LOGGER.info("profile catalogue reconciled profile_id=%s selected_sets=%d",
+                    profile_id, len(selected_sets))
+
     def revoke_profile_library(self, profile_id: str) -> None:
         with transaction(self._connection) as connection:
             connection.execute("UPDATE profile_library SET eligible=0 WHERE local_profile_id=?",
                                (profile_id,))
+            self._repair_content_attempts(connection, profile_id)
 
     def can_start_pack(self, profile_id: str, set_id: str, version: int) -> bool:
-        """Legacy/shared packs retain compatibility; private bytes require an exact grant."""
+        """Owned profiles require a grant; legacy profiles retain shared samples."""
         self._ensure_open()
         private = self._connection.execute(
             "SELECT 1 FROM private_pack_versions WHERE set_id=? AND version=?", (set_id, version)
         ).fetchone()
-        if private is None:
+        profile = self.get_profile(profile_id)
+        if private is None and profile and profile.ownership_state != "owned":
             return self.get_question_set(set_id, version) is not None
         return any(p["set_id"] == set_id and p["version"] == version
                    for p in self.profile_library_catalog(profile_id))
@@ -311,6 +321,51 @@ class Repository:
     def visible_question_sets(self, profile_id: str | None):
         packs = self.list_question_sets()
         return tuple(p for p in packs if self.can_start_pack(profile_id or "", p.id, p.version))
+
+    def content_revision(self) -> tuple[int, int]:
+        """Observe commits from other connections as well as this connection."""
+        return (self._connection.execute("PRAGMA data_version").fetchone()[0],
+                self._connection.total_changes)
+
+    def reconcile_content_state(self, profile_id: str | None = None) -> None:
+        """Repeat-safe repair using the last complete offline authorization snapshot."""
+        with transaction(self._connection) as connection:
+            self._repair_content_attempts(connection, profile_id)
+
+    def _repair_content_attempts(self, connection, profile_id=None):
+        from app.core.engine import AssessmentEngine
+
+        sql = "SELECT * FROM attempts WHERE status='in_progress'"
+        rows = connection.execute(sql + (" AND profile_id=?" if profile_id else ""),
+                                  (profile_id,) if profile_id else ()).fetchall()
+        for row in rows:
+            attempt = self._attempt_from_row(row)
+            assignment = self.get_attempt_institute_context(attempt.id)
+            allowed = self.can_start_pack(attempt.profile_id, attempt.set_id, attempt.set_version)
+            if assignment:
+                allowed = any(item["assignment_id"] == assignment["assignment_id"]
+                              and item["set_id"] == attempt.set_id
+                              and item["version"] == attempt.set_version
+                              for item in self.institute_work(attempt.profile_id))
+            reason = None
+            if not allowed:
+                reason = "content no longer eligible"
+            else:
+                try:
+                    question_set = self.get_question_set(attempt.set_id, attempt.set_version)
+                    if question_set is None or not question_set.questions:
+                        raise ValueError("Exact attempt content missing")
+                    AssessmentEngine().resume_attempt(
+                        attempt, question_set, self.get_attempt_question_order(attempt.id),
+                        self.get_attempt_responses(attempt.id))
+                except (ValueError, KeyError, RuntimeError) as error:
+                    reason = str(error)
+            if reason:
+                connection.execute("UPDATE attempts SET status='abandoned', completed_at=? "
+                                   "WHERE id=? AND status='in_progress'",
+                                   (utc_now_text(), attempt.id))
+                LOGGER.warning("orphan attempt made non-resumable profile_id=%s attempt_id=%s reason=%s",
+                               attempt.profile_id, attempt.id, reason)
 
     def get_profile_link_context(self, profile_id: str) -> dict | None:
         self._ensure_open()

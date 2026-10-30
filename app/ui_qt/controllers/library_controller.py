@@ -179,6 +179,26 @@ class LibraryController(QObject):
     @Slot()
     def refreshLibrary(self):
         if self.app.ui_controller:
+            self.app.ui_controller.repository.reconcile_content_state()
             self.app.ui_controller.refresh_catalog()
+            cleared = self.app.ui_controller.application.reconcile_session()
+            assessment = getattr(self.app, "assessment_controller", None)
+            if cleared and assessment:
+                assessment._active = False
+                assessment._countdown_timer.stop()
+                assessment._timer_enabled = False
+                assessment._timer_seconds = 0
+                assessment.timerChanged.emit()
+                assessment.questionChanged.emit()
+                assessment.navigatorChanged.emit()
+                self.app.navigate("home")
+        if self.app.ui_controller:
+            available = {(p.id, p.version) for p in self.app.ui_controller.question_sets}
+            available.update((p.set_id, p.version) for p in self.app.ui_controller.remote_packs)
+            if (self._selected_pack_id, self._selected_pack_version) not in available:
+                self._selected_pack_id = ""
+                self._selected_pack_version = 0
+                self._selected_chapter = ""
+                self._selected_subject = ""
         self.catalogChanged.emit()
         self.selectionChanged.emit()

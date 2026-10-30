@@ -317,7 +317,7 @@ def collect_network_status(
     headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
     try:
         with create_client(base_url, connect_timeout=connect_timeout, read_timeout=read_timeout) as client:
-            health = client.get("/health")
+            client.get("/health")
             ready = client.get("/ready")
             catalog = client.get("/api/v1/content/catalog", headers=headers)
             update = client.get("/api/v1/device-updates/latest", headers=headers)

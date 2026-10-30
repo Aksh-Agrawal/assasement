@@ -1,5 +1,4 @@
 from concurrent.futures import Future
-from types import SimpleNamespace
 
 import httpx
 

@@ -85,6 +85,8 @@ class ProfileController(QObject):
     def _activate_profile(self, index: int):
         self.app.ui_controller.profile_index = index
         self.app.ui_controller.refresh_catalog()
+        if getattr(self.app, "library_controller", None):
+            self.app.library_controller.refreshLibrary()
         self._pin_locked = False
         self.pinStateChanged.emit()
         self.profilesChanged.emit()

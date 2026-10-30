@@ -67,15 +67,21 @@ def test_assignment_download_offline_resume_context_removal_and_privacy(tmp_path
             app.pause()
             order = repo.get_attempt_question_order(a.id)
             state["offline"] = False
+            completed = AssessmentApplication(repo)
+            assert completed.resume_attempt("a").id == a.id
+            completed.request_submit()
+            completed.submit()
+            partial = AssessmentApplication(repo).start_test(
+                "a", item["set_id"], 1, institute_assignment_id=item["assignment_id"])
             state["packs"] = []
             refresh_work(repo, client, "a", link)
             assert repo.institute_work("a") == []
             assert repo.get_question_set(item["set_id"], 1) is not None
             resumed = AssessmentApplication(repo)
-            assert resumed.resume_attempt("a").id == a.id
+            assert resumed.resume_attempt("a") is None
+            assert repo.get_attempt(partial.id).status.value == "abandoned"
             assert repo.get_attempt_question_order(a.id) == order
-            resumed.request_submit()
-            resumed.submit()
+            assert repo.get_attempt(a.id).status.value == "completed"
             payload = build_upload_payload(repo, a.id)
             assert payload["institute_assignment_id"] == item["assignment_id"]
             assert payload["ownership"]["study_profile_id"] == p.cloud_profile_id

@@ -104,8 +104,10 @@ def test_download_offline_switching_removal_and_pinned_version(tmp_path):
             state["packs"] = []
             refresh_library(repo, client, "a", link)
             assert repo.visible_question_sets("a") == ()
-            # Removal does not erase current work, exact bytes or review history.
-            assert AssessmentApplication(repo).resume_attempt("a").set_version == 1
+            # Removal closes partial work but preserves exact bytes and response history.
+            assert AssessmentApplication(repo).resume_attempt("a") is None
+            assert repo.get_attempt(attempt.id).status.value == "abandoned"
+            assert repo.get_attempt_responses(attempt.id)
             assert repo.get_question_set(pack["set_id"], 1) is not None
             assert repo.get_question_set(pack["set_id"], 2) is not None
     with Repository(path) as repo:
@@ -270,3 +272,99 @@ def test_installed_ack_lost_then_retried_after_restart_without_redownload(tmp_pa
                 temp_directory=tmp_path, max_pack_bytes=10**6).status.value == "ALREADY_PRESENT"
             assert state["acks"][-1]["status"] == "installed"
             assert len(downloads) == 1
+
+
+def test_legacy_bytes_revocation_repairs_lock_and_preserves_history(tmp_path):
+    from app.content.importer import import_pack
+
+    path = tmp_path / "repair.db"
+    data = Path("content/sample_biology.json").read_bytes()
+    item = metadata(data)
+    with Repository(path) as repo:
+        link = setup(repo)
+        # Realistic old build: installed shared bytes, no private_pack_versions row.
+        import_pack(Path("content/sample_biology.json"), repo)
+        repo.cache_profile_library("a", link, [item])
+        link_b = repo.get_profile_link_context("b")["link_id"]
+        repo.cache_profile_library("b", link_b, [item])
+        app = AssessmentApplication(repo)
+        completed = app.start_test("a", item["set_id"], 1)
+        app.request_submit()
+        app.submit()
+        assert not app.reconcile_session()
+        assert app.engine.get_result() is not None
+        partial = AssessmentApplication(repo)
+        attempt = partial.start_test("a", item["set_id"], 1)
+        partial.select_answer("A")
+        responses = repo.get_attempt_responses(attempt.id)
+        ui = UIController(repo, startup=True)
+        repo.cache_profile_library("a", link, [])
+        assert repo.visible_question_sets("a") == ()
+        assert len(repo.visible_question_sets("b")) == 1
+        assert repo.get_attempt(attempt.id).status.value == "abandoned"
+        assert repo.get_attempt_responses(attempt.id) == responses
+        assert repo.get_attempt(completed.id).status.value == "completed"
+        assert repo.find_in_progress_attempt("a") is None
+        assert partial.reconcile_session()
+        assert partial.engine.attempt is None
+        ui.refresh_catalog()
+        assert ui.question_sets == ()
+        assert not ui.can_resume
+        assert ui.resume_summary is None
+        assert repo.get_question_set(item["set_id"], 1)
+        repo.reconcile_content_state()
+        repo.cache_profile_library("a", link, [item])
+        assert AssessmentApplication(repo).start_test("a", item["set_id"], 1)
+        assert repo.quick_check().ok
+
+
+def test_repeated_resume_uses_fresh_engine_and_preserves_response_time(tmp_path):
+    from app.content.importer import import_pack
+
+    with Repository(tmp_path / "resume.db") as repo:
+        repo.create_profile(Profile("local", "Offline"))
+        pack = import_pack(Path("content/sample_biology.json"), repo).pack.question_set
+        app = AssessmentApplication(repo)
+        attempt = app.start_test("local", pack.id, pack.version)
+        app.select_answer("A")
+        for _ in range(3):
+            assert app.resume_attempt("local").id == attempt.id
+        assert repo.get_attempt_responses(attempt.id)[0].selected_key == "A"
+
+
+def test_startup_repairs_old_orphan_and_invalid_question_order(tmp_path):
+    from app.content.importer import import_pack
+
+    path = tmp_path / "old.db"
+    with Repository(path) as repo:
+        link = setup(repo)
+        pack = import_pack(Path("content/sample_biology.json"), repo).pack.question_set
+        repo.cache_profile_library("a", link, [metadata(Path("content/sample_biology.json").read_bytes())])
+        attempt = AssessmentApplication(repo).start_test("a", pack.id, pack.version)
+        # Simulate pre-fix persisted removal without attempt reconciliation.
+        repo._connection.execute("UPDATE profile_library SET eligible=0")
+    with Repository(path) as repo:
+        assert repo.find_in_progress_attempt("a") is None
+        assert repo.get_attempt(attempt.id).status.value == "abandoned"
+        assert repo.get_attempt_responses(attempt.id)
+        repo.cache_profile_library("a", link, [metadata(Path("content/sample_biology.json").read_bytes())])
+        attempt = AssessmentApplication(repo).start_test("a", pack.id, pack.version)
+        repo._connection.execute("UPDATE attempt_questions SET question_id='missing' WHERE attempt_id=? AND position=2", (attempt.id,))
+        repo.reconcile_content_state()
+        assert repo.find_in_progress_attempt("a") is None
+
+
+def test_failed_snapshot_rolls_back_visibility_and_attempt(tmp_path):
+    from app.content.importer import import_pack
+
+    with Repository(tmp_path / "atomic.db") as repo:
+        link = setup(repo)
+        pack = import_pack(Path("content/sample_biology.json"), repo).pack.question_set
+        item = metadata(Path("content/sample_biology.json").read_bytes())
+        repo.cache_profile_library("a", link, [item])
+        attempt = AssessmentApplication(repo).start_test("a", pack.id, pack.version)
+        repo._connection.execute("CREATE TRIGGER fail_repair BEFORE UPDATE ON attempts BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        with pytest.raises(Exception, match="injected"):
+            repo.cache_profile_library("a", link, [])
+        assert len(repo.visible_question_sets("a")) == 1
+        assert repo.find_in_progress_attempt("a").id == attempt.id

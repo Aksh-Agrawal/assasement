@@ -467,3 +467,43 @@ def test_offline_pack_to_question_flow(qapp, tmp_path, mock_repo):
 
     app_ctrl.close()
 
+
+
+def test_background_removal_refreshes_qt_models_and_session(qapp, tmp_path):
+    from app.content.importer import import_pack
+    from app.data.repo import Repository
+    from tests.content.test_profile_library import metadata, setup
+
+    path = tmp_path / "reconciliation.db"
+    with Repository(path) as repo:
+        link = setup(repo)
+        pack = import_pack(Path("content/sample_biology.json"), repo).pack.question_set
+        repo.cache_profile_library("a", link, [metadata(Path("content/sample_biology.json").read_bytes())])
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"))
+        ctrl.startup_session.repository = repo
+        ctrl.startup_session.complete = True
+        ctrl._initialize_runtime()
+        library = LibraryController(ctrl)
+        assessment = AssessmentController(ctrl)
+        library.selectSubject(pack.subject)
+        library.selectChapter(pack.chapter)
+        library.selectPack(pack.id, pack.version)
+        attempt = ctrl.ui_controller.application.start_test("a", pack.id, pack.version)
+        assessment._active = True
+        ctrl.navigate("question")
+        ctrl._on_tick()
+        changes = []
+        library.catalogChanged.connect(lambda: changes.append(True))
+        with Repository(path) as background:
+            background.cache_profile_library("a", link, [])
+        ctrl._on_tick()
+        assert changes
+        assert library.packs == []
+        assert library.selectedPack == {}
+        assert library._selected_pack_id == ""
+        assert not library.canResume
+        assert not assessment.isActive
+        assert ctrl.ui_controller.application.engine.attempt is None
+        assert repo.get_attempt(attempt.id).status.value == "abandoned"
+        assert ctrl.screen == "home"
+        ctrl.close()

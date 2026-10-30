@@ -100,6 +100,8 @@ def test_selected_profile_persistence_and_attempt_snapshot(tmp_path):
         # A new attempt on another explicitly linked local profile snapshots its link.
         linked2 = {**linked, "local_profile_id": "p2", "link_id": str(uuid4())}
         repo.apply_profile_link("p2", linked2)
+        repo.cache_profile_library("p2", linked2["link_id"],
+                                   [{"set_id": "biology-cell-practice-01", "version": 1}])
         new = AssessmentApplication(repo).start_test("p2", "biology-cell-practice-01", 1)
         assert repo.get_attempt_ownership(new.id)["link_id"] == linked2["link_id"]
         repo.apply_profile_link("p2", {**linked2, "status": "revoked"})
