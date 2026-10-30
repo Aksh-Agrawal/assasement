@@ -22,3 +22,4 @@
 2026-10-28 01:46:49,531 level=INFO component=app.update.client event=update check started
 2026-10-28 01:46:50,550 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
 2026-10-28 01:46:50,553 level=WARNING component=app.update.client event=update check failed: HTTPStatusError
+2026-10-30 14:01:58,984 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=6

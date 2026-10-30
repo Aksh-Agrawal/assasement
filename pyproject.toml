@@ -24,6 +24,10 @@ gui = [
     # pygame-compatible distribution with CPython 3.14 wheels.
     "pygame-ce>=2.5,<3",
 ]
+qt = [
+    # Qt Quick / QML presentation layer for Raspberry Pi appliance.
+    "PySide6-Essentials>=6.6,<7",
+]
 
 [tool.setuptools.packages.find]
 include = ["app*", "tools*", "schemas"]
@@ -55,4 +59,3 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
-
