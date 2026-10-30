@@ -155,7 +155,16 @@ class LegacyController:
                     self.repository.get_attempt_sync_state(attempt.id).status,
                 )
             )
-        return tuple(items)
+        for result in self.repository.completed_results(profile.id):
+            local = self.repository.get_attempt(result["attempt_id"])
+            if local and local.profile_id == profile.id:
+                continue
+            items.append(HistoryItem(
+                result["title"], result.get("subject") or "", result["result"]["score"],
+                result["result"].get("maximum_score") or 0,
+                datetime.fromisoformat(result["completed_at"].replace("Z", "+00:00")),
+                SyncStatus.SYNCED))
+        return tuple(sorted(items, key=lambda item: item.completed_at, reverse=True)[:20])
 
     @property
     def software_version(self) -> str:

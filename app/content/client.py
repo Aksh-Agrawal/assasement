@@ -18,6 +18,10 @@ class ContentAuthError(ContentClientError):
     pass
 
 
+class ProfileUnavailableError(ContentClientError):
+    """The profile relationship was rejected; device authentication may be valid."""
+
+
 class ContentNetworkError(ContentClientError):
     def __init__(self, message: str, state: FailureState = FailureState.OFFLINE):
         super().__init__(message)
@@ -142,8 +146,34 @@ class ContentApiClient:
                 "version": pack.version, "status": status})
             self._check_response(response)
 
+    def fetch_completed_results(self):
+        items, offset = [], 0
+        while True:
+            response = self._client.get(f"/api/v1/profile-content/{self.link_id}/history",
+                params={"local_profile_id": self.local_profile_id, "offset": offset, "limit": 100})
+            self._check_response(response)
+            body = json_object(response)
+            page = body["items"]
+            if not isinstance(page, list):
+                raise ContentProtocolError("Invalid history response")
+            items.extend(page)
+            following = body.get("next_offset")
+            if following is None:
+                return items
+            if type(following) is not int or following <= offset or len(items) >= 10000:
+                raise ContentProtocolError("History exceeds bounded snapshot capacity")
+            offset = following
+
     @staticmethod
     def _check_response(response: httpx.Response) -> None:
+        if response.status_code == 403:
+            try:
+                detail = response.json().get("detail", {})
+            except (ValueError, AttributeError):
+                detail = {}
+            if isinstance(detail, dict) and detail.get("code") in {
+                    "LINK_OWNERSHIP_MISMATCH", "LINK_REVOKED", "profile_not_available"}:
+                raise ProfileUnavailableError("Profile relationship unavailable")
         if response_failure(response) is FailureState.AUTH_REQUIRED:
             raise ContentAuthError(f"HTTP {response.status_code}: authentication rejected")
         if response_failure(response) is FailureState.SERVER_ERROR:

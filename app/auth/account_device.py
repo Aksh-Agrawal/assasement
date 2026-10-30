@@ -61,6 +61,21 @@ def _sync_account(config, credentials, repository, *, create=None, disconnect=Fa
         UUID(p["link_id"])
         if p["account_id"] != data["account_id"] or p["local_profile_id"] != "cloud-" + p["id"]:
             raise ValueError("Invalid cloud profile identity")
+        if not isinstance(p["name"], str) or not p["name"].strip():
+            raise ValueError("Invalid cloud profile name")
+        existing = repository.get_profile(p["local_profile_id"])
+        if existing and (existing.cloud_account_id != data["account_id"]
+                         or existing.cloud_profile_id != p["id"]):
+            raise ValueError("Cloud profile identity collision")
+    active_ids = {p["local_profile_id"] for p in rows}
+    if len(active_ids) != len(rows):
+        raise ValueError("Duplicate cloud profile identity")
+    retired = blocked = 0
+    for profile in repository.list_profiles():
+        if (profile.ownership_state == "owned" and profile.id.startswith("cloud-")
+                and profile.id not in active_ids):
+            repository.retire_profile_link(profile.id, reason="absent_from_account")
+            retired += int(profile.link_state == "linked")
     # Preserve legacy records and historical links. Only cloud-derived IDs are touched.
     for p in rows:
         local_id = p["local_profile_id"]
@@ -81,6 +96,12 @@ def _sync_account(config, credentials, repository, *, create=None, disconnect=Fa
         ):
             raise ValueError("Cloud profile identity collision")
         repository.update_cloud_profile_name(local_id, data["account_id"], p["name"])
+        unavailable = json.loads(repository.get_setting("unavailable_profile:" + local_id) or "{}")
+        # A denied link is not resurrected on every refresh. A new server link or
+        # an authoritative omission followed by restoration permits it again.
+        if unavailable.get("reason") == "profile_forbidden" and unavailable.get("link_id") == p["link_id"]:
+            blocked += 1
+            continue
         old = repository.get_profile_link_context(local_id)
         if old and old["link_id"] != p["link_id"]:
             repository.apply_profile_link(
@@ -107,6 +128,9 @@ def _sync_account(config, credentials, repository, *, create=None, disconnect=Fa
                 "study_profile_name": p["name"],
             },
         )
+        repository.set_setting("unavailable_profile:" + local_id, "{}")
+    repository.set_setting("last_profile_reconciliation", json.dumps(
+        {"available": len(rows) - blocked, "retired": retired, "authorization_skipped": blocked}))
     repository.set_setting("account_profiles", json.dumps(data))
     repository.cache_student_account_context(
         data["account_id"], data["display_name"], last_verified_at=datetime.now(UTC)

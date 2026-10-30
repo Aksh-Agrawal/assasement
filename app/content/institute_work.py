@@ -11,6 +11,7 @@ from app.content.client import (
     ContentAuthError,
     ContentNetworkError,
     ContentProtocolError,
+    ProfileUnavailableError,
 )
 from app.content.sync import ContentSyncStatus, PackSyncResult, _install_one
 
@@ -87,6 +88,7 @@ def download_work(
 
 def sync_institute_work(repository, api, config):
     budget = config.content_max_downloads_per_cycle
+    failures = 0
     for profile in repository.list_profiles():
         context = repository.get_profile_link_context(profile.id)
         if not context or profile.link_state != "linked":
@@ -111,5 +113,11 @@ def sync_institute_work(repository, api, config):
                         max_pack_bytes=config.content_max_pack_bytes,
                     )
                     budget -= 1
-        except Exception:
-            pass  # Transient failure preserves the last complete catalogue and all local work.
+        except ProfileUnavailableError:
+            repository.retire_profile_link(profile.id, reason="profile_forbidden")
+        except ContentAuthError:
+            raise
+        except Exception as error:
+            failures += 1
+            repository.set_setting("last_institute_error", type(error).__name__)
+    return failures == 0

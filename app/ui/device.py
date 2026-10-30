@@ -133,10 +133,6 @@ class DeviceConsole:
                 future.set_exception(error)
             except Exception as error:
                 self.failure = failure_state(error)
-                if operation.startswith("account_") or operation == "sync":
-                    from app.auth.account_device import AccountSyncError
-                    if isinstance(error, AccountSyncError):
-                        self.account_message = error.ui_message
                 future.set_exception(error)
 
         threading.Thread(target=work, daemon=True).start()
@@ -235,6 +231,9 @@ class DeviceConsole:
                 return True
             elif op == "update_check":
                 self.available_update = value
+                if value is None:
+                    self.message = "No update available."
+                    return True
             elif op == "update_download":
                 self.staged = value
             elif op in {"download", "institute_download"}:
@@ -249,6 +248,8 @@ class DeviceConsole:
                 self.message = (
                     "Authentication required."
                     if value.authentication_failures
+                    else "Partially synced. Retry available."
+                    if value.stage_failures
                     else "Sync attention required. Data retained; ask your operator."
                     if value.permanent_failures
                     else "Failed - retry available."

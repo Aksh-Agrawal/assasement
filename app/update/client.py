@@ -37,10 +37,13 @@ class UpdateClient:
     def close(self) -> None:
         self._client.close()
 
-    def check_for_update(self) -> AvailableUpdate:
+    def check_for_update(self) -> AvailableUpdate | None:
         LOGGER.info("update check started")
         try:
             response = self._client.get("/api/v1/device-updates/latest")
+            if response.status_code == 404:
+                LOGGER.info("No update available")
+                return None
             if response.status_code in {401, 403}:
                 raise UpdateError("Update authentication required")
             response.raise_for_status()

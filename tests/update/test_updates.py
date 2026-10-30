@@ -186,3 +186,11 @@ def test_update_check_auth_failure_is_non_installing(tmp_path: Path) -> None:
         client.check_for_update()
     client.close()
     assert not list(tmp_path.iterdir())
+
+
+def test_no_published_update_is_benign_without_warning(caplog):
+    client = UpdateClient("https://updates.invalid", "device_x.y",
+        transport=httpx.MockTransport(lambda _request: httpx.Response(404)))
+    assert client.check_for_update() is None
+    client.close()
+    assert not [record for record in caplog.records if record.levelno >= 30]

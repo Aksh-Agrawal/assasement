@@ -162,6 +162,9 @@ def test_heartbeat_failure_does_not_hide_upload_result_or_stop_metadata(tmp_path
 
     def server(request):
         paths.append(request.url.path)
+        if request.url.path.endswith("device-account"):
+            return httpx.Response(200, json={"account_id": "11111111-1111-4111-8111-111111111111",
+                "display_name": "Student", "profiles": []})
         if request.url.path.endswith("heartbeat"):
             return httpx.Response(503)
         if request.url.path.endswith("catalog"):
@@ -172,7 +175,7 @@ def test_heartbeat_failure_does_not_hide_upload_result_or_stop_metadata(tmp_path
         config, transport=httpx.MockTransport(server)))
     result = service.run_cycle(config, refresh=True)
     assert result.selected == 0
-    assert paths == ["/api/v1/devices/heartbeat", "/api/v1/content/catalog",
+    assert paths == ["/api/v1/device-account", "/api/v1/devices/heartbeat", "/api/v1/content/catalog",
                      "/api/v1/device-updates/latest"]
     with Repository(config.database_path) as repo:
         assert repo.get_setting("last_heartbeat_state") == "HTTPStatusError"

@@ -94,6 +94,7 @@ def mock_repo(tmp_path):
     repo.institute_work.return_value = ()
     repo.find_in_progress_attempt.return_value = None
     repo.list_attempts.return_value = ()
+    repo.completed_results.return_value = []
     repo.save_response.side_effect = lambda resp, *args, **kwargs: resp
     repo.create_attempt.return_value = Mock(id="att-01", profile_id="prof-01", set_id="bio-pack-01", set_version=1)
     return repo
@@ -170,6 +171,83 @@ def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo):
     app_ctrl.goHome()
     assert app_ctrl.screen == "home"
 
+    app_ctrl.close()
+
+
+def test_external_browser_history_commit_refreshes_rendered_qt_model(qapp, tmp_path):
+    """A background SQLite commit appears in the existing History screen without restart."""
+    import json
+    from uuid import uuid4
+
+    from PySide6.QtGui import QFont, QFontDatabase
+    from PySide6.QtQuick import QQuickWindow
+
+    from app.data.repo import Repository
+
+    # The offscreen Windows plugin has no system font fallback; load one for render QA.
+    if os.name == "nt":
+        font_path = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts/segoeui.ttf"
+        assert QFontDatabase.addApplicationFont(str(font_path)) >= 0
+        QFont.insertSubstitution("system-ui", "Segoe UI")
+        qapp.setFont(QFont("Segoe UI"))
+    account, profile, link, result_id = (str(uuid4()) for _ in range(4))
+    local = "cloud-" + profile
+    path = tmp_path / "history.db"
+    repo = Repository(path)
+    repo.create_profile(Profile(local, "Student", cloud_account_id=account,
+        cloud_profile_id=profile, ownership_state="owned", link_state="unlinked"))
+    repo.apply_profile_link(local, {"status": "linked", "link_id": link,
+        "student_account_id": account, "study_profile_id": profile, "local_profile_id": local,
+        "account_display_name": "Student", "study_profile_name": "Student"})
+    repo.cache_student_account_context(account, "Student")
+    repo.set_setting("account_profiles", json.dumps({"profiles": [{"local_profile_id": local}]}))
+    config = AppConfig(database_path=path)
+    app_ctrl = AppController(path, config, CredentialStore(tmp_path / "creds"))
+    app_ctrl.startup_session.repository = repo
+    app_ctrl.startup_session.complete = True
+    app_ctrl._initialize_runtime()
+    prof = ProfileController(app_ctrl)
+    library = LibraryController(app_ctrl)
+    assessment = AssessmentController(app_ctrl)
+    settings = SettingsController(app_ctrl)
+    engine = QQmlApplicationEngine()
+    root = Path("app/ui_qt/qml").resolve()
+    engine.addImportPath(str(root))
+    for name, controller in (("appController", app_ctrl), ("profileController", prof),
+            ("libraryController", library), ("assessmentController", assessment),
+            ("settingsController", settings)):
+        engine.rootContext().setContextProperty(name, controller)
+    engine.load(QUrl.fromLocalFile(str(root / "App.qml")))
+    assert engine.rootObjects()
+    app_ctrl.navigate("history")
+    app_ctrl._on_tick()
+    changed = []
+    assessment.historyChanged.connect(lambda: changed.append(True))
+    with Repository(path) as worker_repo:
+        worker_repo.set_setting("last_full_sync", json.dumps({"at": "2026-10-30T10:02:00Z",
+            "result": "Up to date", "profiles": {"available": 1, "retired": 1},
+            "stages": {"history": "OK", "content": "OK", "heartbeat": "OK",
+                       "attempt_uploads": {"uploaded": 0, "failed": 0}}}))
+        worker_repo.cache_completed_results(local, link, [{
+            "attempt_id": result_id, "study_profile_id": profile, "source": "web",
+            "status": "completed", "title": "Browser completion", "subject": "Biology",
+            "started_at": "2026-10-30T10:00:00Z", "completed_at": "2026-10-30T10:01:00Z",
+            "result": {"score": 4, "maximum_score": 8}}])
+    app_ctrl._on_tick()
+    qapp.processEvents()
+    assert changed
+    assert assessment.historyList[0]["title"] == "Browser completion"
+    assert assessment.historyList[0]["synced"] is True
+    assert repo.get_attempt(result_id) is None
+    window = engine.rootObjects()[0]
+    assert isinstance(window, QQuickWindow)
+    image = window.grabWindow()
+    assert not image.isNull()
+    assert image.save(str(tmp_path / "history-down-sync.png"))
+    assert next(item for item in settings.diagnosticItems if item["name"] == "Last Full Sync")["status"] == "Up to date"
+    app_ctrl.navigate("diagnostics")
+    qapp.processEvents()
+    assert window.grabWindow().save(str(tmp_path / "sync-diagnostics.png"))
     app_ctrl.close()
 
 

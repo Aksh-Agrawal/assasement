@@ -360,6 +360,8 @@ class AppController(QObject):
                 self.activeProfileChanged.emit()
             if getattr(self, "profile_controller", None):
                 self.profile_controller.profilesChanged.emit()
+            if getattr(self, "assessment_controller", None):
+                self.assessment_controller.historyChanged.emit()
             self.statusChanged.emit()
             if self.device.message:
                 self.showNotification(self.device.message, "info")

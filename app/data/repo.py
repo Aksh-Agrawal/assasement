@@ -307,6 +307,54 @@ class Repository:
                                (profile_id,))
             self._repair_content_attempts(connection, profile_id)
 
+    def retire_profile_link(self, profile_id: str, *, reason: str) -> None:
+        """Retain identity/history/bytes but stop using an unavailable relationship."""
+        context = self.get_profile_link_context(profile_id)
+        with transaction(self._connection) as connection:
+            connection.execute("UPDATE profiles SET link_state='unlinked' WHERE id=?", (profile_id,))
+            connection.execute("UPDATE profile_library SET eligible=0 WHERE local_profile_id=?", (profile_id,))
+            connection.execute("UPDATE institute_work SET eligible=0 WHERE local_profile_id=?", (profile_id,))
+            connection.execute(
+                "INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                ("unavailable_profile:" + profile_id, json.dumps(
+                    {"link_id": context["link_id"] if context else None, "reason": reason})),
+            )
+            self._repair_content_attempts(connection, profile_id)
+        LOGGER.info("profile relationship retired profile_id=%s reason=%s", profile_id, reason)
+
+    def cache_completed_results(self, profile_id: str, link_id: str, items: list[dict]) -> None:
+        """Atomic read-only history snapshot, separate from native assessment attempts."""
+        profile = self.get_profile(profile_id)
+        context = self.get_profile_link_context(profile_id)
+        if not profile or profile.link_state != "linked" or not context or context["link_id"] != link_id:
+            raise ValueError("Profile link changed")
+        seen = set()
+        for item in items:
+            identifier = str(uuid.UUID(item["attempt_id"]))
+            if (item["study_profile_id"] != profile.cloud_profile_id or identifier in seen
+                    or item["status"] != "completed" or item["source"] not in {"web", "device"}):
+                raise ValueError("Invalid completed result ownership or identity")
+            seen.add(identifier)
+            for field in ("started_at", "completed_at"):
+                timestamp = datetime_from_text(item[field])
+                if timestamp is None or timestamp.utcoffset() is None:
+                    raise ValueError("Invalid completed result timestamp")
+            if not isinstance(item["title"], str) or not isinstance(item["result"], dict):
+                raise ValueError("Invalid completed result")
+            for field in ("score", "maximum_score"):
+                value = item["result"][field]
+                if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
+                    raise ValueError("Invalid completed result score")
+        self.set_setting("completed_results:" + profile_id, json.dumps(
+            {"study_profile_id": profile.cloud_profile_id, "items": items}, allow_nan=False))
+
+    def completed_results(self, profile_id: str) -> list[dict]:
+        profile = self.get_profile(profile_id)
+        data = json.loads(self.get_setting("completed_results:" + profile_id) or "{}")
+        if not profile or data.get("study_profile_id") != profile.cloud_profile_id:
+            return []
+        return data.get("items", [])
+
     def can_start_pack(self, profile_id: str, set_id: str, version: int) -> bool:
         """Owned profiles require a grant; legacy profiles retain shared samples."""
         self._ensure_open()

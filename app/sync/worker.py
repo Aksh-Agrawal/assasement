@@ -32,6 +32,7 @@ class SyncCycleResult:
     transient_failures: int = 0
     permanent_failures: int = 0
     authentication_failures: int = 0
+    stage_failures: int = 0
 
 
 class SyncWorker:
@@ -73,7 +74,7 @@ class SyncWorker:
             "permanent_failures": 0,
             "authentication_failures": 0,
         }
-        LOGGER.info("sync cycle started selected=%d recovered_stale=%d", len(attempts), recovered)
+        LOGGER.info("attempt upload cycle started pending_attempts_selected=%d recovered_stale=%d", len(attempts), recovered)
 
         for attempt in attempts:
             LOGGER.info("sync attempt selected attempt_id=%s", attempt.id)

@@ -13,6 +13,7 @@ from app.content.client import (
     ContentAuthError,
     ContentClientError,
     ContentNetworkError,
+    ProfileUnavailableError,
 )
 from app.content.downloader import DownloadSizeError, download_pack_to_temp
 from app.content.hashing import sha256_file
@@ -177,6 +178,8 @@ def _install_one(
         )
         LOGGER.info("pack import success set_id=%s version=%d", pack.set_id, pack.version)
         return PackSyncResult(pack.set_id, pack.version, ContentSyncStatus.INSTALLED)
+    except ProfileUnavailableError:
+        raise
     except ContentAuthError as error:
         return PackSyncResult(pack.set_id, pack.version, ContentSyncStatus.AUTH_REQUIRED, str(error))
     except ContentNetworkError as error:

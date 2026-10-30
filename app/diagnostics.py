@@ -105,6 +105,8 @@ class DeviceStatus:
     ip_assigned: bool = True
     dns_ok: bool = True
     internet_status: str = "Checking…"
+    full_sync: dict[str, Any] | None = None
+    last_full_sync_success: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -232,6 +234,7 @@ def collect_device_status(
     update = update_manager.metadata()
     content = _parse_json(repository.get_setting("last_content_sync_status"))
     persisted_failure = _parse_json(repository.get_setting("last_sync_failure"))
+    full_sync = _parse_json(repository.get_setting("last_full_sync"))
     from app.connectivity import cloud_label, internet_label, internet_state, wifi_state
 
     selected_network = network or NetworkStatus()
@@ -245,6 +248,10 @@ def collect_device_status(
         codes.append(SupportCode.AUTH_REJECTED.value)
     if int(counts[SyncStatus.PENDING.value]) or int(counts[SyncStatus.FAILED.value]):
         codes.append(SupportCode.SYNC_BACKLOG.value)
+    if full_sync and full_sync.get("result") in {"Failed", "Partially synced"}:
+        codes.append(SupportCode.SYNC_UNAVAILABLE.value)
+    if full_sync and full_sync.get("result") == "Authentication required":
+        codes.append(SupportCode.AUTH_REJECTED.value)
     if selected_network.checked and selected_network.backend_reachable is False:
         codes.append(SupportCode.BACKEND_UNAVAILABLE.value)
     if content and content.get("status") not in {"COMPLETE", None}:
@@ -253,7 +260,7 @@ def collect_device_status(
         codes.append(SupportCode.UPDATE_ERROR.value)
     if not quick.ok:
         health = HealthLevel.ERROR
-    elif selected_network.auth_accepted is False or credential is None:
+    elif selected_network.auth_accepted is False or credential is None or SupportCode.AUTH_REJECTED.value in codes:
         health = HealthLevel.ACTION_REQUIRED
     elif codes:
         health = HealthLevel.DEGRADED
@@ -328,6 +335,8 @@ def collect_device_status(
         ip_assigned=True,
         dns_ok=bool(dns_status),
         internet_status=inet_label,
+        full_sync=full_sync,
+        last_full_sync_success=repository.get_setting("last_full_sync_success"),
     )
 
 

@@ -237,9 +237,9 @@ def test_download_auth_rejection_revokes_cached_profile_eligibility(tmp_path):
         link = setup(repo)
         with ContentApiClient("https://cloud.test", auth_token="device", link_id=link,
                               local_profile_id="a", transport=httpx.MockTransport(handler)) as client:
-            result = download_for_profile(repo, client, "a", link, RemotePack.from_dict(item),
-                temp_directory=tmp_path, max_pack_bytes=10**6)
-            assert result.status.value == "AUTH_REQUIRED"
+            with pytest.raises(ContentAuthError):
+                download_for_profile(repo, client, "a", link, RemotePack.from_dict(item),
+                    temp_directory=tmp_path, max_pack_bytes=10**6)
             assert repo.profile_library_catalog("a") == []
 
 
@@ -263,8 +263,11 @@ def test_installed_ack_lost_then_retried_after_restart_without_redownload(tmp_pa
         link = setup(repo)
         with ContentApiClient("https://cloud.test", auth_token="device", link_id=link,
                               local_profile_id="a", transport=httpx.MockTransport(handler)) as client:
-            assert download_for_profile(repo, client, "a", link, RemotePack.from_dict(item),
-                temp_directory=tmp_path, max_pack_bytes=10**6).status.value == "INSTALLED"
+            with pytest.raises(httpx.ConnectError):
+                download_for_profile(repo, client, "a", link, RemotePack.from_dict(item),
+                    temp_directory=tmp_path, max_pack_bytes=10**6)
+            assert repo.get_question_set(item["set_id"], 1) is not None
+            assert repo.get_setting("delivery_ack_pending") == "1"
     with Repository(path) as repo:
         with ContentApiClient("https://cloud.test", auth_token="device", link_id=link,
                               local_profile_id="a", transport=httpx.MockTransport(handler)) as client:

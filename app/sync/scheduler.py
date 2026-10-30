@@ -62,7 +62,9 @@ class AutoSyncScheduler:
             self.cycle(self.config, heartbeat=heartbeat, refresh=refresh)
             values = read_scheduler_state(self.config.database_path)
             cloud = json.loads(values.get("connectivity_cloud", "{}")).get("state", "Checking…")
-            success = cloud == "Online"
+            # HTTP reachability alone does not establish reconciliation success.
+            success = cloud == "Online" and (not refresh or values.get(
+                "connectivity_sync", "Up to date") == "Up to date")
         except Exception as error:
             LOGGER.warning("Automatic sync unavailable kind=%s", type(error).__name__)
             success = False
@@ -76,6 +78,8 @@ class AutoSyncScheduler:
             self.next_heartbeat = self.clock() + (min(self.config.heartbeat_interval_seconds, 60)
                                                    if success else max(60, interval))
         self.previous_cloud = cloud
+        self.previous_internet = json.loads(read_scheduler_state(
+            self.config.database_path).get("connectivity_internet", "{}")).get("state", "Checking…")
         value = (datetime.now(UTC) + timedelta(
             seconds=max(0, self.next_due - self.clock()))).isoformat() if enabled else ""
         set_next_sync(self.config.database_path, value)

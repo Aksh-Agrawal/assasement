@@ -87,3 +87,22 @@ def test_network_or_account_wakeup_bypasses_long_backoff(tmp_path):
     scheduler.tick()
     assert len(calls) == 2
     assert calls[-1] == {"heartbeat": True, "refresh": True}
+
+
+def test_partial_reconciliation_backs_off_even_when_cloud_is_online(tmp_path):
+    config = AppConfig(database_path=tmp_path / "pi.db", api_base_url="https://cloud.test")
+    now = [0.0]
+    state = ["Partially synced"]
+    def cycle(config, **kwargs):
+        record_cloud(config.database_path, "Online")
+        with Repository(config.database_path) as repo:
+            repo.set_setting("connectivity_sync", state[0])
+    scheduler = AutoSyncScheduler(config, cycle=cycle, clock=lambda: now[0], jitter=lambda: 0)
+    scheduler.tick()
+    now[0] = scheduler.next_due
+    scheduler.tick()
+    assert scheduler.failures == 2 and scheduler.next_due - now[0] == 50
+    state[0] = "Up to date"
+    now[0] = scheduler.next_due
+    scheduler.tick()
+    assert scheduler.failures == 0 and scheduler.next_due - now[0] == 25

@@ -1,5 +1,6 @@
 """Settings Controller managing Wi-Fi, Sync, Account Pairing, Updates, and Diagnostics."""
 
+import json
 import shutil
 from datetime import UTC, datetime
 
@@ -333,7 +334,8 @@ class SettingsController(QObject):
             cloud_health = "Not checked"
             cloud_ready = "Not checked"
 
-        auth_str = "OK" if self.isPaired else "Action required"
+        auth_str = ("Action required" if not self.isPaired or cloud_str == "Authentication required"
+                    else "OK" if cloud_str == "Online" else "Unverified")
         last_cloud = "Never"
         if self.app.repository:
             c_info = cloud_state(self.app.repository)
@@ -351,7 +353,7 @@ class SettingsController(QObject):
                 except Exception:
                     last_cloud = lcs[:19]
 
-        return [
+        items = [
             {"name": "NetworkManager", "detail": f"Subprocess networking backend: {nm_str}", "status": nm_str},
             {"name": "Wi-Fi Association", "detail": f"State: {wifi_str} • SSID: {ssid_str}", "status": wifi_str},
             {"name": "IP Assignment", "detail": "Kernel networking & dual-stack interface ready", "status": "Assigned" if self.isWifiConnected else "Unassigned"},
@@ -362,6 +364,20 @@ class SettingsController(QObject):
             {"name": "Device Authentication", "detail": f"Bearer token pair state: {auth_str}", "status": auth_str},
             {"name": "Last Cloud Success", "detail": f"Most recent verified contact: {last_cloud}", "status": last_cloud},
         ]
+        full = json.loads(self.app.repository.get_setting("last_full_sync") or "{}") if self.app.repository else {}
+        profiles = full.get("profiles", {})
+        items.append({"name": "Last Full Sync", "detail": full.get("at") or "Not checked",
+                      "status": full.get("result") or "Not checked"})
+        items.append({"name": "Profiles", "detail": (
+            f"{profiles.get('available', 0)} available, {profiles.get('retired', 0)} retired, "
+            f"{profiles.get('authorization_skipped', 0)} unavailable"), "status": "Reconciled" if full else "Not checked"})
+        for name, label in (("content", "Content Operations"), ("history", "History Download"),
+                            ("heartbeat", "Heartbeat"), ("attempt_uploads", "Attempt Uploads")):
+            state = full.get("stages", {}).get(name, "Not checked")
+            if isinstance(state, dict):
+                state = f"{state.get('uploaded', 0)} uploaded, {state.get('failed', 0)} failed"
+            items.append({"name": label, "detail": state, "status": state})
+        return items
 
     # -------------------------------------------------------------------------
     # Slots / Actions

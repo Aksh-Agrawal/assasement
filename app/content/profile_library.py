@@ -2,7 +2,7 @@
 import json
 
 from app.content.catalog import RemotePack
-from app.content.client import ContentAuthError, ContentProtocolError
+from app.content.client import ContentAuthError, ContentProtocolError, ProfileUnavailableError
 from app.content.sync import ContentSyncStatus, PackSyncResult, _install_one
 
 
@@ -11,9 +11,14 @@ def _report(repository, client, profile_id, pack, status):
         client.acknowledge(pack, status)
     except ContentAuthError:
         repository.revoke_profile_library(profile_id)
+        raise
+    except ProfileUnavailableError:
+        repository.retire_profile_link(profile_id, reason="profile_forbidden")
+        raise
     except Exception:
         # The next rotating delivery cycle rechecks installed bytes and retries.
         repository.set_setting("delivery_ack_pending", "1")
+        raise
 
 
 def refresh_library(repository, client, profile_id, link_id):
@@ -55,15 +60,17 @@ def download_for_profile(repository, client, profile_id, link_id, pack, *,
             ContentSyncStatus.INSTALLED, ContentSyncStatus.ALREADY_PRESENT} else "failed")
     except ContentAuthError:
         repository.revoke_profile_library(profile_id)
+        raise
     except Exception:
-        pass  # A retry uses verified local bytes and repeats acknowledgement.
+        repository.set_setting("delivery_ack_pending", "1")
+        raise  # A retry uses verified local bytes and repeats acknowledgement.
     return result
 
 
 def sync_profile_deliveries(repository, api, config):
     """Bounded rotating work prevents one profile or cached pack starving another."""
     jobs = []
-    failures = 0
+    failures = skipped = synced = 0
     for profile in repository.list_profiles():
         context = repository.get_profile_link_context(profile.id)
         if profile.link_state != "linked" or not context:
@@ -111,11 +118,20 @@ def sync_profile_deliveries(repository, api, config):
                 jobs.extend((profile.id, context["link_id"], pack) for pack in packs
                             if states.get(pack.set_id) != "installed"
                             or repository.get_question_set(pack.set_id, pack.version) is None)
+            synced += 1
+        except ProfileUnavailableError:
+            repository.retire_profile_link(profile.id, reason="profile_forbidden")
+            skipped += 1
+        except ContentAuthError:
+            raise
         except Exception as error:
             failures += 1
             repository.set_setting("last_profile_library_check",
                                    json.dumps({"state": "UNAVAILABLE", "kind": type(error).__name__}))
     if not jobs:
+        repository.set_setting("last_delivery_summary", json.dumps(
+            {"profiles_synced": synced, "profiles_skipped": skipped, "failures": failures,
+             "operations": 0}))
         return failures == 0
     try:
         cursor = int(repository.get_setting("profile_library_delivery_cursor") or "0") % len(jobs)
@@ -124,6 +140,8 @@ def sync_profile_deliveries(repository, api, config):
     count = min(config.content_max_downloads_per_cycle, len(jobs))
     for i in range(count):
         profile_id, link_id, pack = jobs[(cursor + i) % len(jobs)]
+        if repository.get_profile(profile_id).link_state != "linked":
+            continue
         try:
             with api.content(local_profile_id=profile_id, link_id=link_id) as client:
                 result = download_for_profile(repository, client, profile_id, link_id, pack,
@@ -131,10 +149,18 @@ def sync_profile_deliveries(repository, api, config):
                     max_pack_bytes=config.content_max_pack_bytes)
                 if result.status not in {ContentSyncStatus.INSTALLED, ContentSyncStatus.ALREADY_PRESENT}:
                     failures += 1
+        except ProfileUnavailableError:
+            repository.retire_profile_link(profile_id, reason="profile_forbidden")
+            skipped += 1
+        except ContentAuthError:
+            raise
         except Exception as error:
             failures += 1
             repository.set_setting("last_profile_library_check",
                                    json.dumps({"state": "UNAVAILABLE", "kind": type(error).__name__}))
     repository.set_setting("profile_library_delivery_cursor", str((cursor + count) % len(jobs)))
+    repository.set_setting("last_delivery_summary", json.dumps(
+        {"profiles_synced": synced, "profiles_skipped": skipped, "failures": failures,
+         "operations": count, "remaining": len(jobs) - count}))
 
     return failures == 0

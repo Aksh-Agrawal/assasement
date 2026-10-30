@@ -293,7 +293,7 @@ class AssessmentController(QObject):
                 "maximum": it.maximum,
                 "scorePercent": pct,
                 "completedAt": date_str,
-                "synced": (it.sync_status.value == "SYNCED"),
+                "synced": (it.sync_status.value == "synced"),
                 "syncStatus": it.sync_status.value,
             })
         return res

@@ -100,6 +100,15 @@ def _human(status: dict) -> None:
     print(f"Last sync success: {status.get('last_sync_success') or 'never'}")
     print(f"Last sync attempt: {status.get('last_sync_attempt') or 'never'}")
     print(f"Last sync failure: {status.get('last_sync_failure') or 'never'}")
+    full = status.get("full_sync") or {}
+    print(f"Last full sync: {full.get('at') or 'never'}")
+    print(f"Last successful full sync: {status.get('last_full_sync_success') or 'never'}")
+    print(f"Last sync result: {full.get('result') or 'not checked'}")
+    print(f"Profiles: {json.dumps(full.get('profiles', {}), sort_keys=True)}")
+    print(f"Profile authorization errors reconciled: {sum(full.get(key, {}).get('profiles_skipped', 0) for key in ('content', 'history'))}")
+    print(f"Content operations: {json.dumps(full.get('content', {}), sort_keys=True)}")
+    print(f"History down-sync: {json.dumps(full.get('history', {}), sort_keys=True)}")
+    print(f"Sync stages: {json.dumps(full.get('stages', {}), sort_keys=True)}")
     print(f"Installed packs: {status.get('installed_content_count', 0)}")
     print(f"Installed versions: {', '.join(status.get('installed_content_versions', ())) or 'none'}")
     print(f"Active versions: {', '.join(status.get('active_content_versions', ())) or 'none'}")
@@ -143,7 +152,7 @@ def _human(status: dict) -> None:
     else:
         print("Cloud health: Not checked")
         print("Cloud ready: Not checked")
-        print(f"Authentication: {'OK' if status.get('paired') else 'Action required'}")
+        print(f"Authentication: {'Unverified' if status.get('paired') else 'Action required'}")
 
     last_cloud = status.get("last_sync_success") or "never"
     print(f"Last cloud success: {last_cloud}")

@@ -138,6 +138,8 @@ def sync_label(repository) -> str:
     state = repository.get_setting("connectivity_sync")
     if state == "Authentication required":
         return state
+    if state in {"Partially synced", "Action required", "Offline"}:
+        return state
     if state == "Syncing":
         try:
             started = datetime.fromisoformat(repository.get_setting("last_sync_attempt") or "")
@@ -254,7 +256,8 @@ class ObservedTransport(httpx.BaseTransport):
         if authenticated:
             if 200 <= code < 300:
                 record_cloud(self.database_path, "Online")
-            elif code in {401, 403}:
+            elif code == 401 or (code == 403 and not request.url.path.startswith(
+                    ("/api/v1/profile-content/", "/api/v1/institute-content/"))):
                 record_cloud(self.database_path, "Authentication required")
             elif code >= 500:
                 record_cloud(self.database_path, "Server unavailable")

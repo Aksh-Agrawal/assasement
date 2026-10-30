@@ -6,7 +6,8 @@ from datetime import UTC, datetime
 def read_scheduler_state(path):
     with sqlite3.connect(path, timeout=5) as connection:
         return dict(connection.execute("SELECT key,value FROM settings WHERE key IN "
-                    "('automatic_sync','connectivity_cloud','sync_requested_at')"))
+                    "('automatic_sync','connectivity_cloud','connectivity_internet',"
+                    "'connectivity_sync','sync_requested_at')"))
 
 
 def _write(path, key, value):
