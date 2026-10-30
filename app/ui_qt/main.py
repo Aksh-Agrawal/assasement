@@ -1,22 +1,28 @@
 """Production entry point for the PySide6 / Qt Quick educational assessment appliance."""
 
 import argparse
+import logging
 import os
+import shutil
 import sys
+from dataclasses import replace
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
 from app.auth.credentials import CredentialStore
-from app.config import AppConfig
+from app.config import DEFAULT_API_BASE_URL, AppConfig, normalize_api_url
 from app.diagnostics import configure_logging
 from app.ui_qt.controllers.app_controller import AppController
 from app.ui_qt.controllers.assessment_controller import AssessmentController
 from app.ui_qt.controllers.library_controller import LibraryController
 from app.ui_qt.controllers.profile_controller import ProfileController
 from app.ui_qt.controllers.settings_controller import SettingsController
+
+LOGGER = logging.getLogger(__name__)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -47,6 +53,29 @@ def run(
         configure_logging(config.log_directory)
     except OSError:
         pass
+
+    # Ensure effective API URL is set for production GUI if unset
+    effective_url = config.api_base_url or normalize_api_url(os.getenv("ASSESS_API_URL")) or DEFAULT_API_BASE_URL
+    if config.api_base_url != effective_url:
+        config = replace(config, api_base_url=effective_url)
+
+    # Log safe process startup environment as mandated by Section 3
+    api_configured = "YES" if config.api_base_url else "NO"
+    api_host = urlsplit(config.api_base_url).netloc if config.api_base_url else "none"
+    display = os.getenv("DISPLAY", "unset")
+    wifi_backend = "NetworkManager (nmcli)" if shutil.which("nmcli") else "Mock / Offline"
+
+    LOGGER.info(
+        "Application startup: ASSESS_API_URL configured: %s, API host: %s, DISPLAY: %s, network backend selected: %s",
+        api_configured,
+        api_host,
+        display,
+        wifi_backend,
+    )
+    print(f"ASSESS_API_URL configured: {api_configured}")
+    print(f"API host: {api_host}")
+    print(f"DISPLAY: {display}")
+    print(f"network backend selected: {wifi_backend}")
 
     # Basic Qt Quick scene graph optimizations for Pi Zero 2 W
     os.environ.setdefault("QSG_RENDER_LOOP", "basic")
@@ -96,8 +125,6 @@ def run(
         app_controller.close()
         return 0
 
-    from dataclasses import replace
-
     from app.sync.scheduler import AutoSyncScheduler
     scheduler = AutoSyncScheduler(replace(config, database_path=database_path, credential_path=credentials.path))
     scheduler.start()
@@ -110,9 +137,10 @@ def run(
 
 def main() -> int:
     args = parse_arguments()
+    effective_url = args.base_url or normalize_api_url(os.getenv("ASSESS_API_URL")) or DEFAULT_API_BASE_URL
     return run(
         args.db,
-        config=AppConfig(database_path=args.db, api_base_url=args.base_url),
+        config=AppConfig(database_path=args.db, api_base_url=effective_url),
         fullscreen=args.fullscreen,
         smoke_test=args.smoke_test,
     )

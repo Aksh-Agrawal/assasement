@@ -6,18 +6,22 @@ from pathlib import Path
 
 from app.auth.credentials import CredentialStore
 from app.config import AppConfig
+from app.connectivity import check_internet_reachability
 from app.data.repo import Repository
 from app.diagnostics import (
     HealthLevel,
     collect_device_status,
     collect_network_status,
 )
+from app.system.wifi import WifiService
 from app.update.activation import ActivationManager
 
 
 def collect(args: argparse.Namespace) -> dict:
     credential_store = CredentialStore(args.credentials)
     credential = credential_store.load_safe()
+    wifi_service = WifiService()
+
     network = (
         collect_network_status(
             args.base_url,
@@ -28,6 +32,7 @@ def collect(args: argparse.Namespace) -> dict:
         if args.network
         else None
     )
+
     if not args.db.is_file():
         return {
             "diagnostic_schema_version": 1,
@@ -49,6 +54,23 @@ def collect(args: argparse.Namespace) -> dict:
             )
         result = status.to_dict()
         result["api_configuration"] = "Configured" if args.base_url else "Not configured"
+
+        # Overlay active live network indicators if --network was requested
+        if args.network:
+            wifi_conn = wifi_service.connected()
+            wifi_ssid = wifi_service.connected_ssid() if wifi_conn else None
+            if network and network.backend_reachable:
+                inet_ok, dns_ok = True, True
+            else:
+                inet_ok, dns_ok = check_internet_reachability(
+                    timeout=args.connect_timeout, cloud_base_url=args.base_url
+                )
+            result["network_manager_ok"] = wifi_service.available
+            result["wifi_connected"] = wifi_conn
+            result["wifi_ssid"] = wifi_ssid
+            result["dns_ok"] = dns_ok
+            result["internet_status"] = "Available" if inet_ok else "Unavailable"
+
         return result
     except Exception:
         return {
@@ -89,8 +111,27 @@ def _human(status: dict) -> None:
         "Offline assessment readiness: "
         f"{'YES' if status.get('offline_assessment_ready') else 'NO'}"
     )
+
+    # Canonical network diagnostics matching Requirement 29 & 30
+    nm_ok = "OK" if status.get("network_manager_ok", True) else "Unavailable"
+    wifi_conn = "Connected" if status.get("wifi_connected") else "Disconnected"
+    wifi_ssid = status.get("wifi_ssid") or "None"
+    ip_status = "assigned" if status.get("ip_assigned", True) else "not assigned"
+    dns_status = "OK" if status.get("dns_ok", True) else "Failed"
+    inet_status = status.get("internet_status", "Checking…")
+
+    print(f"NetworkManager: {nm_ok}")
+    print(f"Wi-Fi: {wifi_conn}")
+    print(f"SSID: {wifi_ssid}")
+    print(f"IP: {ip_status}")
+    print(f"DNS: {dns_status}")
+    print(f"Internet: {inet_status}")
+
     network = status.get("network")
     if network and network.get("checked"):
+        print(f"Cloud health: {'OK' if network.get('backend_reachable') else 'Failed'}")
+        print(f"Cloud ready: {'OK' if network.get('database_ready') else 'Not ready' if network.get('backend_reachable') else 'Unavailable'}")
+        print(f"Authentication: {'OK' if network.get('auth_accepted') else 'Action required' if network.get('auth_accepted') is False else 'Not configured' if not status.get('paired') else 'Unverified'}")
         print(f"Backend reachable: {'yes' if network.get('backend_reachable') else 'no'}")
         print(f"Backend database ready: {'yes' if network.get('database_ready') else 'no'}")
         print(f"Authentication accepted: {'yes' if network.get('auth_accepted') else 'no'}")
@@ -99,6 +140,13 @@ def _human(status: dict) -> None:
             "Update endpoint reachable: "
             f"{'yes' if network.get('update_endpoint_reachable') else 'no'}"
         )
+    else:
+        print("Cloud health: Not checked")
+        print("Cloud ready: Not checked")
+        print(f"Authentication: {'OK' if status.get('paired') else 'Action required'}")
+
+    last_cloud = status.get("last_sync_success") or "never"
+    print(f"Last cloud success: {last_cloud}")
 
 
 def parser() -> argparse.ArgumentParser:

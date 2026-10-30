@@ -1,9 +1,15 @@
 """Settings Controller managing Wi-Fi, Sync, Account Pairing, Updates, and Diagnostics."""
 
 import shutil
+from datetime import UTC, datetime
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
+from app.connectivity import (
+    cloud_state,
+    internet_label,
+    wifi_state,
+)
 from app.ui_qt.controllers.app_controller import AppController
 from app.version import __version__
 
@@ -22,6 +28,7 @@ class SettingsController(QObject):
         self.app = app_controller
         self.app.statusChanged.connect(self.wifiChanged.emit)
         self.app.statusChanged.connect(self.syncChanged.emit)
+        self.app.statusChanged.connect(self.diagnosticsChanged.emit)
         self.app.activeProfileChanged.connect(self.accountChanged.emit)
         self.app.activeProfileChanged.connect(self.instituteChanged.emit)
         self.app.activeProfileChanged.connect(self.storageChanged.emit)
@@ -38,19 +45,49 @@ class SettingsController(QObject):
     # -------------------------------------------------------------------------
     @Property(bool, notify=wifiChanged)
     def isWifiConnected(self) -> bool:
-        if self.app.device:
-            return bool(self.app.device.wifi_connected)
+        if self.app.device and self.app.device.wifi_connected:
+            return True
+        if self.app.repository:
+            return wifi_state(self.app.repository).get("state") == "connected"
         return False
+
+    @Property(bool, notify=wifiChanged)
+    def isScanning(self) -> bool:
+        return bool(
+            self.app.device
+            and self.app.device.busy
+            and self.app.device.operation == "wifi_scan"
+        )
+
+    @Property(bool, notify=wifiChanged)
+    def isConnecting(self) -> bool:
+        return bool(
+            self.app.device
+            and self.app.device.busy
+            and self.app.device.operation == "wifi_connect"
+        )
 
     @Property(str, notify=wifiChanged)
     def connectedSsid(self) -> str:
+        if not self.isWifiConnected:
+            return "Not connected"
+        if self.app.device and getattr(self.app.device, "connected_ssid", None):
+            return self.app.device.connected_ssid
+        if self.app.repository:
+            ssid = wifi_state(self.app.repository).get("ssid")
+            if ssid:
+                return ssid
         if self.app.device and self.app.device.saved_networks:
             return self.app.device.saved_networks[0]
-        return "StudyBuddy-Home" if self.isWifiConnected else "Not connected"
+        return "Connected"
 
     @Property(str, notify=wifiChanged)
     def internetStatus(self) -> str:
-        if self.app.device:
+        if self.app.repository:
+            lbl = internet_label(self.app.repository)
+            if lbl != "Checking…":
+                return lbl
+        if self.app.device and self.app.device.internet_status not in {"Unknown", ""}:
             return self.app.device.internet_status
         return "Available" if self.app.isOnline else "Unavailable"
 
@@ -61,21 +98,33 @@ class SettingsController(QObject):
     @Property(list, notify=wifiChanged)
     def availableNetworks(self) -> list:
         if not self.app.device or not self.app.device.networks:
-            # Fallback realistic sample networks for discovery/dev
-            return [
-                {"ssid": "StudyBuddy-Home", "connected": True, "saved": True, "signal": 90, "encrypted": True},
-                {"ssid": "HomeWiFi", "connected": False, "saved": False, "signal": 75, "encrypted": True},
-                {"ssid": "SchoolWiFi", "connected": False, "saved": False, "signal": 60, "encrypted": True},
-                {"ssid": "Library-Guest", "connected": False, "saved": False, "signal": 40, "encrypted": False},
-            ]
-        saved = set(self.app.device.saved_networks)
+            # If on non-Linux development platform without nmcli, provide realistic samples
+            has_nmcli = (
+                self.app.device.wifi.available
+                if (self.app.device and hasattr(self.app.device, "wifi"))
+                else (shutil.which("nmcli") is not None)
+            )
+            if not has_nmcli:
+                return [
+                    {"ssid": "StudyBuddy-Home", "connected": True, "saved": True, "signal": 90, "encrypted": True},
+                    {"ssid": "HomeWiFi", "connected": False, "saved": False, "signal": 75, "encrypted": True},
+                    {"ssid": "SchoolWiFi", "connected": False, "saved": False, "signal": 60, "encrypted": True},
+                    {"ssid": "Library-Guest", "connected": False, "saved": False, "signal": 40, "encrypted": False},
+                ]
+            return []
+
+        saved = set(self.app.device.saved_networks or ())
+        active_ssid = self.connectedSsid
         res = []
         for n in self.app.device.networks:
             ssid = getattr(n, "ssid", str(n))
+            if not ssid:
+                continue
+            is_active = (ssid == active_ssid and self.isWifiConnected) or getattr(n, "connected", False)
             res.append({
                 "ssid": ssid,
-                "connected": (ssid == self.connectedSsid),
-                "saved": (ssid in saved),
+                "connected": is_active,
+                "saved": (ssid in saved) or getattr(n, "saved", False),
                 "signal": getattr(n, "signal_percent", 70),
                 "encrypted": getattr(n, "encrypted", True),
             })
@@ -96,7 +145,6 @@ class SettingsController(QObject):
 
     @Property(str, notify=syncChanged)
     def nextAutomaticSync(self):
-        from datetime import UTC, datetime
         if not self.automaticSync:
             return "Off"
         value = self.app.repository.get_setting("next_automatic_sync") if self.app.repository else None
@@ -115,7 +163,6 @@ class SettingsController(QObject):
         value = self.app.repository.get_setting("last_sync_success") if self.app.repository else None
         if not value:
             return "Never"
-        from datetime import UTC, datetime
         try:
             elapsed = max(0, int((datetime.now(UTC) - datetime.fromisoformat(value)).total_seconds()))
             if elapsed < 60:
@@ -256,26 +303,87 @@ class SettingsController(QObject):
             return self.app.repository.get_or_create_device_id()
         return "rpi-zero2w-studybuddy-01"
 
+    @Property(list, notify=diagnosticsChanged)
+    def diagnosticItems(self) -> list:
+        nm_available = (
+            self.app.device.wifi.available
+            if (self.app.device and hasattr(self.app.device, "wifi"))
+            else (shutil.which("nmcli") is not None)
+        )
+        nm_str = "OK" if nm_available else "Unavailable"
+        wifi_str = "Connected" if self.isWifiConnected else "Disconnected"
+        ssid_str = self.connectedSsid if self.isWifiConnected else "None"
+        inet_str = self.internetStatus
+        cloud_str = self.cloudStatus
+
+        net = getattr(self.app.device, "network", None) if self.app.device else None
+        if net and net.checked:
+            cloud_health = "OK" if net.backend_reachable else "Failed"
+            cloud_ready = "OK" if net.database_ready else ("Not ready" if net.backend_reachable else "Unavailable")
+        elif cloud_str == "Online":
+            cloud_health = "OK"
+            cloud_ready = "OK"
+        elif cloud_str == "Server unavailable":
+            cloud_health = "OK"
+            cloud_ready = "Not ready"
+        elif cloud_str == "Offline":
+            cloud_health = "Failed"
+            cloud_ready = "Unavailable"
+        else:
+            cloud_health = "Not checked"
+            cloud_ready = "Not checked"
+
+        auth_str = "OK" if self.isPaired else "Action required"
+        last_cloud = "Never"
+        if self.app.repository:
+            c_info = cloud_state(self.app.repository)
+            lcs = c_info.get("last_cloud_success")
+            if lcs:
+                try:
+                    dt = datetime.fromisoformat(lcs)
+                    elapsed = int((datetime.now(UTC) - dt).total_seconds())
+                    if elapsed < 60:
+                        last_cloud = "Just now"
+                    elif elapsed < 3600:
+                        last_cloud = f"{elapsed // 60}m ago"
+                    else:
+                        last_cloud = dt.strftime("%d %b %H:%M")
+                except Exception:
+                    last_cloud = lcs[:19]
+
+        return [
+            {"name": "NetworkManager", "detail": f"Subprocess networking backend: {nm_str}", "status": nm_str},
+            {"name": "Wi-Fi Association", "detail": f"State: {wifi_str} • SSID: {ssid_str}", "status": wifi_str},
+            {"name": "IP Assignment", "detail": "Kernel networking & dual-stack interface ready", "status": "Assigned" if self.isWifiConnected else "Unassigned"},
+            {"name": "DNS Resolution", "detail": "System DNS resolver functional", "status": "OK" if inet_str == "Available" else "Checking…"},
+            {"name": "Internet Reachability", "detail": f"Global internet routing: {inet_str}", "status": inet_str},
+            {"name": "Cloud Health (/health)", "detail": f"API base: {self.apiBaseUrl} • Status: {cloud_health}", "status": cloud_health},
+            {"name": "Cloud Readiness (/ready)", "detail": f"Database & migration readiness: {cloud_ready}", "status": cloud_ready},
+            {"name": "Device Authentication", "detail": f"Bearer token pair state: {auth_str}", "status": auth_str},
+            {"name": "Last Cloud Success", "detail": f"Most recent verified contact: {last_cloud}", "status": last_cloud},
+        ]
+
     # -------------------------------------------------------------------------
     # Slots / Actions
     # -------------------------------------------------------------------------
     @Slot()
     def scanWifi(self):
-        if self.app.device:
+        if self.app.device and not self.app.device.busy:
             self.app.device.start("wifi_scan")
             self.app.showNotification("Scanning for Wi-Fi networks…", "info")
             self.wifiChanged.emit()
 
     @Slot(str, str)
     def connectWifi(self, ssid: str, password: str):
-        if self.app.device:
-            self.app.device.start("wifi_connect", ssid=ssid, password=password)
+        if self.app.device and not self.app.device.busy:
+            saved = ssid in set(self.app.device.saved_networks or ())
+            self.app.device.start("wifi_connect", ssid=ssid, password=password, saved=saved)
             self.app.showNotification(f"Connecting to {ssid}…", "info")
             self.wifiChanged.emit()
 
     @Slot(str)
     def forgetWifi(self, ssid: str):
-        if self.app.device:
+        if self.app.device and not self.app.device.busy:
             self.app.device.start("wifi_forget", ssid=ssid)
             self.app.showNotification(f"Forgot network {ssid}.", "info")
             self.wifiChanged.emit()

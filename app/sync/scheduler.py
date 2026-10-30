@@ -22,6 +22,7 @@ class AutoSyncScheduler:
         self.next_heartbeat = 0.0
         self.failures = 0
         self.previous_cloud = None
+        self.previous_internet = None
         self.enabled = None
         self.stop = threading.Event()
         self.thread = None
@@ -36,7 +37,7 @@ class AutoSyncScheduler:
             with Repository(self.config.database_path):
                 pass
             self.initialized = True
-        # Local wake-up checks read only two settings, without reopening/validating all packs.
+        # Local wake-up checks read only settings, without reopening/validating all packs.
         values = read_scheduler_state(self.config.database_path)
         request = values.get("sync_requested_at")
         if request and request != self.request_seen:
@@ -44,10 +45,15 @@ class AutoSyncScheduler:
         self.request_seen = request
         enabled = values.get("automatic_sync") != "0"
         cloud = json.loads(values.get("connectivity_cloud", "{}")).get("state", "Checking…")
-        if ((cloud == "Online" and self.previous_cloud != "Online")
+        internet = json.loads(values.get("connectivity_internet", "{}")).get("state", "Checking…")
+
+        # When cloud comes Online OR internet returns Available after being unavailable: trigger sync immediately
+        if (((cloud == "Online" and self.previous_cloud != "Online")
+                or (internet == "Available" and self.previous_internet not in {"Available", None}))
                 or (enabled and self.enabled is False)):
             self.next_due = now
-        self.previous_cloud, self.enabled = cloud, enabled
+        self.previous_cloud, self.previous_internet, self.enabled = cloud, internet, enabled
+
         heartbeat = now >= self.next_heartbeat
         refresh = enabled and now >= self.next_due
         if not heartbeat and not refresh:

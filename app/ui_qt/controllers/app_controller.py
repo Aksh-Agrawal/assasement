@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
@@ -27,8 +28,9 @@ class AppController(QObject):
     def __init__(self, database_path: Path, config: AppConfig = None, credentials: CredentialStore = None, parent=None):
         super().__init__(parent)
         self.database_path = Path(database_path)
-        from app.connectivity import record_cloud
+        from app.connectivity import record_cloud, record_internet
         record_cloud(self.database_path, "Checking…")
+        record_internet(self.database_path, "Checking…")
         self.config = config or AppConfig(database_path=self.database_path)
         self.credentials = credentials or CredentialStore(
             self.config.credential_path if self.database_path == self.config.database_path
@@ -46,6 +48,11 @@ class AppController(QObject):
         self._keyboard_text = ""
         self._keyboard_is_password = False
         self._keyboard_title = "Input"
+
+        # Background connectivity scheduler state
+        self._next_connectivity_check = 0.0
+        self._connectivity_failures = 0
+        self._initial_probe_started = False
 
         # Core session & device console
         self.startup_session = StartupSession(self.database_path, self.config, self.credentials)
@@ -192,6 +199,7 @@ class AppController(QObject):
             self.ui_controller = UIController(self.repository, startup=True, device=self.device)
             self.ui_controller.startup_rows = tuple(self.startup_session.rows)
             self.ui_controller.finish_splash()
+            self._next_connectivity_check = time.monotonic() + 0.5
             last = self.repository.get_setting("last_active_profile_id")
             for index, profile in enumerate(self.ui_controller.profiles):
                 if profile.id == last:
@@ -221,6 +229,8 @@ class AppController(QObject):
         self.startup_session.close()
         self.startup_session = StartupSession(self.database_path, self.config, self.credentials)
         self._screen = "startup"
+        self._initial_probe_started = False
+        self._next_connectivity_check = 0.0
         self.screenChanged.emit()
         self.startupProgressChanged.emit()
 
@@ -294,6 +304,21 @@ class AppController(QObject):
             self.advanceStartup()
             return
 
+        # Automatic background connectivity monitor & retry schedule
+        if self.startup_session.complete and not self.device.busy:
+            now = time.monotonic()
+            if not self._initial_probe_started:
+                self._initial_probe_started = True
+                self._next_connectivity_check = now + 0.5
+            elif now >= self._next_connectivity_check:
+                self.device.start("network")
+                if self.isOnline:
+                    self._connectivity_failures = 0
+                    self._next_connectivity_check = now + 45.0
+                else:
+                    self._connectivity_failures = min(self._connectivity_failures + 1, 5)
+                    self._next_connectivity_check = now + min(30.0, 5.0 * (1.5 ** self._connectivity_failures))
+
         revision = self.repository.content_revision() if self.repository else None
         content_updated = revision != getattr(self, "_content_revision", None)
         self._content_revision = revision
@@ -307,6 +332,15 @@ class AppController(QObject):
             ctrl_updated = self.ui_controller.tick()
 
         if device_updated or ctrl_updated or content_updated:
+            if device_updated and self.device.operation == "network":
+                if self.isOnline:
+                    self._connectivity_failures = 0
+                    self._next_connectivity_check = time.monotonic() + 45.0
+                else:
+                    self._next_connectivity_check = time.monotonic() + min(
+                        30.0, 5.0 * (1.5 ** getattr(self, "_connectivity_failures", 0))
+                    )
+
             if self.ui_controller:
                 self.ui_controller.refresh_catalog()
             if device_updated and self.device.operation == "account_create" and not self.device.failure:

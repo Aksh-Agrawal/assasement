@@ -10,7 +10,6 @@ import time
 from concurrent.futures import Future
 from pathlib import Path
 
-import httpx
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from app.api.client import DeviceApi
@@ -22,7 +21,14 @@ from app.content.sync import _install_one
 from app.data.repo import Repository
 from app.diagnostics import collect_device_status, collect_network_status
 from app.sync.service import run_cycle
-from app.system.wifi import WifiService
+from app.system.wifi import (
+    WifiAuthenticationError,
+    WifiError,
+    WifiNotFoundError,
+    WifiPermissionError,
+    WifiService,
+    WifiTimeoutError,
+)
 from app.update.activation import ActivationManager
 from app.update.staging import stage_update
 from app.update.verifier import verify_update
@@ -48,6 +54,7 @@ class DeviceConsole:
         self.network_checked_at = 0.0
         self.account_verified = False
         self.wifi_connected = False
+        self.connected_ssid = None
         self.internet_status = "Unknown"
         self.diagnostics = None
         self.networks = ()
@@ -86,13 +93,17 @@ class DeviceConsole:
             "profile_claim", "profile_unlink", "profile_status", "institute_refresh", "institute_download",
         }
         if operation in remote and not self.config.api_base_url:
-            self.message = ("Network unavailable. Local assessment remains available." if operation.startswith("profile_")
-                            else "Server not configured. Local assessment remains available.")
+            self.message = (
+                "Network unavailable. Local assessment remains available."
+                if operation.startswith("profile_")
+                else "Server not configured. Local assessment remains available."
+            )
             return
         if operation in remote - {"pair_request", "pair_poll"} and not self.credentials.load_safe():
             self.message = (
                 "Device authentication required. Pair this device; local assessment remains available."
-                if operation.startswith("profile_") else "Authentication required. Pair this device; local assessment remains available."
+                if operation.startswith("profile_")
+                else "Authentication required. Pair this device; local assessment remains available."
             )
             return
         self.link_error = None
@@ -106,6 +117,8 @@ class DeviceConsole:
             "update_download": "Downloading, verifying and staging update...",
             "diagnostics": "Checking local device...",
             "sync": "Syncing completed assessments...",
+            "wifi_scan": "Scanning for networks...",
+            "wifi_connect": f"Connecting to {arguments.get('ssid', 'network')}...",
         }.get(operation, "Working...")
         self.future = Future()
         future = self.future
@@ -120,21 +133,23 @@ class DeviceConsole:
                 future.set_exception(error)
             except Exception as error:
                 self.failure = failure_state(error)
-                if operation.startswith("account_"):
-                    if isinstance(error, httpx.RequestError):
-                        self.account_message = "Connect to the internet to create a new profile." if operation == "account_create" else "Network unavailable. Cached study profiles remain usable offline."
-                    elif isinstance(error, httpx.HTTPStatusError) and error.response.status_code == 409:
-                        self.account_message = "Profile limit reached: 3 / 3 active Study Profiles. Archive a profile on the website first."
-                    elif isinstance(error, httpx.HTTPStatusError) and error.response.status_code in {401, 403}:
-                        self.account_message = "This device is no longer connected. Reconnect from Account & Devices. Assessment data is retained."
-                # Network errors, OS diagnostics, and URLs never become user-facing text.
-                future.set_exception(
-                    RuntimeError(
-                        "Action unavailable. Check connection or device configuration and retry."
-                    )
-                )
+                if operation.startswith("account_") or operation == "sync":
+                    from app.auth.account_device import AccountSyncError
+                    if isinstance(error, AccountSyncError):
+                        self.account_message = error.ui_message
+                future.set_exception(error)
 
-        threading.Thread(target=work, daemon=True, name="device-console").start()
+        threading.Thread(target=work, daemon=True).start()
+
+    def cancel(self):
+        with self.pairing_lock:
+            self.generation += 1
+            self.pairing = None
+        if self.future is not None:
+            self.future.cancel()
+            self.future = None
+        self.operation = ""
+        self.message = "Cancelled."
 
     def poll(self):
         if self.future is None or not self.future.done():
@@ -149,7 +164,7 @@ class DeviceConsole:
             if hasattr(self, "database_path") and (
                     op in {"account_sync", "account_create"} or
                     (op == "wifi_connect" and value) or
-                    (op == "network" and value[1].backend_reachable)):
+                    (op == "network" and isinstance(value, tuple) and len(value) > 1 and getattr(value[1], "backend_reachable", False))):
                 from app.data.scheduler_state import request_sync
                 request_sync(self.database_path)
             if op in {"account_sync", "account_create"}:
@@ -168,11 +183,15 @@ class DeviceConsole:
             if op == "diagnostics":
                 self.diagnostics = value
             elif op == "network":
-                self.wifi_connected, self.network, self.internet_status = value
+                self.wifi_connected = value[0]
+                self.network = value[1]
+                self.internet_status = value[2]
+                if len(value) > 3 and value[3]:
+                    self.connected_ssid = value[3]
                 self.network_checked_at = time.monotonic()
                 if hasattr(self, "database_path"):
                     from app.connectivity import record_probe
-                    record_probe(self.database_path, self.network)
+                    record_probe(self.database_path, self.network, internet_state=self.internet_status)
                 self.message = (
                     f"Internet: {self.internet_status}. Cloud: "
                     + ("not checked" if not self.network.checked else
@@ -184,8 +203,25 @@ class DeviceConsole:
             elif op == "wifi_scan":
                 self.saved_networks, self.networks = value
             elif op in {"wifi_connect", "wifi_forget"}:
-                self.wifi_connected = bool(value)
+                if isinstance(value, tuple):
+                    self.wifi_connected = bool(value[0])
+                    if len(value) > 1 and value[1]:
+                        self.connected_ssid = value[1]
+                else:
+                    self.wifi_connected = bool(value)
                 self.network = None
+                if op == "wifi_connect":
+                    if self.wifi_connected:
+                        self.message = f"Connected to {self.connected_ssid or 'Wi-Fi'}. Verifying connection…"
+                        self.start("network")
+                    else:
+                        self.message = "Connection failed. Check your password and try again."
+                elif op == "wifi_forget":
+                    self.message = "Network forgotten."
+                    self.start("network")
+                else:
+                    self.message = "Network action completed. Check internet separately."
+                return True
             elif op == "catalog":
                 self.catalog_profile_id, self.catalog = value
             elif op == "pair_request":
@@ -232,6 +268,16 @@ class DeviceConsole:
             )
         except ProfileLinkError as error:
             self.message = str(error)
+        except WifiAuthenticationError:
+            self.message = "Connection failed. Check your password and try again."
+        except WifiPermissionError:
+            self.message = "NetworkManager authorization failed. Check permissions."
+        except WifiTimeoutError:
+            self.message = "Wi-Fi connection timed out. Check network signal and try again."
+        except WifiNotFoundError:
+            self.message = "Network not found. It may be out of range."
+        except WifiError as error:
+            self.message = f"Wi-Fi error: {error}"
         except Exception:
             self.message = getattr(self, "account_message", None) or "Action unavailable. Check connection or device configuration and retry."
         return True
@@ -267,10 +313,19 @@ class DeviceConsole:
             return self.wifi.saved(), self.wifi.scan()
         if operation == "wifi_connect":
             self.wifi.connect(**args)
-            return self.wifi.connected()
+            connected = self.wifi.connected()
+            ssid = args.get("ssid") or (self.wifi.connected_ssid() if hasattr(self.wifi, "connected_ssid") else "")
+            if connected and hasattr(self, "database_path"):
+                from app.connectivity import record_wifi
+                record_wifi(self.database_path, "connected", ssid=ssid or "")
+            return connected, ssid
         if operation == "wifi_forget":
-            self.wifi.forget(args["name"])
-            return self.wifi.connected()
+            self.wifi.forget(args.get("name") or args.get("ssid"))
+            connected = self.wifi.connected()
+            if hasattr(self, "database_path"):
+                from app.connectivity import record_wifi
+                record_wifi(self.database_path, "disconnected", ssid="")
+            return connected, None
         if operation == "export":
             return create_support_bundle(
                 database_path=self.database_path,
@@ -307,15 +362,37 @@ class DeviceConsole:
         if operation == "network":
             try:
                 connected = self.wifi.connected()
+                ssid = self.wifi.connected_ssid() if hasattr(self.wifi, "connected_ssid") else None
             except (OSError, RuntimeError):
                 connected = False
-            try:
-                internet = self.wifi.internet_status()
-            except (OSError, RuntimeError):
-                internet = "Unknown"
-            return connected, collect_network_status(
-                config.api_base_url, auth_token=token, connect_timeout=2, read_timeout=3
-            ), internet
+                ssid = None
+
+            if hasattr(self, "database_path"):
+                from app.connectivity import record_wifi
+                record_wifi(self.database_path, "connected" if connected else "disconnected", ssid=ssid or "")
+
+            net_status = collect_network_status(
+                config.api_base_url,
+                auth_token=token,
+                connect_timeout=config.sync_connect_timeout,
+                read_timeout=config.sync_read_timeout,
+            )
+            if net_status.backend_reachable:
+                internet = "Available"
+            else:
+                from app.connectivity import check_internet_reachability
+                inet_avail, _ = check_internet_reachability(timeout=4.0, cloud_base_url=config.api_base_url)
+                if inet_avail:
+                    internet = "Available"
+                else:
+                    try:
+                        nm_status = self.wifi.internet_status()
+                    except Exception:
+                        nm_status = "Unknown"
+                    internet = "Available" if nm_status == "Available" else "Unavailable"
+
+            return connected, net_status, internet, ssid
+
         with Repository(self.database_path) as repository:
             if operation == "diagnostics":
                 return collect_device_status(

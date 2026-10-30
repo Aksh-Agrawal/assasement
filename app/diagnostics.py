@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import shutil
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from hashlib import sha256
@@ -98,6 +99,12 @@ class DeviceStatus:
     attempts: tuple[AttemptSummary, ...]
     network: NetworkStatus
     cloud_status: str = "Checking…"
+    network_manager_ok: bool = True
+    wifi_connected: bool = False
+    wifi_ssid: str | None = None
+    ip_assigned: bool = True
+    dns_ok: bool = True
+    internet_status: str = "Checking…"
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -225,7 +232,7 @@ def collect_device_status(
     update = update_manager.metadata()
     content = _parse_json(repository.get_setting("last_content_sync_status"))
     persisted_failure = _parse_json(repository.get_setting("last_sync_failure"))
-    from app.connectivity import cloud_label
+    from app.connectivity import cloud_label, internet_label, internet_state, wifi_state
 
     selected_network = network or NetworkStatus()
     auth_required = int(sync["auth_required"])
@@ -252,6 +259,15 @@ def collect_device_status(
         health = HealthLevel.DEGRADED
     else:
         health = HealthLevel.OK
+
+    nm_ok = shutil.which("nmcli") is not None
+    w_info = wifi_state(repository)
+    wifi_is_conn = w_info.get("state") == "connected"
+    wifi_active_ssid = w_info.get("ssid") or None
+    inet_info = internet_state(repository)
+    dns_status = inet_info.get("dns_ok", True)
+    inet_label = internet_label(repository)
+
     return DeviceStatus(
         diagnostic_schema_version=1,
         schema_version=repository.schema_version,
@@ -306,6 +322,12 @@ def collect_device_status(
         attempts=attempts,
         network=selected_network,
         cloud_status=cloud_label(repository),
+        network_manager_ok=nm_ok,
+        wifi_connected=wifi_is_conn,
+        wifi_ssid=wifi_active_ssid,
+        ip_assigned=True,
+        dns_ok=bool(dns_status),
+        internet_status=inet_label,
     )
 
 
@@ -314,32 +336,58 @@ def collect_network_status(
     *,
     auth_token: str | None,
     connect_timeout: float = 5.0,
-    read_timeout: float = 15.0,
+    read_timeout: float = 10.0,
 ) -> NetworkStatus:
     if not base_url:
         return NetworkStatus(checked=False)
     headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
+    backend_reachable = False
+    database_ready = False
+    catalog_reachable = False
+    update_reachable = False
+    auth_ok = None
+
     try:
         with create_client(base_url, connect_timeout=connect_timeout, read_timeout=read_timeout) as client:
-            client.get("/health")
-            ready = client.get("/ready")
-            catalog = client.get("/api/v1/content/catalog", headers=headers)
-            update = client.get("/api/v1/device-updates/latest", headers=headers)
+            try:
+                health = client.get("/health")
+                backend_reachable = (health.status_code == 200)
+            except httpx.RequestError:
+                return NetworkStatus(checked=True, backend_reachable=False, error_code="BACKEND-001")
+
+            if not backend_reachable:
+                return NetworkStatus(checked=True, backend_reachable=False, error_code="BACKEND-001")
+
+            try:
+                ready = client.get("/ready")
+                database_ready = (ready.status_code == 200 and json_object(ready).get("database") == "ok")
+            except (httpx.RequestError, ValueError, TypeError):
+                database_ready = False
+
+            if auth_token:
+                try:
+                    catalog = client.get("/api/v1/content/catalog", headers=headers)
+                    catalog_reachable = (catalog.status_code == 200)
+                    if catalog.status_code in {200, 401, 403}:
+                        auth_ok = (catalog.status_code == 200)
+                except httpx.RequestError:
+                    catalog_reachable = False
+
+                try:
+                    update = client.get("/api/v1/device-updates/latest", headers=headers)
+                    update_reachable = update.status_code in {200, 404}
+                except httpx.RequestError:
+                    update_reachable = False
+
     except httpx.RequestError:
         return NetworkStatus(checked=True, backend_reachable=False, error_code="BACKEND-001")
-    auth_ok = (catalog.status_code == 200 if auth_token else None)
-    if catalog.status_code not in {200, 401, 403}:
-        auth_ok = None
-    try:
-        database_ready = ready.status_code == 200 and json_object(ready).get("database") == "ok"
-    except (ValueError, TypeError):
-        database_ready = False
+
     return NetworkStatus(
         checked=True,
-        backend_reachable=True,
+        backend_reachable=backend_reachable,
         database_ready=database_ready,
         auth_accepted=auth_ok,
-        catalog_reachable=catalog.status_code == 200,
-        update_endpoint_reachable=update.status_code in {200, 404},
+        catalog_reachable=catalog_reachable,
+        update_endpoint_reachable=update_reachable,
         error_code=SupportCode.AUTH_REJECTED.value if auth_ok is False else None,
     )

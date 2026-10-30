@@ -6,6 +6,23 @@ from pathlib import Path
 
 from app import __version__
 
+DEFAULT_API_BASE_URL = "https://startup-cloud.onrender.com"
+
+
+def normalize_api_url(url: str | None) -> str | None:
+    """Validate, clean and normalize API base URL, repairing known typos."""
+    if not url:
+        return None
+    cleaned = str(url).strip()
+    if not cleaned:
+        return None
+    # Auto-repair known typo where .render.com is provided instead of .onrender.com
+    if cleaned.endswith(".render.com"):
+        cleaned = cleaned.removesuffix(".render.com") + ".onrender.com"
+    elif ".render.com/" in cleaned:
+        cleaned = cleaned.replace(".render.com/", ".onrender.com/")
+    return cleaned.rstrip("/")
+
 
 @dataclass(frozen=True, slots=True)
 class AppConfig:
@@ -40,7 +57,9 @@ class AppConfig:
             os.getenv("ASSESS_LOG_DIR", str(Path(os.getenv("ASSESS_DATA_DIR", "var")) / "log"))
         )
     )
-    api_base_url: str | None = field(default_factory=lambda: os.getenv("ASSESS_API_URL") or None)
+    api_base_url: str | None = field(
+        default_factory=lambda: normalize_api_url(os.getenv("ASSESS_API_URL"))
+    )
     sync_connect_timeout: float = field(
         default_factory=lambda: float(os.getenv("ASSESS_CONNECT_TIMEOUT", "5.0"))
     )
@@ -77,7 +96,9 @@ class AppConfig:
         from urllib.parse import urlsplit
 
         if self.api_base_url is not None:
-            url = urlsplit(self.api_base_url)
+            normalized = normalize_api_url(self.api_base_url)
+            object.__setattr__(self, "api_base_url", normalized)
+            url = urlsplit(normalized)
             if (
                 url.scheme not in {"http", "https"}
                 or not url.netloc

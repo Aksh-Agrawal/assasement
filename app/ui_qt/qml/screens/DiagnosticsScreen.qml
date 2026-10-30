@@ -43,9 +43,15 @@ Rectangle {
 
                     Rectangle {
                         width: 48; height: 48; radius: 24
-                        color: "#E8F5E9"
+                        color: appController.isOnline ? "#E8F5E9" : "#FFF3E0"
                         anchors.horizontalCenter: parent.horizontalCenter
-                        Text { anchors.centerIn: parent; text: "✓"; color: Theme.success; font.pixelSize: 26; font.bold: true }
+                        Text {
+                            anchors.centerIn: parent
+                            text: appController.isOnline ? "✓" : "!"
+                            color: appController.isOnline ? Theme.success : Theme.highlight
+                            font.pixelSize: 26
+                            font.bold: true
+                        }
                     }
 
                     Text {
@@ -59,7 +65,7 @@ Rectangle {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Hardware, storage, database and local engine checks passed."
+                        text: "Hardware, storage, database, internet, and cloud connectivity diagnostics."
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeCaption
                         horizontalAlignment: Text.AlignHCenter
@@ -98,13 +104,7 @@ Rectangle {
                     clip: true
                     spacing: 8
 
-                    model: [
-                        { name: "System Hardware", detail: "Raspberry Pi Zero 2 W • ARM64 • 512 MB RAM", status: "Healthy" },
-                        { name: "Local Database", detail: "SQLite 3 WAL mode • Schema v8 • Integrity verified", status: "Healthy" },
-                        { name: "API & Cloud Connection", detail: "Base URL: " + settingsController.apiBaseUrl + " • Handshake verified", status: "Connected" },
-                        { name: "Assessment Storage", detail: "Flash storage healthy • Database write latency 4ms", status: "Healthy" },
-                        { name: "System Logs", detail: "Diagnostic log rotation active • No fatal exceptions", status: "Ready" }
-                    ]
+                    model: settingsController.diagnosticItems
 
                     delegate: Rectangle {
                         width: parent.width
@@ -120,7 +120,7 @@ Rectangle {
                             spacing: 12
 
                             Column {
-                                width: parent.width - 120
+                                width: parent.width - 130
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 2
                                 Text { text: modelData.name; font.bold: true; font.pixelSize: 14; color: Theme.textPrimary }
@@ -131,7 +131,13 @@ Rectangle {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.status
-                                statusType: "success"
+                                statusType: {
+                                    var s = (modelData.status || "").toLowerCase();
+                                    if (s === "ok" || s === "connected" || s === "available" || s === "assigned") return "success";
+                                    if (s === "not ready" || s === "action required" || s === "checking…") return "warning";
+                                    if (s === "failed" || s === "disconnected" || s === "unavailable" || s === "never") return "offline";
+                                    return "neutral";
+                                }
                             }
                         }
                     }

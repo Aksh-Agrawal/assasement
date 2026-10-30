@@ -59,8 +59,8 @@ Rectangle {
                         Row {
                             spacing: 6
                             StatusBadge {
-                                text: settingsController.isWifiConnected ? "Connected" : "Disconnected"
-                                statusType: settingsController.isWifiConnected ? "online" : "offline"
+                                text: settingsController.isConnecting ? "Connecting…" : (settingsController.isWifiConnected ? "Connected" : "Disconnected")
+                                statusType: settingsController.isConnecting ? "syncing" : (settingsController.isWifiConnected ? "online" : "offline")
                             }
                             Text {
                                 text: settingsController.connectedSsid
@@ -82,7 +82,7 @@ Rectangle {
                         Text { text: "Internet Reachability"; color: Theme.textSecondary; font.pixelSize: 13 }
                         StatusBadge {
                             text: settingsController.internetStatus
-                            statusType: settingsController.internetStatus === "Available" ? "success" : "offline"
+                            statusType: settingsController.internetStatus === "Available" ? "success" : (settingsController.internetStatus === "Checking…" ? "neutral" : "offline")
                         }
                     }
 
@@ -94,7 +94,7 @@ Rectangle {
                         Text { text: "Study Buddy Cloud"; color: Theme.textSecondary; font.pixelSize: 13 }
                         StatusBadge {
                             text: settingsController.cloudStatus
-                            statusType: settingsController.cloudStatus === "Ready" || settingsController.cloudStatus === "Available" ? "success" : "warning"
+                            statusType: settingsController.cloudStatus === "Online" ? "success" : (settingsController.cloudStatus === "Server unavailable" || settingsController.cloudStatus === "Authentication required" ? "warning" : (settingsController.cloudStatus === "Checking…" ? "neutral" : "offline"))
                         }
                     }
 
@@ -103,8 +103,9 @@ Rectangle {
                     PrimaryButton {
                         width: parent.width
                         preferredHeight: Theme.touchNormal
-                        text: "Scan Networks"
+                        text: settingsController.isScanning ? "Scanning…" : "Scan Networks"
                         iconSource: Assets.refresh
+                        enabled: !settingsController.isScanning
                         onClicked: settingsController.scanWifi()
                     }
                 }
@@ -131,12 +132,20 @@ Rectangle {
                         }
                     }
 
+                    // Scanning State
+                    LoadingState {
+                        anchors.centerIn: parent
+                        visible: settingsController.isScanning && settingsController.availableNetworks.length === 0
+                        message: "Scanning for wireless networks…"
+                    }
+
+                    // Empty / Scan Failed State
                     EmptyState {
                         anchors.centerIn: parent
-                        visible: settingsController.availableNetworks.length === 0
+                        visible: !settingsController.isScanning && settingsController.availableNetworks.length === 0
                         title: "No Wi-Fi Networks Found"
-                        description: "Tap 'Scan Networks' to search for wireless networks."
-                        actionText: "Scan Now"
+                        description: "Couldn’t find wireless networks in range. Tap 'Retry' to rescan."
+                        actionText: "Retry Scan"
                         onActionClicked: settingsController.scanWifi()
                     }
 
@@ -182,7 +191,7 @@ Rectangle {
                                         font.pixelSize: 15
                                         font.bold: modelData.connected
                                         elide: Text.ElideRight
-                                        width: parent.width - 30
+                                        width: parent.width - 80
                                     }
                                 }
 
@@ -192,10 +201,23 @@ Rectangle {
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: 8
 
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: modelData.signal + "%"
+                                        color: Theme.textSecondary
+                                        font.pixelSize: 12
+                                    }
+
                                     StatusBadge {
                                         visible: modelData.connected
                                         text: "Connected"
                                         statusType: "online"
+                                    }
+
+                                    StatusBadge {
+                                        visible: modelData.saved && !modelData.connected
+                                        text: "Saved"
+                                        statusType: "neutral"
                                     }
 
                                     Image {
@@ -215,7 +237,12 @@ Rectangle {
                                 onClicked: {
                                     if (!modelData.connected) {
                                         root.selectedSsid = modelData.ssid;
-                                        appController.openKeyboard("wifi_password", "", true, "Enter Password for " + modelData.ssid);
+                                        if (modelData.saved || !modelData.encrypted) {
+                                            // Saved network or open hotspot: connect directly without password prompt
+                                            settingsController.connectWifi(modelData.ssid, "");
+                                        } else {
+                                            appController.openKeyboard("wifi_password", "", true, "Enter Password for " + modelData.ssid);
+                                        }
                                     }
                                 }
                             }
