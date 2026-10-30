@@ -7,7 +7,6 @@ Rectangle {
     property string optionKey: "A"
     property string optionText: ""
     property bool selected: false
-    property bool enabled: true
     signal clicked()
 
     implicitHeight: Math.max(Theme.touchLarge, textLayout.implicitHeight + 20)

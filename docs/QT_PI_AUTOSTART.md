@@ -50,7 +50,18 @@ dtoverlay=goodix-touch,interrupt=4
 
 ---
 
-## 3. Recommended Production Autostart (Openbox / X11 Session)
+## 3. Required Linux / Raspberry Pi System Packages
+
+Qt 6.5+ XCB platform plugin dynamically links against `libxcb-cursor.so.0`. On Debian Bookworm / Raspberry Pi OS Lite / Desktop, install the required XCB and font libraries:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 libxcb-sync1 libxcb-xinerama0 fonts-dejavu-core
+```
+
+---
+
+## 4. Recommended Production Autostart (Openbox / X11 Session)
 
 The existing Raspberry Pi software environment already supports X11 and Openbox. To ensure high stability on the Raspberry Pi Zero 2 W with 512 MB RAM, we configure Openbox to launch the Qt Quick application directly as the primary window without desktop panels or window borders.
 

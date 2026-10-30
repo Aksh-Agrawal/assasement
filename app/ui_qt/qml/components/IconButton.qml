@@ -9,7 +9,6 @@ Rectangle {
     property color iconColor: Theme.textPrimary
     property color backgroundColor: Theme.surface
     property color pressedColor: Theme.surfaceActive
-    property bool enabled: true
 
     signal clicked()
 

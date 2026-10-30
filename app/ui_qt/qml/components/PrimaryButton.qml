@@ -6,7 +6,6 @@ Rectangle {
 
     property string text: ""
     property string iconSource: ""
-    property bool enabled: true
     property int preferredHeight: Theme.touchNormal
     property color buttonColor: Theme.primary
     property color pressedColor: Theme.primaryDark
