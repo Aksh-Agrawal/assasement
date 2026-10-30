@@ -40,6 +40,7 @@ def download_for_profile(repository, client, profile_id, link_id, pack, *,
     approved = next((p for p in remote if (p.set_id, p.version) == (pack.set_id, pack.version)), None)
     if approved is None or approved.sha256 != pack.sha256:
         raise ContentProtocolError("Content is no longer eligible")
+    pack = approved  # Fresh desired generation, even when reusing cached physical bytes.
     existing = repository.get_question_set(pack.set_id, pack.version)
     if existing is not None:
         persistence = repository.get_question_set_persistence(pack.set_id, pack.version)

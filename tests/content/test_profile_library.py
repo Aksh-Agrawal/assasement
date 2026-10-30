@@ -277,6 +277,29 @@ def test_installed_ack_lost_then_retried_after_restart_without_redownload(tmp_pa
             assert len(downloads) == 1
 
 
+def test_readd_cached_pack_ack_uses_fresh_generation_not_old_job(tmp_path):
+    data = Path("content/sample_biology.json").read_bytes()
+    item = {**metadata(data), "delivery_id": str(uuid4()), "delivery_revision": 1}
+    old_job = RemotePack.from_dict(item)
+    state = {"data": data, "packs": [item]}
+    with Repository(tmp_path / "readd.db") as repo:
+        link = setup(repo)
+        with ContentApiClient("https://cloud.test", auth_token="device", link_id=link,
+                local_profile_id="a", transport=transport(state)) as client:
+            download_for_profile(repo, client, "a", link, old_job, temp_directory=tmp_path, max_pack_bytes=10**6)
+            assert state["acks"][-1]["revision"] == 1
+            repo.cache_profile_library("a", link, [])
+            assert not repo.visible_question_sets("a")
+            state["packs"] = [{**item, "delivery_revision": 3}]
+            # A queued job may still carry the pre-remove metadata. Refresh decides intent.
+            result = download_for_profile(repo, client, "a", link, old_job,
+                temp_directory=tmp_path, max_pack_bytes=10**6)
+            assert result.status.value == "ALREADY_PRESENT"
+            assert state["acks"][-1]["revision"] == 3
+            assert state["acks"][-1]["operation_id"] == item["delivery_id"]
+            assert repo.visible_question_sets("a") and not repo.visible_question_sets("b")
+
+
 def test_legacy_bytes_revocation_repairs_lock_and_preserves_history(tmp_path):
     from app.content.importer import import_pack
 

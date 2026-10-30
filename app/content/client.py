@@ -22,6 +22,10 @@ class ProfileUnavailableError(ContentClientError):
     """The profile relationship was rejected; device authentication may be valid."""
 
 
+class ContentSupersededError(ContentClientError):
+    """A newer user intent replaced the in-flight operation; refetch next cycle."""
+
+
 class ContentNetworkError(ContentClientError):
     def __init__(self, message: str, state: FailureState = FailureState.OFFLINE):
         super().__init__(message)
@@ -143,7 +147,9 @@ class ContentApiClient:
         if self.profile_scoped:
             response = self._client.post(f"/api/v1/profile-content/{self.link_id}/status", json={
                 "local_profile_id": self.local_profile_id, "set_id": pack.set_id,
-                "version": pack.version, "status": status})
+                "version": pack.version, "status": status,
+                **({"revision": pack.delivery_revision, "operation_id": pack.delivery_id}
+                   if pack.delivery_revision is not None else {})})
             self._check_response(response)
 
     def fetch_completed_results(self):
@@ -166,6 +172,13 @@ class ContentApiClient:
 
     @staticmethod
     def _check_response(response: httpx.Response) -> None:
+        if response.status_code == 409:
+            try:
+                detail = response.json().get("detail", {})
+            except (ValueError, AttributeError):
+                detail = {}
+            if isinstance(detail, dict) and detail.get("code") == "operation_superseded":
+                raise ContentSupersededError("Content intent changed; refresh required")
         if response.status_code == 403:
             try:
                 detail = response.json().get("detail", {})

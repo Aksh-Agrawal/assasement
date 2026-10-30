@@ -22,6 +22,8 @@ class RemotePack:
     size_bytes: int
     sha256: str
     published_at: datetime
+    delivery_id: str | None = None
+    delivery_revision: int | None = None
 
     @property
     def download_reference(self) -> str:
@@ -58,9 +60,16 @@ class RemotePack:
             size_bytes=int(value["size_bytes"]),
             sha256=digest,
             published_at=published_at,
+            delivery_id=value.get("delivery_id"),
+            delivery_revision=value.get("delivery_revision"),
         )
         if result.version < 1 or result.question_count < 1 or result.size_bytes < 1:
             raise ValueError("Invalid non-positive catalog metadata")
+        if result.delivery_revision is not None:
+            from uuid import UUID
+            UUID(result.delivery_id)
+            if type(result.delivery_revision) is not int or result.delivery_revision < 1:
+                raise ValueError("Invalid delivery revision")
         if published_at.tzinfo is None or published_at.utcoffset() is None:
             raise ValueError("Catalog timestamp must include a timezone")
         return result
