@@ -64,6 +64,7 @@ Window {
                 case "packs": return "screens/PackScreen.qml";
                 case "practice":
                 case "content": return "screens/ContentScreen.qml";
+                case "quick_add": return "screens/QuickAddScreen.qml";
                 case "test_setup": return "screens/TestSetupScreen.qml";
                 case "question": return "screens/QuestionScreen.qml";
                 case "question_detail": return "screens/QuestionDetailScreen.qml";

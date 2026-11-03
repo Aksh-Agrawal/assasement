@@ -23,3 +23,273 @@
 2026-10-28 01:46:50,550 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
 2026-10-28 01:46:50,553 level=WARNING component=app.update.client event=update check failed: HTTPStatusError
 2026-10-30 14:01:58,984 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=6
+2026-11-03 12:22:59,508 level=INFO component=__main__ event=Application startup: ASSESS_API_URL configured: YES, API host: 127.0.0.1:8000, DISPLAY: unset, network backend selected: Mock / Offline
+2026-11-03 12:23:07,170 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:23:07,599 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:23:08,571 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:23:09,123 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:23:09,128 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:23:10,671 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:23:10,702 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-account "HTTP/1.1 403 Forbidden"
+2026-11-03 12:23:11,322 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:23:11,323 level=INFO component=app.update.client event=update check started
+2026-11-03 12:23:11,696 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 12:23:11,870 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:23:11,872 level=INFO component=app.update.client event=No update available
+2026-11-03 12:23:11,962 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 12:23:12,479 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:23:12,951 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:23:14,100 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:23:14,103 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:23:14,757 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:23:15,332 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:23:15,335 level=INFO component=app.update.client event=update check started
+2026-11-03 12:23:15,891 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:23:15,893 level=INFO component=app.update.client event=No update available
+2026-11-03 12:23:42,681 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:23:42,686 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:23:58,792 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 12:23:59,067 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 12:23:59,532 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:24:00,065 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:24:01,691 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:24:01,699 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:24:02,417 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:24:03,093 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:24:03,096 level=INFO component=app.update.client event=update check started
+2026-11-03 12:24:03,702 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:24:03,704 level=INFO component=app.update.client event=No update available
+2026-11-03 12:24:30,919 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:24:30,926 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:24:46,018 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 12:24:46,274 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 12:24:46,677 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:24:47,323 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:24:49,977 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:24:49,993 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:24:50,756 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:24:51,306 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:24:51,308 level=INFO component=app.update.client event=update check started
+2026-11-03 12:24:51,839 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:24:51,842 level=INFO component=app.update.client event=No update available
+2026-11-03 12:25:21,062 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:25:21,080 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:25:33,296 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 12:25:33,519 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 12:25:34,093 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:25:34,591 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:25:35,995 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:25:35,999 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:25:36,744 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:25:37,370 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:25:37,373 level=INFO component=app.update.client event=update check started
+2026-11-03 12:25:37,991 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:25:37,995 level=INFO component=app.update.client event=No update available
+2026-11-03 12:26:04,867 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:26:04,873 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:26:20,598 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 12:26:20,865 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 12:26:21,379 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:26:21,888 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:26:23,899 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:26:23,906 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:26:24,668 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:26:25,254 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:26:25,258 level=INFO component=app.update.client event=update check started
+2026-11-03 12:26:25,766 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:26:25,767 level=INFO component=app.update.client event=No update available
+2026-11-03 12:26:52,773 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:26:52,778 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:27:07,815 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 12:27:08,225 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 12:27:08,648 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:27:09,144 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:27:11,548 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:27:11,555 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:27:12,233 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:27:12,757 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:27:12,759 level=INFO component=app.update.client event=update check started
+2026-11-03 12:27:13,547 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:27:13,548 level=INFO component=app.update.client event=No update available
+2026-11-03 12:43:19,443 level=INFO component=__main__ event=Application startup: ASSESS_API_URL configured: YES, API host: 127.0.0.1:8000, DISPLAY: unset, network backend selected: Mock / Offline
+2026-11-03 12:43:22,013 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:43:22,178 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:43:22,359 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:43:22,363 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:43:23,113 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:43:23,344 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:43:23,934 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:43:23,944 level=INFO component=app.update.client event=update check started
+2026-11-03 12:43:24,408 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-account "HTTP/1.1 403 Forbidden"
+2026-11-03 12:43:24,536 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:43:24,536 level=INFO component=app.update.client event=No update available
+2026-11-03 12:43:25,563 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 12:43:25,833 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 12:43:26,330 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:43:26,935 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:43:28,844 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 12:43:28,852 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 12:43:29,547 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 12:43:30,212 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 12:43:30,214 level=INFO component=app.update.client event=update check started
+2026-11-03 12:43:30,911 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 12:43:30,914 level=INFO component=app.update.client event=No update available
+2026-11-03 13:46:52,236 level=INFO component=__main__ event=Application startup: ASSESS_API_URL configured: YES, API host: startup-cloud.onrender.com, DISPLAY: unset, network backend selected: Mock / Offline
+2026-11-03 14:23:50,285 level=INFO component=__main__ event=Application startup: ASSESS_API_URL configured: YES, API host: 127.0.0.1:8000, DISPLAY: unset, network backend selected: Mock / Offline
+2026-11-03 14:23:56,315 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:23:56,571 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:23:57,474 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:23:57,766 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:23:57,773 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:23:59,859 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:23:59,960 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-account "HTTP/1.1 403 Forbidden"
+2026-11-03 14:24:00,743 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:24:00,756 level=INFO component=app.update.client event=update check started
+2026-11-03 14:24:00,964 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:24:01,313 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:24:01,715 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:24:01,717 level=INFO component=app.update.client event=No update available
+2026-11-03 14:24:02,277 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:24:03,353 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:24:03,989 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:24:03,992 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:24:04,697 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:24:05,299 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:24:05,304 level=INFO component=app.update.client event=update check started
+2026-11-03 14:24:05,863 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:24:05,865 level=INFO component=app.update.client event=No update available
+2026-11-03 14:24:32,250 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/mobile-upload-sessions "HTTP/1.1 403 Forbidden"
+2026-11-03 14:24:32,254 level=WARNING component=app.ui_qt.controllers.quick_add_controller event=Quick add auth failure: HTTP 403: authentication rejected
+2026-11-03 14:24:34,298 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:24:34,302 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:24:49,006 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:24:49,305 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:24:49,777 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:24:50,262 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:24:50,628 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:24:50,632 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:24:51,316 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:24:51,866 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:24:51,872 level=INFO component=app.update.client event=update check started
+2026-11-03 14:24:52,408 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:24:52,408 level=INFO component=app.update.client event=No update available
+2026-11-03 14:24:59,816 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/mobile-upload-sessions "HTTP/1.1 403 Forbidden"
+2026-11-03 14:24:59,816 level=WARNING component=app.ui_qt.controllers.quick_add_controller event=Quick add auth failure: HTTP 403: authentication rejected
+2026-11-03 14:33:14,880 level=INFO component=__main__ event=Application startup: ASSESS_API_URL configured: YES, API host: 127.0.0.1:8000, DISPLAY: unset, network backend selected: Mock / Offline
+2026-11-03 14:33:19,727 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:33:19,990 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:33:21,014 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:33:21,652 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:33:21,658 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:33:22,269 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-account "HTTP/1.1 403 Forbidden"
+2026-11-03 14:33:22,380 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:33:22,994 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:33:23,006 level=INFO component=app.update.client event=update check started
+2026-11-03 14:33:23,477 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:33:23,478 level=INFO component=app.update.client event=No update available
+2026-11-03 14:33:23,580 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:33:23,825 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:33:24,303 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:33:24,834 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:33:26,313 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:33:26,334 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:33:27,078 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:33:27,681 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:33:27,686 level=INFO component=app.update.client event=update check started
+2026-11-03 14:33:28,188 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:33:28,193 level=INFO component=app.update.client event=No update available
+2026-11-03 14:33:55,162 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:33:55,169 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:34:10,960 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:34:11,182 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:34:11,577 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:34:12,088 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:34:14,056 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:34:14,066 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:34:14,892 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:34:15,452 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:34:15,467 level=INFO component=app.update.client event=update check started
+2026-11-03 14:34:16,047 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:34:16,053 level=INFO component=app.update.client event=No update available
+2026-11-03 14:34:43,063 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:34:43,072 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:34:58,156 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:34:58,506 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:34:59,119 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:34:59,955 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:35:01,816 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:35:01,821 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:35:02,742 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:35:03,537 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:35:03,539 level=INFO component=app.update.client event=update check started
+2026-11-03 14:35:04,238 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:35:04,238 level=INFO component=app.update.client event=No update available
+2026-11-03 14:35:33,086 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:35:33,092 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:35:46,077 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:35:46,382 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:35:47,070 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:35:47,700 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:35:50,098 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:35:50,104 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:35:50,810 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:35:51,470 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:35:51,472 level=INFO component=app.update.client event=update check started
+2026-11-03 14:35:51,984 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:35:51,985 level=INFO component=app.update.client event=No update available
+2026-11-03 14:36:20,432 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:36:20,435 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:36:24,789 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/mobile-upload-sessions "HTTP/1.1 403 Forbidden"
+2026-11-03 14:36:24,789 level=WARNING component=app.ui_qt.controllers.quick_add_controller event=Quick add auth failure: HTTP 403: authentication rejected
+2026-11-03 14:36:33,347 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:36:33,666 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:36:34,111 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:36:34,589 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:36:37,145 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:36:37,157 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:36:37,780 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:36:38,519 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:36:38,521 level=INFO component=app.update.client event=update check started
+2026-11-03 14:36:39,081 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:36:39,084 level=INFO component=app.update.client event=No update available
+2026-11-03 14:37:08,238 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:37:08,244 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:37:20,872 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:37:21,104 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:37:21,559 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:37:22,058 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:37:23,087 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:37:23,093 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:37:23,793 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:37:24,603 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:37:24,606 level=INFO component=app.update.client event=update check started
+2026-11-03 14:37:25,217 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:37:25,218 level=INFO component=app.update.client event=No update available
+2026-11-03 14:37:54,446 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:37:54,454 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:38:07,716 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:38:07,940 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:38:08,369 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:38:08,902 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:38:11,488 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:38:11,494 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:38:12,140 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:38:12,753 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:38:12,755 level=INFO component=app.update.client event=update check started
+2026-11-03 14:38:13,356 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:38:13,359 level=INFO component=app.update.client event=No update available
+2026-11-03 14:38:42,133 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:38:42,140 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:38:55,048 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/health "HTTP/1.1 200 OK"
+2026-11-03 14:38:55,301 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/ready "HTTP/1.1 200 OK"
+2026-11-03 14:38:55,731 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:38:56,201 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:38:57,197 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:38:57,203 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:38:57,980 level=INFO component=httpx event=HTTP Request: POST http://127.0.0.1:8000/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:38:58,506 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:38:58,508 level=INFO component=app.update.client event=update check started
+2026-11-03 14:38:59,103 level=INFO component=httpx event=HTTP Request: GET http://127.0.0.1:8000/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:38:59,103 level=INFO component=app.update.client event=No update available
+2026-11-03 14:39:27,755 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:39:27,762 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0

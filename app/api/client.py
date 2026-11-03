@@ -83,6 +83,16 @@ class DeviceApi:
             transport=self.transport,
         )
 
+    def mobile_upload(self):
+        from app.sync.mobile_upload import MobileUploadClient
+        return MobileUploadClient(
+            self.config.api_base_url,
+            auth_token=self._token(),
+            transport=self.transport,
+            connect_timeout=self.config.sync_connect_timeout,
+            read_timeout=self.config.sync_read_timeout,
+        )
+
     def updates(self) -> UpdateClient:
         token = self._token()
         if not token:

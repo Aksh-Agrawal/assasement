@@ -106,13 +106,32 @@ Rectangle {
                         }
                     }
 
-                    // Content list header
-                    Text {
-                        text: "Downloaded Assessment Packs"
-                        color: Theme.textPrimary
-                        font.pixelSize: Typography.sectionTitle
-                        font.family: Typography.fontSerif
-                        font.bold: true
+                    // Content list header with Quick Add Action
+                    Item {
+                        width: parent.width
+                        height: 38
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Downloaded Assessment Packs"
+                            color: Theme.textPrimary
+                            font.pixelSize: Typography.sectionTitle
+                            font.family: Typography.fontSerif
+                            font.bold: true
+                        }
+
+                        SecondaryButton {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            preferredHeight: 36
+                            text: "+ Quick Add Questions"
+                            iconSource: Assets.plus
+                            onClicked: {
+                                quickAddController.startQuickAdd(profileController.activeProfileId);
+                                appController.navigate("quick_add");
+                            }
+                        }
                     }
 
                     // Installed packs list
@@ -120,9 +139,12 @@ Rectangle {
                         anchors.centerIn: parent
                         visible: settingsController.installedPacks.length === 0
                         title: "No Practice Packs Downloaded"
-                        description: "Connect to Wi-Fi to download packs, or explore available subjects in the library."
-                        actionText: "Browse Library"
-                        onActionClicked: appController.navigate("subjects")
+                        description: "Add questions instantly from your phone using QR code, or browse available subjects."
+                        actionText: "Quick Add Questions"
+                        onActionClicked: {
+                            quickAddController.startQuickAdd(profileController.activeProfileId);
+                            appController.navigate("quick_add");
+                        }
                     }
 
                     ListView {

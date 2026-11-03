@@ -20,6 +20,7 @@ from app.ui_qt.controllers.app_controller import AppController
 from app.ui_qt.controllers.assessment_controller import AssessmentController
 from app.ui_qt.controllers.library_controller import LibraryController
 from app.ui_qt.controllers.profile_controller import ProfileController
+from app.ui_qt.controllers.quick_add_controller import QuickAddController
 from app.ui_qt.controllers.settings_controller import SettingsController
 
 LOGGER = logging.getLogger(__name__)
@@ -96,6 +97,7 @@ def run(
     library_controller = LibraryController(app_controller)
     assessment_controller = AssessmentController(app_controller)
     settings_controller = SettingsController(app_controller)
+    quick_add_controller = QuickAddController(app_controller)
 
     # Expose to QML root context
     root_context = engine.rootContext()
@@ -104,6 +106,7 @@ def run(
     root_context.setContextProperty("libraryController", library_controller)
     root_context.setContextProperty("assessmentController", assessment_controller)
     root_context.setContextProperty("settingsController", settings_controller)
+    root_context.setContextProperty("quickAddController", quick_add_controller)
 
     # Load main App.qml
     main_qml = qml_dir / "App.qml"
