@@ -195,7 +195,7 @@ Rectangle {
                                     Text {
                                         id: connectedText
                                         anchors.centerIn: parent
-                                        text: "✓ Connected"
+                                        text: "Connected"
                                         color: Theme.forest
                                         font.pixelSize: Typography.caption
                                         font.bold: true

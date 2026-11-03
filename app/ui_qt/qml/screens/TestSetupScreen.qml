@@ -84,7 +84,7 @@ Rectangle {
                     Row {
                         spacing: Spacing.sm
                         Text { text: "Device status:"; color: Theme.mutedInk; font.pixelSize: Typography.body }
-                        Text { text: "Ready offline ✓"; font.bold: true; color: Theme.forest; font.pixelSize: Typography.body }
+                        Text { text: "Ready offline"; font.bold: true; color: Theme.forest; font.pixelSize: Typography.body }
                     }
                 }
             }

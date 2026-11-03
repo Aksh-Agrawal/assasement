@@ -107,7 +107,7 @@ Rectangle {
 
                         Text {
                             anchors.centerIn: parent
-                            text: settingsController.automaticSync ? "ON ✓" : "OFF"
+                            text: settingsController.automaticSync ? "ON" : "OFF"
                             color: settingsController.automaticSync ? Theme.textOnPrimary : Theme.mutedInk
                             font.pixelSize: Typography.caption
                             font.bold: true

@@ -72,7 +72,7 @@ Rectangle {
                         spacing: 2
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "✓ " + root.answeredCount
+                            text: "" + root.answeredCount
                             color: Theme.forest
                             font.pixelSize: Typography.pageTitle
                             font.family: Typography.fontSerif
@@ -94,7 +94,7 @@ Rectangle {
                         spacing: 2
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "○ " + root.unansweredCount
+                            text: "" + root.unansweredCount
                             color: root.unansweredCount > 0 ? Theme.terracotta : Theme.textSecondary
                             font.pixelSize: Typography.pageTitle
                             font.family: Typography.fontSerif
@@ -116,7 +116,7 @@ Rectangle {
                         spacing: 2
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "🚩 " + root.markedCount
+                            text: "" + root.markedCount
                             color: Theme.terracotta
                             font.pixelSize: Typography.pageTitle
                             font.family: Typography.fontSerif

@@ -40,35 +40,87 @@ Rectangle {
     Row {
         id: badgeRow
         anchors.centerIn: parent
-        spacing: 5
+        spacing: 6
 
-        Text {
+        // Indicator: Vector image or crisp geometric shape
+        Item {
+            width: 12
+            height: 12
             anchors.verticalCenter: parent.verticalCenter
-            text: {
-                if (root.symbol.length > 0) return root.symbol
-                switch (root.statusType) {
-                    case "online": return "●"
-                    case "offline": return "○"
-                    case "syncing": return "↻"
-                    case "success": return "✓"
-                    case "warning": return "!"
-                    case "error": return "✕"
-                    default: return "•"
-                }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 7
+                height: 7
+                radius: 3.5
+                color: Theme.forest
+                visible: root.symbol.length === 0 && (root.statusType === "online")
             }
-            font.pixelSize: 11
-            color: {
-                switch (root.statusType) {
-                    case "online":
-                    case "success": return Theme.forest
-                    case "syncing": return Theme.forest
-                    case "warning": return Theme.terracotta
-                    case "offline":
-                    case "error": return Theme.warning
-                    default: return Theme.mutedInk
-                }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 7
+                height: 7
+                radius: 3.5
+                color: "transparent"
+                border.color: Theme.mutedInk
+                border.width: 1.5
+                visible: root.symbol.length === 0 && (root.statusType === "offline")
             }
-            font.bold: true
+
+            Image {
+                anchors.centerIn: parent
+                width: 11
+                height: 11
+                source: Assets.check
+                fillMode: Image.PreserveAspectFit
+                visible: root.symbol.length === 0 && (root.statusType === "success")
+            }
+
+            Image {
+                anchors.centerIn: parent
+                width: 11
+                height: 11
+                source: Assets.sync
+                fillMode: Image.PreserveAspectFit
+                visible: root.symbol.length === 0 && (root.statusType === "syncing")
+            }
+
+            Image {
+                anchors.centerIn: parent
+                width: 10
+                height: 10
+                source: Assets.close
+                fillMode: Image.PreserveAspectFit
+                visible: root.symbol.length === 0 && (root.statusType === "error")
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: "!"
+                font.bold: true
+                font.pixelSize: 11
+                color: Theme.terracotta
+                visible: root.symbol.length === 0 && (root.statusType === "warning")
+            }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 5
+                height: 5
+                radius: 2.5
+                color: Theme.mutedInk
+                visible: root.symbol.length === 0 && root.statusType === "neutral"
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: root.symbol
+                font.pixelSize: 11
+                font.bold: true
+                color: Theme.mutedInk
+                visible: root.symbol.length > 0
+            }
         }
 
         Text {

@@ -7,8 +7,9 @@ QtObject {
     // -------------------------------------------------------------------------
     // Primary Editorial Palette (Paper / Ink / Nature)
     // -------------------------------------------------------------------------
-    readonly property color canvas: "#F5EFE3"          // Paper / Canvas base
-    readonly property color background: "#F5EFE3"      // Primary app background
+    readonly property color canvas: "transparent"      // Transparent so educational doodle wallpaper shows through
+    readonly property color background: "transparent"  // Transparent screen background
+    readonly property color paper: "#F5EFE3"          // Solid Paper / Canvas base
     readonly property color surface: "#FBF7EF"         // Warm Surface for cards / sheets
     readonly property color surfaceElevated: "#FFFFFF" // Crisp white highlights
     readonly property color surfaceActive: "#EFE8D8"   // Pressed / active tactile paper

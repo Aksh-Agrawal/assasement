@@ -63,15 +63,32 @@ Rectangle {
 
             Column {
                 anchors.verticalCenter: parent.verticalCenter
-                Text {
-                    width: Math.min(implicitWidth, root.allowProfileSwitch ? 220 : 320)
-                    elide: Text.ElideRight
-                    text: root.title.length > 0 ? root.title : root.profileText + (root.allowProfileSwitch ? " ▾" : "")
-                    color: Theme.deepInk
-                    font.pixelSize: root.title.length > 0 ? Typography.sectionTitle : Typography.body
-                    font.bold: true
-                    font.family: Typography.family
+
+                Row {
+                    spacing: 4
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Text {
+                        width: Math.min(implicitWidth, root.allowProfileSwitch ? 220 : 320)
+                        elide: Text.ElideRight
+                        text: root.title.length > 0 ? root.title : root.profileText
+                        color: Theme.deepInk
+                        font.pixelSize: root.title.length > 0 ? Typography.sectionTitle : Typography.body
+                        font.bold: true
+                        font.family: Typography.family
+                    }
+
+                    Image {
+                        visible: root.title.length === 0 && root.allowProfileSwitch
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 10
+                        height: 10
+                        source: Assets.chevron_right
+                        rotation: 90
+                        opacity: 0.6
+                    }
                 }
+
                 Text {
                     visible: root.title.length > 0 && root.profileText.length > 0
                     text: root.profileText
@@ -98,7 +115,6 @@ Rectangle {
         StatusBadge {
             text: root.syncText
             statusType: root.syncText.indexOf("Syncing") >= 0 ? "syncing" : (root.syncText.indexOf("Up to date") >= 0 ? "success" : "neutral")
-            symbol: root.syncText.indexOf("Up to date") >= 0 ? "✓" : ""
         }
     }
 }

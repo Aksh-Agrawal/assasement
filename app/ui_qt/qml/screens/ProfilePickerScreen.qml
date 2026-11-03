@@ -126,9 +126,10 @@ Rectangle {
                         // Status marker
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: modelData.isActive ? "● Current Profile" : "Tap to select"
+                            text: modelData.isActive ? "Current Profile" : "Tap to select"
                             color: modelData.isActive ? Theme.forest : Theme.mutedInk
                             font.pixelSize: Typography.caption
+                            font.bold: modelData.isActive
                             font.family: Typography.family
                         }
                     }

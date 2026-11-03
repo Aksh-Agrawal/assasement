@@ -84,7 +84,13 @@ Rectangle {
                 Row {
                     anchors.centerIn: parent
                     spacing: 4
-                    Text { text: "⏱"; font.pixelSize: 11 }
+                    Image {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 13
+                        height: 13
+                        source: Assets.history
+                        fillMode: Image.PreserveAspectFit
+                    }
                     Text {
                         text: assessmentController.timerFormatted
                         font.pixelSize: 12
@@ -223,7 +229,7 @@ Rectangle {
 
             SecondaryButton {
                 preferredHeight: 42
-                text: assessmentController.isMarkedForReview ? "Flagged 🚩" : "Mark for Review"
+                text: assessmentController.isMarkedForReview ? "Flagged" : "Mark for Review"
                 borderColor: assessmentController.isMarkedForReview ? Theme.gold : Theme.border
                 onClicked: assessmentController.toggleMarkReview()
             }

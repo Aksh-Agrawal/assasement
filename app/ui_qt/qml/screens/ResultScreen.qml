@@ -105,7 +105,7 @@ Rectangle {
                         Text {
                             id: corrText
                             anchors.centerIn: parent
-                            text: "✓ " + Math.round(assessmentController.score) + " Correct"
+                            text: Math.round(assessmentController.score) + " Correct"
                             color: Theme.forest
                             font.pixelSize: Typography.caption
                             font.bold: true
@@ -125,7 +125,7 @@ Rectangle {
                         Text {
                             id: incorrText
                             anchors.centerIn: parent
-                            text: "✕ " + Math.max(0, Math.round(assessmentController.scoreMax - assessmentController.score)) + " Incorrect"
+                            text: Math.max(0, Math.round(assessmentController.scoreMax - assessmentController.score)) + " Incorrect"
                             color: Theme.terracotta
                             font.pixelSize: Typography.caption
                             font.bold: true
@@ -145,7 +145,7 @@ Rectangle {
                         Text {
                             id: confSummaryText
                             anchors.centerIn: parent
-                            text: "★ " + (assessmentController.confidenceBreakdown.sure || 0) + " Sure"
+                            text: (assessmentController.confidenceBreakdown.sure || 0) + " High Confidence"
                             color: Theme.deepInk
                             font.pixelSize: Typography.caption
                             font.bold: true

@@ -151,14 +151,13 @@ Rectangle {
                                         color: modelData.isCurrent ? Theme.forest : (modelData.status === "answered" ? Theme.forest : Theme.textPrimary)
                                     }
 
-                                    Text {
+                                    Image {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        font.pixelSize: 12
-                                        text: {
-                                            if (modelData.status === "flagged") return "🚩";
-                                            if (modelData.status === "answered") return "✓";
-                                            return "";
-                                        }
+                                        width: 12
+                                        height: 12
+                                        fillMode: Image.PreserveAspectFit
+                                        source: modelData.status === "flagged" ? Assets.flag_filled : (modelData.status === "answered" ? Assets.check : "")
+                                        visible: modelData.status === "flagged" || modelData.status === "answered"
                                     }
                                 }
 

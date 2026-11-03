@@ -80,17 +80,20 @@ Rectangle {
                                         color: Theme.deepInk
                                     }
 
-                                    Text {
+                                    Image {
                                         visible: modelData.isFlagged
-                                        text: "🚩"
-                                        font.pixelSize: 11
+                                        width: 12
+                                        height: 12
+                                        source: Assets.flag_filled
+                                        fillMode: Image.PreserveAspectFit
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
 
                                 Text {
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.isCorrect ? "✓ Correct" : "✕ Wrong"
+                                    text: modelData.isCorrect ? "Correct" : "Incorrect"
                                     color: modelData.isCorrect ? Theme.forest : Theme.terracotta
                                     font.pixelSize: Typography.caption
                                     font.bold: true
@@ -155,7 +158,7 @@ Rectangle {
                                 Text {
                                     id: statusBadgeText
                                     anchors.centerIn: parent
-                                    text: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? "✓ Correct" : "Needs Review"
+                                    text: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? "Correct" : "Needs Review"
                                     color: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
                                     font.pixelSize: Typography.caption
                                     font.bold: true

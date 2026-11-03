@@ -73,12 +73,12 @@ Rectangle {
             color: Theme.forest
             visible: root.selected
 
-            Text {
+            Image {
                 anchors.centerIn: parent
-                text: "✓"
-                color: Theme.textOnPrimary
-                font.pixelSize: 15
-                font.bold: true
+                width: 14
+                height: 14
+                source: Assets.check
+                fillMode: Image.PreserveAspectFit
             }
         }
     }

@@ -84,7 +84,7 @@ Rectangle {
                                     Text {
                                         id: heroBadgeText
                                         anchors.centerIn: parent
-                                        text: libraryController.canResume ? "● In Progress" : "Daily Practice"
+                                        text: libraryController.canResume ? "In Progress" : "Daily Practice"
                                         color: libraryController.canResume ? Theme.terracotta : Theme.forest
                                         font.pixelSize: Typography.caption
                                         font.bold: true

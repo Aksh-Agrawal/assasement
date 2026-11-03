@@ -12,7 +12,19 @@ Window {
     minimumWidth: 800
     minimumHeight: 480
     title: "Raspberry Pi Study Buddy"
-    color: Theme.background
+    color: Theme.paper
+
+    // Background Educational Doodle Wallpaper (WhatsApp chat background style)
+    Image {
+        id: bgWallpaper
+        anchors.fill: parent
+        source: Assets.wallpaper
+        fillMode: Image.PreserveAspectCrop
+        horizontalAlignment: Image.AlignLeft
+        verticalAlignment: Image.AlignTop
+        asynchronous: false
+        cache: true
+    }
 
     // Keyboard navigation hooks
     Item {
@@ -179,11 +191,12 @@ Window {
             anchors.centerIn: parent
             spacing: 10
 
-            Text {
-                text: appController.notificationType === "error" ? "✕" : (appController.notificationType === "warning" ? "!" : "ℹ")
-                font.pixelSize: 14
-                font.bold: true
-                color: appController.notificationType === "error" ? Theme.error : (appController.notificationType === "warning" ? "#C86400" : Theme.primaryDark)
+            Image {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 16
+                height: 16
+                source: appController.notificationType === "error" ? Assets.close : Assets.info
+                fillMode: Image.PreserveAspectFit
             }
 
             Text {
@@ -200,7 +213,13 @@ Window {
                 anchors.verticalCenter: parent.verticalCenter
                 cursorShape: Qt.PointingHandCursor
                 onClicked: appController.clearMessage()
-                Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: 12; color: Theme.textSecondary }
+                Image {
+                    anchors.centerIn: parent
+                    width: 12
+                    height: 12
+                    source: Assets.close
+                    fillMode: Image.PreserveAspectFit
+                }
             }
         }
 

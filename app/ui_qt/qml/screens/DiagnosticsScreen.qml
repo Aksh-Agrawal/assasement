@@ -47,12 +47,21 @@ Rectangle {
                         border.color: appController.isOnline ? Theme.forest : Theme.terracotta
                         border.width: 1
                         anchors.horizontalCenter: parent.horizontalCenter
+                        Image {
+                            anchors.centerIn: parent
+                            width: 22
+                            height: 22
+                            source: Assets.check
+                            fillMode: Image.PreserveAspectFit
+                            visible: appController.isOnline
+                        }
                         Text {
                             anchors.centerIn: parent
-                            text: appController.isOnline ? "✓" : "!"
-                            color: appController.isOnline ? Theme.forest : Theme.terracotta
+                            text: "!"
+                            color: Theme.terracotta
                             font.pixelSize: 22
                             font.bold: true
+                            visible: !appController.isOnline
                         }
                     }
 

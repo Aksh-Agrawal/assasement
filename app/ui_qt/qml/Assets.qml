@@ -49,6 +49,7 @@ QtObject {
     readonly property url star: Qt.resolvedUrl("icons/star.svg")
     readonly property url sync: Qt.resolvedUrl("icons/sync.svg")
     readonly property url update: Qt.resolvedUrl("icons/update.svg")
+    readonly property url wallpaper: Qt.resolvedUrl("icons/wallpaper.svg")
     readonly property url wifi: Qt.resolvedUrl("icons/wifi.svg")
     readonly property url wifi_off: Qt.resolvedUrl("icons/wifi_off.svg")
 }

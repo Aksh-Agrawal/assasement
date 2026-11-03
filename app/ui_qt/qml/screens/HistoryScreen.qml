@@ -172,7 +172,7 @@ Rectangle {
                                             }
 
                                             Text {
-                                                text: modelData.subject + " • " + modelData.completedAt + (modelData.synced ? " • Synced ✓" : " • Stored locally")
+                                                text: modelData.subject + " • " + modelData.completedAt + (modelData.synced ? " • Synced" : " • Stored locally")
                                                 color: Theme.mutedInk
                                                 font.pixelSize: Typography.caption
                                                 font.family: Typography.fontFamily
