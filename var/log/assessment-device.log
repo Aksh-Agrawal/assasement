@@ -293,3 +293,9 @@
 2026-11-03 14:38:59,103 level=INFO component=app.update.client event=No update available
 2026-11-03 14:39:27,755 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
 2026-11-03 14:39:27,762 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:39:47,989 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:39:54,739 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:39:54,756 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:39:59,115 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:40:01,531 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:40:01,538 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
