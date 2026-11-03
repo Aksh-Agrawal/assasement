@@ -23,6 +23,12 @@ class QuickAddController(QObject):
     timeRemainingChanged = Signal()
     resultChanged = Signal()
 
+    # Internal thread-safe marshaling signals
+    _sessionCreatedSignal = Signal(str, str, str, str, object, str)
+    _sessionFailedSignal = Signal(str, str)
+    _serverStatusSignal = Signal(str, object)
+    _syncFinishedSignal = Signal(bool)
+
     def __init__(self, app_controller, parent=None):
         super().__init__(parent)
         self.app = app_controller
@@ -47,7 +53,13 @@ class QuickAddController(QObject):
         self._error_message = ""
         self._local_profile_id = ""
 
-        # Polling & Countdown timers
+        # Connect internal cross-thread signals to main thread handlers
+        self._sessionCreatedSignal.connect(self._on_session_created)
+        self._sessionFailedSignal.connect(self._on_session_failed)
+        self._serverStatusSignal.connect(self._handle_server_status)
+        self._syncFinishedSignal.connect(self._on_sync_finished)
+
+        # Polling & Countdown timers (run strictly on main thread)
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(2500)
         self._poll_timer.timeout.connect(self._on_poll_tick)
@@ -125,11 +137,34 @@ class QuickAddController(QObject):
         self._countdown_timer.stop()
         self._sync_in_progress = False
         self._error_message = ""
+        self._session_id = ""
+        self._short_code = ""
+        self._upload_url = ""
+        self._token = ""
+        self._expires_at = None
+
+        # Clean old QR file if exists
+        try:
+            if self._qr_file_path.is_file():
+                self._qr_file_path.unlink()
+        except OSError:
+            pass
+        self.qrChanged.emit()
 
         if not local_profile_id and self.app.ui_controller and self.app.ui_controller.selected_profile:
             local_profile_id = self.app.ui_controller.selected_profile.id
 
         self._local_profile_id = local_profile_id
+
+        # Check device pairing / credentials upfront
+        cred = self.app.credentials.load_safe() if self.app.credentials else None
+        if not cred or not cred.token:
+            self._status = "FAILED"
+            self._status_text = "Device not linked to an account."
+            self._error_message = "Connect this device to your student account in Settings > Account first."
+            self.statusChanged.emit()
+            return
+
         self._status = "CREATING"
         self._status_text = "Generating QR Code…"
         self.statusChanged.emit()
@@ -142,55 +177,73 @@ class QuickAddController(QObject):
             with api.mobile_upload() as client:
                 info = client.create_session(self._local_profile_id)
 
-            self._session_id = info.session_id
-            self._token = info.token
-            self._upload_url = info.upload_url
-            self._short_code = info.short_code
-            self._expires_at = info.expires_at
-            self._profile_name = info.profile_name
-
             # Generate QR Code using Segno (pure Python, lightweight for Pi Zero)
             qr = segno.make_qr(info.upload_url, error="m")
             self._qr_file_path.parent.mkdir(parents=True, exist_ok=True)
             qr.save(str(self._qr_file_path), scale=8, border=2)
 
-            self._status = "WAITING_FOR_PHONE"
-            self._status_text = "Waiting for phone to scan…"
-
-            # Schedule UI updates and timer starts on main thread
-            QTimer.singleShot(0, self._on_session_created)
+            # Marshal success to main GUI thread via Signal
+            self._sessionCreatedSignal.emit(
+                info.session_id,
+                info.token,
+                info.upload_url,
+                info.short_code,
+                info.expires_at,
+                info.profile_name,
+            )
         except MobileUploadAuthError as err:
             LOGGER.warning("Quick add auth failure: %s", err)
-            self._status = "FAILED"
-            self._status_text = "Device not linked or authenticated."
-            self._error_message = "Connect this device to your student account first."
-            QTimer.singleShot(0, self.statusChanged.emit)
+            self._sessionFailedSignal.emit(
+                "Device not linked or authenticated.",
+                "Connect this device to your student account first in Settings > Account.",
+            )
         except Exception as err:
             LOGGER.error("Quick add session creation failed: %s", err)
-            self._status = "FAILED"
-            self._status_text = "Could not start session."
-            self._error_message = "Check Wi-Fi connection and try again."
-            QTimer.singleShot(0, self.statusChanged.emit)
+            self._sessionFailedSignal.emit(
+                "Could not connect to cloud service.",
+                "Check Wi-Fi connection and ensure cloud service is online.",
+            )
 
-    def _on_session_created(self):
+    def _on_session_created(self, session_id: str, token: str, upload_url: str, short_code: str, expires_at, profile_name: str):
+        self._session_id = session_id
+        self._token = token
+        self._upload_url = upload_url
+        self._short_code = short_code
+        self._expires_at = expires_at
+        self._profile_name = profile_name
+
+        self._status = "WAITING_FOR_PHONE"
+        self._status_text = "Waiting for phone to scan…"
         self.statusChanged.emit()
         self.qrChanged.emit()
         self.timeRemainingChanged.emit()
         self.resultChanged.emit()
+
         self._poll_timer.start()
         self._countdown_timer.start()
+
+    def _on_session_failed(self, status_text: str, error_message: str):
+        self._status = "FAILED"
+        self._status_text = status_text
+        self._error_message = error_message
+        self.statusChanged.emit()
+        self.qrChanged.emit()
 
     @Slot()
     def cancelQuickAdd(self):
         self._poll_timer.stop()
         self._countdown_timer.stop()
-        if self._session_id:
-            try:
-                api = DeviceApi(self.config, store=self.app.credentials)
-                with api.mobile_upload() as client:
-                    client.cancel_session(self._session_id)
-            except Exception:
-                pass
+        sess_id = self._session_id
+        if sess_id:
+            def _async_cancel():
+                try:
+                    api = DeviceApi(self.config, store=self.app.credentials)
+                    with api.mobile_upload() as client:
+                        client.cancel_session(sess_id)
+                except Exception:
+                    pass
+            threading.Thread(target=_async_cancel, daemon=True).start()
+
         self._status = "CANCELLED"
         self._status_text = "Cancelled"
         self.statusChanged.emit()
@@ -203,7 +256,6 @@ class QuickAddController(QObject):
     @Slot()
     def practiceNow(self):
         if self._result_set_id and self.app.library_controller:
-            # Select the pack and open test setup or assessment
             self.app.library_controller.selectPack(self._result_set_id, 1)
             self.app.navigate("test_setup")
         else:
@@ -234,7 +286,7 @@ class QuickAddController(QObject):
                 st = client.get_status(self._session_id)
 
             server_status = st.status.upper()
-            QTimer.singleShot(0, lambda: self._handle_server_status(server_status, st))
+            self._serverStatusSignal.emit(server_status, st)
         except Exception as err:
             LOGGER.debug("Quick add poll transient error: %s", err)
 
@@ -307,7 +359,7 @@ class QuickAddController(QObject):
         except Exception:
             pass
 
-        QTimer.singleShot(0, lambda: self._on_sync_finished(pack_present))
+        self._syncFinishedSignal.emit(pack_present)
 
     def _on_sync_finished(self, pack_present: bool):
         self._sync_in_progress = False
@@ -321,5 +373,5 @@ class QuickAddController(QObject):
             self.statusChanged.emit()
             self.resultChanged.emit()
         else:
-            # Next poll will retry sync
+            # Next poll tick will retry sync
             pass

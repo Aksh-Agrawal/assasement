@@ -299,3 +299,21 @@
 2026-11-03 14:39:59,115 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
 2026-11-03 14:40:01,531 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
 2026-11-03 14:40:01,538 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:40:12,761 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:40:22,245 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:40:22,252 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:40:30,392 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:40:53,718 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:41:05,323 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:41:05,328 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:41:26,099 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:42:02,926 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:42:06,615 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:42:06,627 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:42:39,145 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:43:16,241 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:43:52,680 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:44:29,007 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:44:29,014 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:44:29,275 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
+2026-11-03 14:47:58,680 level=INFO component=__main__ event=Application startup: ASSESS_API_URL configured: YES, API host: startup-cloud.onrender.com, DISPLAY: unset, network backend selected: Mock / Offline

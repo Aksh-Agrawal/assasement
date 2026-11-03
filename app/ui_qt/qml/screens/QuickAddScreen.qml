@@ -28,25 +28,30 @@ Rectangle {
         anchors.right: parent.right
         anchors.margins: Spacing.md
 
-        Row {
-            anchors.fill: parent
-            spacing: Spacing.md
+        // ---------------------------------------------------------------------
+        // Left Column: QR Code & Fallback Short Code
+        // ---------------------------------------------------------------------
+        AppCard {
+            id: leftCard
+            width: 310
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
 
-            // Left Column: QR Code & Fallback Short Code
-            AppCard {
-                width: 320
-                height: parent.height
+            Item {
+                anchors.fill: parent
+                anchors.margins: Spacing.md
 
                 Column {
-                    anchors.fill: parent
-                    anchors.margins: Spacing.md
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
                     spacing: Spacing.sm
-                    anchors.horizontalCenter: parent.horizontalCenter
 
                     // QR Display Box
                     Rectangle {
-                        width: 230
-                        height: 230
+                        width: 220
+                        height: 220
                         anchors.horizontalCenter: parent.horizontalCenter
                         color: "#FFFFFF"
                         radius: Metrics.radiusMd
@@ -60,7 +65,7 @@ Rectangle {
                             source: quickAddController.qrSource
                             fillMode: Image.PreserveAspectFit
                             smooth: false
-                            visible: quickAddController.status !== "CREATING" && quickAddController.status !== "EXPIRED" && quickAddController.qrSource.length > 0
+                            visible: quickAddController.status !== "CREATING" && quickAddController.status !== "EXPIRED" && quickAddController.status !== "FAILED" && quickAddController.qrSource.length > 0
                         }
 
                         // Creating state indicator
@@ -70,12 +75,12 @@ Rectangle {
                             visible: quickAddController.status === "CREATING"
 
                             Rectangle {
-                                width: 32; height: 32; radius: 16
+                                width: 36; height: 36; radius: 18
                                 color: Theme.primaryLight
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 Image {
                                     anchors.centerIn: parent
-                                    width: 18; height: 18
+                                    width: 20; height: 20
                                     source: Assets.refresh
                                     fillMode: Image.PreserveAspectFit
                                 }
@@ -92,7 +97,7 @@ Rectangle {
                         // Expired state overlay
                         Column {
                             anchors.centerIn: parent
-                            spacing: Spacing.sm
+                            spacing: Spacing.xs
                             visible: quickAddController.status === "EXPIRED"
 
                             Text {
@@ -104,11 +109,37 @@ Rectangle {
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             Text {
-                                text: "Tap button to renew"
+                                text: "Tap button below to renew"
                                 color: Theme.textSecondary
                                 font.pixelSize: Typography.caption
                                 font.family: Typography.fontFamily
                                 anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                        }
+
+                        // Failed state overlay
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: Spacing.xs
+                            visible: quickAddController.status === "FAILED"
+                            width: parent.width - 20
+
+                            Text {
+                                text: "Cannot Load QR"
+                                color: Theme.error
+                                font.pixelSize: Typography.body
+                                font.bold: true
+                                font.family: Typography.fontFamily
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                            Text {
+                                text: "Device not linked or cloud offline"
+                                color: Theme.textSecondary
+                                font.pixelSize: 11
+                                font.family: Typography.fontFamily
+                                wrapMode: Text.WordWrap
+                                horizontalAlignment: Text.AlignHCenter
+                                width: parent.width
                             }
                         }
                     }
@@ -116,7 +147,7 @@ Rectangle {
                     // Fallback Code Container
                     Rectangle {
                         width: parent.width
-                        height: 78
+                        height: 70
                         radius: Metrics.radiusSm
                         color: Theme.surfaceWarm
                         border.color: Theme.border
@@ -177,27 +208,46 @@ Rectangle {
                     }
                 }
             }
+        }
 
-            // Right Column: Instructions, Status & Actions
-            AppCard {
-                width: parent.width - 320 - Spacing.md
-                height: parent.height
+        // ---------------------------------------------------------------------
+        // Right Column: Instructions, Status, Dynamic State & Action Buttons
+        // ---------------------------------------------------------------------
+        AppCard {
+            id: rightCard
+            anchors.left: leftCard.right
+            anchors.leftMargin: Spacing.md
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
 
+            Item {
+                anchors.fill: parent
+                anchors.margins: Spacing.lg
+
+                // Bounded Vertical Column (anchored top and above buttonRow)
                 Column {
-                    anchors.fill: parent
-                    anchors.margins: Spacing.lg
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: buttonRow.top
+                    anchors.bottomMargin: Spacing.md
                     spacing: Spacing.md
 
-                    // Heading
+                    // 1. Heading
                     Column {
+                        width: parent.width
                         spacing: 4
+
                         Text {
                             text: "Add Questions From Your Phone"
                             color: Theme.textPrimary
                             font.pixelSize: Typography.title
                             font.family: Typography.fontSerif
                             font.bold: true
+                            width: parent.width
                         }
+
                         Text {
                             text: "Scan the QR code with your phone camera. No laptop or sign-in needed."
                             color: Theme.textSecondary
@@ -208,10 +258,10 @@ Rectangle {
                         }
                     }
 
-                    // Status Indicator Box
+                    // 2. Status Badge Box
                     Rectangle {
                         width: parent.width
-                        height: 52
+                        height: 48
                         radius: Metrics.radiusSm
                         color: Theme.surfaceWarm
                         border.color: Theme.border
@@ -220,6 +270,8 @@ Rectangle {
                         Row {
                             anchors.left: parent.left
                             anchors.leftMargin: Spacing.md
+                            anchors.right: parent.right
+                            anchors.rightMargin: Spacing.md
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Spacing.md
 
@@ -262,16 +314,61 @@ Rectangle {
                                 font.pixelSize: Typography.body
                                 font.family: Typography.fontFamily
                                 elide: Text.ElideRight
-                                width: 220
+                                width: parent.width - 150
                             }
                         }
                     }
 
-                    // Content State Views:
-                    // 1. Success / Ready State
+                    // 3. Dynamic State Area
+                    // 3A. Failure Alert Card
                     Rectangle {
                         width: parent.width
-                        height: 110
+                        height: 90
+                        radius: Metrics.radiusSm
+                        color: Theme.terracottaLight
+                        border.color: Theme.terracotta
+                        border.width: 1
+                        visible: quickAddController.status === "FAILED"
+
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: Spacing.sm
+                            spacing: 4
+
+                            Row {
+                                spacing: 6
+                                Text {
+                                    text: "⚠"
+                                    color: Theme.terracotta
+                                    font.bold: true
+                                    font.pixelSize: 14
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Text {
+                                    text: "Authentication / Connection Error"
+                                    color: Theme.terracotta
+                                    font.bold: true
+                                    font.pixelSize: Typography.body
+                                    font.family: Typography.fontFamily
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            Text {
+                                text: quickAddController.errorMessage || "Please connect this device to your student account first."
+                                color: Theme.textPrimary
+                                font.pixelSize: Typography.caption
+                                font.family: Typography.fontFamily
+                                wrapMode: Text.WordWrap
+                                width: parent.width
+                            }
+                        }
+                    }
+
+                    // 3B. Success / Ready State
+                    Rectangle {
+                        width: parent.width
+                        height: 96
                         radius: Metrics.radiusSm
                         color: Theme.surfaceSelected
                         border.color: Theme.sage
@@ -280,18 +377,18 @@ Rectangle {
 
                         Column {
                             anchors.fill: parent
-                            anchors.margins: Spacing.md
+                            anchors.margins: Spacing.sm
                             spacing: 4
 
                             Row {
                                 spacing: Spacing.sm
                                 Rectangle {
-                                    width: 28; height: 28; radius: 14
+                                    width: 24; height: 24; radius: 12
                                     color: Theme.forest
                                     anchors.verticalCenter: parent.verticalCenter
                                     Image {
                                         anchors.centerIn: parent
-                                        width: 16; height: 16
+                                        width: 14; height: 14
                                         source: Assets.check
                                         fillMode: Image.PreserveAspectFit
                                     }
@@ -325,7 +422,7 @@ Rectangle {
                         }
                     }
 
-                    // 2. Normal Instructional Steps (when not ready or failed)
+                    // 3C. Normal Instructional Steps (when not ready or failed)
                     Column {
                         width: parent.width
                         spacing: Spacing.sm
@@ -379,49 +476,50 @@ Rectangle {
                             }
                         }
                     }
+                }
 
-                    // Spacer
-                    Item {
-                        width: parent.width
-                        height: 1
-                        anchors.bottom: buttonRow.top
+                // Bottom Buttons pinned to bottom-right of the card
+                Row {
+                    id: buttonRow
+                    anchors.bottom: parent.bottom
+                    anchors.right: parent.right
+                    spacing: Spacing.sm
+
+                    // Unlinked device CTA
+                    SecondaryButton {
+                        visible: quickAddController.status === "FAILED" && (quickAddController.statusText.indexOf("not linked") !== -1 || quickAddController.errorMessage.indexOf("Settings") !== -1)
+                        text: "Link Device"
+                        iconSource: Assets.device_pairing
+                        onClicked: appController.navigate("pairing")
                     }
 
-                    // Bottom Buttons
-                    Row {
-                        id: buttonRow
-                        spacing: Spacing.md
-                        anchors.bottom: parent.bottom
-                        anchors.right: parent.right
+                    // Retry button
+                    PrimaryButton {
+                        visible: quickAddController.status === "FAILED" || quickAddController.status === "EXPIRED"
+                        text: "Try Again"
+                        iconSource: Assets.refresh
+                        onClicked: quickAddController.retryQuickAdd()
+                    }
 
-                        // Ready actions
-                        PrimaryButton {
-                            visible: quickAddController.status === "READY"
-                            text: "Start Practice"
-                            iconSource: Assets.practice
-                            onClicked: quickAddController.practiceNow()
-                        }
+                    // Ready actions
+                    PrimaryButton {
+                        visible: quickAddController.status === "READY"
+                        text: "Practice Now"
+                        iconSource: Assets.practice
+                        onClicked: quickAddController.practiceNow()
+                    }
 
-                        SecondaryButton {
-                            visible: quickAddController.status === "READY"
-                            text: "Done"
-                            onClicked: appController.navigate("content")
-                        }
+                    SecondaryButton {
+                        visible: quickAddController.status === "READY"
+                        text: "Done"
+                        onClicked: appController.navigate("content")
+                    }
 
-                        // Expired / Failed actions
-                        PrimaryButton {
-                            visible: quickAddController.status === "EXPIRED" || quickAddController.status === "FAILED"
-                            text: "Generate New QR"
-                            iconSource: Assets.refresh
-                            onClicked: quickAddController.retryQuickAdd()
-                        }
-
-                        // Cancel action (when not ready)
-                        SecondaryButton {
-                            visible: quickAddController.status !== "READY"
-                            text: "Cancel"
-                            onClicked: quickAddController.cancelQuickAdd()
-                        }
+                    // Cancel action (when not ready)
+                    SecondaryButton {
+                        visible: quickAddController.status !== "READY"
+                        text: "Cancel"
+                        onClicked: quickAddController.cancelQuickAdd()
                     }
                 }
             }
