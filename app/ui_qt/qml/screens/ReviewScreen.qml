@@ -117,6 +117,7 @@ Rectangle {
                 height: parent.height
 
                 Flickable {
+                    id: reviewFlickable
                     anchors.fill: parent
                     anchors.margins: Spacing.md
                     contentWidth: width
@@ -131,7 +132,7 @@ Rectangle {
                         id: reviewDetailCol
                         width: parent.width
                         spacing: Spacing.md
-                        visible: parent.currentItem !== null
+                        visible: reviewFlickable.currentItem !== null
 
                         // Question index and status
                         Row {
@@ -139,7 +140,7 @@ Rectangle {
                             spacing: Spacing.md
 
                             Text {
-                                text: "Question " + (parent.parent.currentItem ? parent.parent.currentItem.index : 1)
+                                text: "Question " + (reviewFlickable.currentItem ? reviewFlickable.currentItem.index : 1)
                                 color: Theme.deepInk
                                 font.pixelSize: Typography.sectionTitle
                                 font.bold: true
@@ -150,16 +151,16 @@ Rectangle {
                                 height: 24
                                 width: statusBadgeText.implicitWidth + 16
                                 radius: 12
-                                color: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? Theme.surfaceSelected : Theme.terracottaLight
-                                border.color: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                                color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.surfaceSelected : Theme.terracottaLight
+                                border.color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
                                 border.width: 1
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Text {
                                     id: statusBadgeText
                                     anchors.centerIn: parent
-                                    text: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? "Correct" : "Needs Review"
-                                    color: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                                    text: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? "Correct" : "Needs Review"
+                                    color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
                                     font.pixelSize: Typography.caption
                                     font.bold: true
                                 }
@@ -169,7 +170,7 @@ Rectangle {
                         // Question Prompt
                         Text {
                             width: parent.width
-                            text: parent.parent.currentItem ? parent.parent.currentItem.question : ""
+                            text: reviewFlickable.currentItem ? (reviewFlickable.currentItem.question || reviewFlickable.currentItem.prompt) : ""
                             color: Theme.deepInk
                             font.pixelSize: Typography.body
                             font.bold: true
@@ -182,8 +183,8 @@ Rectangle {
                             width: parent.width
                             implicitHeight: studentChoiceCol.implicitHeight + 16
                             radius: Metrics.radiusSmall
-                            color: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? Theme.surfaceSelected : Theme.terracottaLight
-                            border.color: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                            color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.surfaceSelected : Theme.terracottaLight
+                            border.color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
                             border.width: 1
 
                             Column {
@@ -200,7 +201,7 @@ Rectangle {
                                 }
 
                                 Text {
-                                    text: parent.parent.parent.parent.currentItem ? parent.parent.parent.parent.currentItem.selectedText : "Skipped"
+                                    text: reviewFlickable.currentItem ? reviewFlickable.currentItem.selectedText : "Skipped"
                                     color: Theme.deepInk
                                     font.pixelSize: Typography.body
                                     font.bold: true
@@ -212,7 +213,7 @@ Rectangle {
 
                         // Correct Answer (if student was wrong)
                         Rectangle {
-                            visible: parent.parent.currentItem && !parent.parent.currentItem.isCorrect
+                            visible: reviewFlickable.currentItem && !reviewFlickable.currentItem.isCorrect
                             width: parent.width
                             implicitHeight: correctChoiceCol.implicitHeight + 16
                             radius: Metrics.radiusSmall
@@ -234,7 +235,7 @@ Rectangle {
                                 }
 
                                 Text {
-                                    text: parent.parent.parent.parent.currentItem ? parent.parent.parent.parent.currentItem.correctText : ""
+                                    text: reviewFlickable.currentItem ? reviewFlickable.currentItem.correctText : ""
                                     color: Theme.deepInk
                                     font.pixelSize: Typography.body
                                     font.bold: true
@@ -246,7 +247,7 @@ Rectangle {
 
                         // Pedagogical Explanation Box
                         Rectangle {
-                            visible: parent.parent.currentItem && parent.parent.currentItem.explanation.length > 0
+                            visible: reviewFlickable.currentItem && reviewFlickable.currentItem.explanation && reviewFlickable.currentItem.explanation.length > 0
                             width: parent.width
                             implicitHeight: explCol.implicitHeight + 16
                             radius: Metrics.radiusSmall
@@ -269,7 +270,7 @@ Rectangle {
                                 }
 
                                 Text {
-                                    text: parent.parent.parent.parent.currentItem ? parent.parent.parent.parent.currentItem.explanation : ""
+                                    text: reviewFlickable.currentItem ? reviewFlickable.currentItem.explanation : ""
                                     color: Theme.deepInk
                                     font.pixelSize: Typography.body
                                     font.family: Typography.family
