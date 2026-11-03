@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140" width="160" height="140">
+  <!-- Soft warm lantern glow -->
+  <circle cx="80" cy="65" r="42" fill="#FAF3E4" opacity="0.8"/>
+  <circle cx="80" cy="65" r="28" fill="#F5E4B8" opacity="0.9"/>
+
+  <!-- Field Study Lantern -->
+  <!-- Top ring and cap -->
+  <ellipse cx="80" cy="30" rx="14" ry="4" fill="#C76848" stroke="#23302D" stroke-width="2"/>
+  <path d="M74 30 C74 18 86 18 86 30" fill="none" stroke="#23302D" stroke-width="2.5"/>
+  <!-- Glass globe with glowing flame -->
+  <path d="M68 34 L64 78 Q80 88 96 78 L92 34 Z" fill="#FAF6EC" stroke="#23302D" stroke-width="2"/>
+  <!-- Candle flame -->
+  <path d="M80 50 Q85 62 80 68 Q75 62 80 50 Z" fill="#D5A64A" stroke="#C76848" stroke-width="1"/>
+  <circle cx="80" cy="64" r="3" fill="#C76848"/>
+  <!-- Lantern base -->
+  <rect x="62" y="78" width="36" height="10" rx="2" fill="#C76848" stroke="#23302D" stroke-width="2"/>
+
+  <!-- Open Field Map / Journal underneath -->
+  <path d="M35 110 L75 98 L125 106 L85 120 Z" fill="#FBF7EF" stroke="#23302D" stroke-width="1.8"/>
+  <line x1="75" y1="98" x2="85" y2="120" stroke="#D8D0C1" stroke-width="1.5"/>
+</svg>

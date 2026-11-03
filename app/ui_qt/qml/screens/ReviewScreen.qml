@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     property int selectedIndex: 0
 
@@ -14,7 +14,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "Review Answers"
+        title: "Answer Review"
         showBack: true
         onBackClicked: appController.navigate("result")
     }
@@ -24,64 +24,75 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 14
+        anchors.margins: Spacing.md
 
         Row {
             anchors.fill: parent
-            spacing: 14
+            spacing: Spacing.md
 
-            // LEFT: Question list
+            // LEFT PANEL: Question Navigation List
             AppCard {
-                width: 220
+                width: 210
                 height: parent.height
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 8
+                    anchors.margins: Spacing.sm
+                    spacing: Spacing.xs
 
                     Text {
-                        text: "Questions"
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
+                        text: "Questions (" + (assessmentController.reviewItems ? assessmentController.reviewItems.length : 0) + ")"
+                        color: Theme.mutedInk
+                        font.pixelSize: Typography.caption
                         font.bold: true
+                        font.family: Typography.family
                     }
 
                     ListView {
                         width: parent.width
-                        height: parent.height - 40
+                        height: parent.height - 24
                         clip: true
-                        spacing: 6
+                        spacing: 4
                         model: assessmentController.reviewItems
 
                         delegate: Rectangle {
                             width: parent.width
                             height: 44
-                            radius: 8
+                            radius: Metrics.radiusSmall
                             color: root.selectedIndex === index ? Theme.primaryLight : (itemMouse.containsPress ? Theme.surfaceActive : Theme.surface)
-                            border.color: root.selectedIndex === index ? Theme.primary : Theme.border
+                            border.color: root.selectedIndex === index ? Theme.forest : Theme.border
                             border.width: root.selectedIndex === index ? 2 : 1
 
                             Item {
                                 anchors.fill: parent
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
+                                anchors.leftMargin: Spacing.sm
+                                anchors.rightMargin: Spacing.sm
 
-                                Text {
+                                Row {
                                     anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "Q" + modelData.index
-                                    font.pixelSize: 14
-                                    font.bold: true
-                                    color: Theme.textPrimary
+                                    spacing: 6
+
+                                    Text {
+                                        text: "Q" + modelData.index
+                                        font.pixelSize: Typography.body
+                                        font.bold: true
+                                        color: Theme.deepInk
+                                    }
+
+                                    Text {
+                                        visible: modelData.isFlagged
+                                        text: "🚩"
+                                        font.pixelSize: 11
+                                    }
                                 }
 
                                 Text {
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.isCorrect ? "✓ Correct" : "✕ Incorrect"
-                                    color: modelData.isCorrect ? Theme.success : Theme.warning
-                                    font.pixelSize: 12
+                                    text: modelData.isCorrect ? "✓ Correct" : "✕ Wrong"
+                                    color: modelData.isCorrect ? Theme.forest : Theme.terracotta
+                                    font.pixelSize: Typography.caption
                                     font.bold: true
                                 }
                             }
@@ -89,6 +100,7 @@ Rectangle {
                             MouseArea {
                                 id: itemMouse
                                 anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: root.selectedIndex = index
                             }
                         }
@@ -96,140 +108,172 @@ Rectangle {
                 }
             }
 
-            // RIGHT: Selected Question Review Details
+            // RIGHT PANEL: Question Review Sheet
             AppCard {
-                width: parent.width - 220 - 14
+                width: parent.width - 210 - Spacing.md
                 height: parent.height
 
-                Item {
+                Flickable {
                     anchors.fill: parent
-                    anchors.margins: 16
+                    anchors.margins: Spacing.md
+                    contentWidth: width
+                    contentHeight: reviewDetailCol.implicitHeight + Spacing.md
+                    clip: true
 
                     readonly property var currentItem: (assessmentController.reviewItems && assessmentController.reviewItems.length > root.selectedIndex)
                         ? assessmentController.reviewItems[root.selectedIndex]
                         : null
 
                     Column {
-                        anchors.fill: parent
-                        spacing: 10
+                        id: reviewDetailCol
+                        width: parent.width
+                        spacing: Spacing.md
                         visible: parent.currentItem !== null
 
+                        // Question index and status
                         Row {
-                            spacing: 8
+                            width: parent.width
+                            spacing: Spacing.md
+
                             Text {
                                 text: "Question " + (parent.parent.currentItem ? parent.parent.currentItem.index : 1)
-                                color: Theme.textPrimary
-                                font.pixelSize: Theme.fontSizeHeading
+                                color: Theme.deepInk
+                                font.pixelSize: Typography.sectionTitle
                                 font.bold: true
-                            }
-
-                            StatusBadge {
-                                text: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? "Correct ✓" : "Needs Review"
-                                statusType: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? "success" : "warning"
-                            }
-                        }
-
-                        // Question text
-                        Flickable {
-                            width: parent.width
-                            height: Math.min(80, qText.implicitHeight)
-                            contentWidth: width
-                            contentHeight: qText.implicitHeight
-                            clip: true
-
-                            Text {
-                                id: qText
-                                width: parent.width
-                                text: parent.parent.parent.currentItem ? parent.parent.parent.currentItem.question : ""
-                                color: Theme.textPrimary
-                                font.pixelSize: Theme.fontSizeBody
-                                wrapMode: Text.Wrap
-                            }
-                        }
-
-                        // Student Choice vs Correct Choice
-                        Column {
-                            width: parent.width
-                            spacing: 6
-
-                            Rectangle {
-                                width: parent.width
-                                height: 42
-                                radius: 8
-                                color: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? "#E8F5E9" : "#FFEBEE"
-                                border.color: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? Theme.success : Theme.warning
-
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.margins: 10
-                                    spacing: 8
-                                    Text { text: "Your answer:"; font.bold: true; color: Theme.textPrimary; font.pixelSize: 13 }
-                                    Text {
-                                        text: parent.parent.parent.parent.currentItem ? parent.parent.parent.parent.currentItem.selectedText : ""
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 13
-                                    }
-                                }
+                                font.family: Typography.familyEditorial
                             }
 
                             Rectangle {
-                                width: parent.width
-                                height: 42
-                                radius: 8
-                                color: "#E8F5E9"
-                                border.color: Theme.success
-                                visible: parent.parent.parent.currentItem && !parent.parent.parent.currentItem.isCorrect
+                                height: 24
+                                width: statusBadgeText.implicitWidth + 16
+                                radius: 12
+                                color: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? Theme.surfaceSelected : Theme.terracottaLight
+                                border.color: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                                border.width: 1
+                                anchors.verticalCenter: parent.verticalCenter
 
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.margins: 10
-                                    spacing: 8
-                                    Text { text: "Correct answer:"; font.bold: true; color: Theme.success; font.pixelSize: 13 }
-                                    Text {
-                                        text: parent.parent.parent.parent.currentItem ? parent.parent.parent.parent.currentItem.correctText : ""
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 13
-                                    }
+                                Text {
+                                    id: statusBadgeText
+                                    anchors.centerIn: parent
+                                    text: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? "✓ Correct" : "Needs Review"
+                                    color: (parent.parent.parent.currentItem && parent.parent.parent.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                                    font.pixelSize: Typography.caption
+                                    font.bold: true
                                 }
                             }
                         }
 
-                        // Explanation
+                        // Question Prompt
                         Text {
-                            text: parent.parent.currentItem && parent.parent.currentItem.explanation.length > 0
-                                ? "Explanation: " + parent.parent.currentItem.explanation
-                                : "No additional explanation for this question."
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeCaption
-                            wrapMode: Text.Wrap
                             width: parent.width
+                            text: parent.parent.currentItem ? parent.parent.currentItem.question : ""
+                            color: Theme.deepInk
+                            font.pixelSize: Typography.body
+                            font.bold: true
+                            font.family: Typography.family
+                            wrapMode: Text.Wrap
                         }
 
-                        Item { width: 1; height: 10 }
+                        // Student Choice
+                        Rectangle {
+                            width: parent.width
+                            implicitHeight: studentChoiceCol.implicitHeight + 16
+                            radius: Metrics.radiusSmall
+                            color: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? Theme.surfaceSelected : Theme.terracottaLight
+                            border.color: (parent.parent.currentItem && parent.parent.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                            border.width: 1
 
-                        // Bottom navigation between items
-                        Row {
-                            anchors.right: parent.right
-                            spacing: 10
+                            Column {
+                                id: studentChoiceCol
+                                anchors.fill: parent
+                                anchors.margins: Spacing.sm
+                                spacing: 2
 
-                            SecondaryButton {
-                                text: "← Prev"
-                                preferredHeight: 44
-                                enabled: root.selectedIndex > 0
-                                onClicked: root.selectedIndex--
+                                Text {
+                                    text: "Your Answer"
+                                    color: Theme.mutedInk
+                                    font.pixelSize: Typography.caption
+                                    font.bold: true
+                                }
+
+                                Text {
+                                    text: parent.parent.parent.parent.currentItem ? parent.parent.parent.parent.currentItem.selectedText : "Skipped"
+                                    color: Theme.deepInk
+                                    font.pixelSize: Typography.body
+                                    font.bold: true
+                                    wrapMode: Text.Wrap
+                                    width: parent.width
+                                }
                             }
+                        }
 
-                            SecondaryButton {
-                                text: "Next →"
-                                preferredHeight: 44
-                                enabled: root.selectedIndex < assessmentController.reviewItems.length - 1
-                                onClicked: root.selectedIndex++
+                        // Correct Answer (if student was wrong)
+                        Rectangle {
+                            visible: parent.parent.currentItem && !parent.parent.currentItem.isCorrect
+                            width: parent.width
+                            implicitHeight: correctChoiceCol.implicitHeight + 16
+                            radius: Metrics.radiusSmall
+                            color: Theme.surfaceSelected
+                            border.color: Theme.forest
+                            border.width: 1
+
+                            Column {
+                                id: correctChoiceCol
+                                anchors.fill: parent
+                                anchors.margins: Spacing.sm
+                                spacing: 2
+
+                                Text {
+                                    text: "Correct Answer"
+                                    color: Theme.forest
+                                    font.pixelSize: Typography.caption
+                                    font.bold: true
+                                }
+
+                                Text {
+                                    text: parent.parent.parent.parent.currentItem ? parent.parent.parent.parent.currentItem.correctText : ""
+                                    color: Theme.deepInk
+                                    font.pixelSize: Typography.body
+                                    font.bold: true
+                                    wrapMode: Text.Wrap
+                                    width: parent.width
+                                }
                             }
+                        }
 
-                            PrimaryButton {
-                                text: "Done"
-                                preferredHeight: 44
-                                onClicked: appController.navigate("home")
+                        // Pedagogical Explanation Box
+                        Rectangle {
+                            visible: parent.parent.currentItem && parent.parent.currentItem.explanation.length > 0
+                            width: parent.width
+                            implicitHeight: explCol.implicitHeight + 16
+                            radius: Metrics.radiusSmall
+                            color: Theme.surfaceActive
+                            border.color: Theme.border
+                            border.width: 1
+
+                            Column {
+                                id: explCol
+                                anchors.fill: parent
+                                anchors.margins: Spacing.sm
+                                spacing: 4
+
+                                Text {
+                                    text: "Explanation & Key Concept"
+                                    color: Theme.deepInk
+                                    font.pixelSize: Typography.caption
+                                    font.bold: true
+                                    font.family: Typography.family
+                                }
+
+                                Text {
+                                    text: parent.parent.parent.parent.currentItem ? parent.parent.parent.parent.currentItem.explanation : ""
+                                    color: Theme.deepInk
+                                    font.pixelSize: Typography.body
+                                    font.family: Typography.family
+                                    wrapMode: Text.Wrap
+                                    width: parent.width
+                                    lineHeight: 1.2
+                                }
                             }
                         }
                     }

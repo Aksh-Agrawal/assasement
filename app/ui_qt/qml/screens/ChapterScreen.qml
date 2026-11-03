@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     Row {
         anchors.fill: parent
@@ -38,6 +38,80 @@ Rectangle {
                 onBackClicked: appController.navigate("subjects")
             }
 
+            // Subject Context Banner
+            Rectangle {
+                width: parent.width - Spacing.xl
+                height: 50
+                anchors.horizontalCenter: parent.horizontalCenter
+                radius: Metrics.radiusMedium
+                color: Theme.subjectLightAccent(libraryController.selectedSubject)
+                border.color: Theme.border
+                border.width: 1
+
+                Item {
+                    anchors.fill: parent
+                    anchors.leftMargin: Spacing.md
+                    anchors.rightMargin: Spacing.md
+
+                    Row {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Spacing.md
+
+                        Image {
+                            width: 34
+                            height: 34
+                            anchors.verticalCenter: parent.verticalCenter
+                            source: Theme.subjectIcon(libraryController.selectedSubject)
+                            fillMode: Image.PreserveAspectFit
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1
+
+                            Text {
+                                text: libraryController.selectedSubject + " Curriculum"
+                                color: Theme.deepInk
+                                font.pixelSize: Typography.body
+                                font.bold: true
+                                font.family: Typography.fontFamily
+                            }
+
+                            Text {
+                                text: "Select a chapter to practice specific learning objectives"
+                                color: Theme.mutedInk
+                                font.pixelSize: Typography.caption
+                                font.family: Typography.fontFamily
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 24
+                        width: countText.implicitWidth + 14
+                        radius: 12
+                        color: Theme.surface
+                        border.color: Theme.border
+                        border.width: 1
+
+                        Text {
+                            id: countText
+                            anchors.centerIn: parent
+                            text: libraryController.chapters.length + " chapters"
+                            color: Theme.deepInk
+                            font.pixelSize: Typography.caption
+                            font.bold: true
+                            font.family: Typography.fontFamily
+                        }
+                    }
+                }
+            }
+
+            Item { width: 1; height: Spacing.xs }
+
             // Empty state if no chapters
             EmptyState {
                 anchors.centerIn: parent
@@ -48,56 +122,102 @@ Rectangle {
                 onActionClicked: appController.navigate("subjects")
             }
 
-            // Scrollable Chapters List
+            // Functional Chapter Ledger Rows
             ListView {
                 width: parent.width
-                height: parent.height - Theme.headerHeight
+                height: parent.height - Metrics.headerHeight - 60
+                anchors.margins: Spacing.md
                 clip: true
-                spacing: 8
-                topMargin: 8
-                bottomMargin: 16
+                spacing: Spacing.xs
+                topMargin: Spacing.xs
+                bottomMargin: Spacing.md
                 visible: libraryController.chapters.length > 0
-
                 model: libraryController.chapters
 
-                delegate: Item {
-                    width: parent.width
-                    height: 58
+                delegate: Rectangle {
+                    width: parent.width - Spacing.xl
+                    height: 52
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    radius: Metrics.radiusSmall
+                    color: chapterMouse.containsPress ? Theme.surfaceActive : Theme.surface
+                    border.color: Theme.border
+                    border.width: 1
 
-                    AppCard {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - 32
-                        height: 54
-                        interactive: true
-                        onClicked: libraryController.selectChapter(modelData)
+                    Behavior on color {
+                        ColorAnimation { duration: Theme.animDuration }
+                    }
 
-                        Item {
-                            anchors.fill: parent
-                            anchors.leftMargin: 18
-                            anchors.rightMargin: 18
+                    Item {
+                        anchors.fill: parent
+                        anchors.leftMargin: Spacing.lg
+                        anchors.rightMargin: Spacing.lg
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.right: chevronRow.left
+                            anchors.rightMargin: Spacing.md
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Spacing.md
+
+                            // Bullet accent
+                            Rectangle {
+                                width: 6
+                                height: 6
+                                radius: 3
+                                color: Theme.subjectAccent(libraryController.selectedSubject)
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
 
                             Text {
-                                anchors.left: parent.left
-                                anchors.right: chevronIcon.left
-                                anchors.rightMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
                                 text: modelData
-                                color: Theme.textPrimary
-                                font.pixelSize: Theme.fontSizeBody
+                                color: Theme.deepInk
+                                font.pixelSize: Typography.body
                                 font.bold: true
-                                font.family: Theme.fontFamily
+                                font.family: Typography.fontFamily
                                 elide: Text.ElideRight
+                                width: parent.width - 20
+                            }
+                        }
+
+                        Row {
+                            id: chevronRow
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Spacing.xs
+
+                            Text {
+                                text: "Practice sets"
+                                color: Theme.mutedInk
+                                font.pixelSize: Typography.caption
+                                font.family: Typography.fontFamily
+                                anchors.verticalCenter: parent.verticalCenter
                             }
 
                             Image {
-                                id: chevronIcon
-                                anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 20
-                                height: 20
+                                width: 16
+                                height: 16
                                 source: Assets.chevron_right
                             }
                         }
+                    }
+
+                    MouseArea {
+                        id: chapterMouse
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: libraryController.selectChapter(modelData)
+                    }
+
+                    // Focus ring
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: -2
+                        radius: parent.radius + 2
+                        color: "transparent"
+                        border.color: Theme.borderFocus
+                        border.width: Metrics.borderFocus
+                        visible: parent.activeFocus
                     }
                 }
             }

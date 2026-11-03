@@ -24,6 +24,7 @@ class AppController(QObject):
     messageChanged = Signal()
     startupProgressChanged = Signal()
     keyboardVisibilityChanged = Signal()
+    keyboardSubmitted = Signal(str)
 
     def __init__(self, database_path: Path, config: AppConfig = None, credentials: CredentialStore = None, parent=None):
         super().__init__(parent)
@@ -276,9 +277,10 @@ class AppController(QObject):
         self.keyboardVisibilityChanged.emit()
 
     @Slot(str)
-    def keyboardSubmitted(self, text: str):
+    def submitKeyboard(self, text: str):
         self._keyboard_visible = False
         self.keyboardVisibilityChanged.emit()
+        self.keyboardSubmitted.emit(text)
 
     @Slot()
     def keyboardCancelled(self):

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Solid Bullseye & 5-pointed star indicating absolute confidence -->
+  <circle cx="32" cy="32" r="28" fill="#EEF5F0" stroke="#27685E" stroke-width="2"/>
+  <circle cx="32" cy="32" r="19" fill="#27685E"/>
+  <polygon points="32 18 35 27 44 27 37 32 40 41 32 36 24 41 27 32 20 27 29 27" fill="#FBF7EF"/>
+</svg>

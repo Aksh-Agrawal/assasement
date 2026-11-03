@@ -7,55 +7,48 @@ Item {
     property string title: "Nothing here yet"
     property string description: ""
     property string actionText: ""
-    property url iconSource: Assets.info
+    property url illustrationSource: Assets.empty_shelf
+    property url iconSource: ""
     signal actionClicked()
 
     anchors.fill: parent
 
     Column {
         anchors.centerIn: parent
-        spacing: 12
+        spacing: Spacing.md
         width: Math.min(parent.width - 40, 480)
 
-        Rectangle {
-            width: 56
-            height: 56
-            radius: 28
-            color: Theme.surfaceActive
+        Image {
             anchors.horizontalCenter: parent.horizontalCenter
-
-            Image {
-                anchors.centerIn: parent
-                width: 28
-                height: 28
-                visible: root.iconSource.toString().length > 0
-                source: root.iconSource
-                fillMode: Image.PreserveAspectFit
-            }
+            width: 140
+            height: 100
+            source: root.illustrationSource
+            fillMode: Image.PreserveAspectFit
+            smooth: true
         }
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.title
-            color: Theme.textPrimary
-            font.pixelSize: Theme.fontSizeHeading
+            color: Theme.deepInk
+            font.pixelSize: Typography.sectionTitle
             font.bold: true
-            font.family: Theme.fontFamily
+            font.family: Typography.family
         }
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.description
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSizeSecondary
-            font.family: Theme.fontFamily
+            color: Theme.mutedInk
+            font.pixelSize: Typography.body
+            font.family: Typography.family
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             width: parent.width
             visible: root.description.length > 0
         }
 
-        Item { width: 1; height: 4 }
+        Item { width: 1; height: Spacing.xs }
 
         PrimaryButton {
             anchors.horizontalCenter: parent.horizontalCenter

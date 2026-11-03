@@ -15,7 +15,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "Create Study Profile"
+        title: "New Student Profile"
         networkText: appController.networkLabel
         syncText: appController.syncLabel
         isOnline: appController.isOnline
@@ -23,114 +23,205 @@ Rectangle {
         onBackClicked: appController.navigate("profile_picker")
     }
 
-    AppCard {
-        anchors.centerIn: parent
-        anchors.verticalCenterOffset: 10
-        width: 480
-        implicitHeight: contentCol.implicitHeight + 36
+    Item {
+        anchors.top: header.bottom
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
 
-        Column {
-            id: contentCol
+        AppCard {
             anchors.centerIn: parent
-            width: parent.width - 48
-            spacing: 14
+            width: 500
+            implicitHeight: contentCol.implicitHeight + Spacing.xl * 2
 
-            Text {
-                text: "Profile Details"
-                color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeHeading
-                font.bold: true
-                font.family: Theme.fontFamily
-            }
-
-            // Name field tap area
             Column {
-                spacing: 4
-                width: parent.width
-
-                Text {
-                    text: "Student Name"
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeCaption
-                }
-
-                Rectangle {
-                    width: parent.width
-                    height: 52
-                    radius: 10
-                    color: Theme.surfaceActive
-                    border.color: nameMouse.containsPress ? Theme.primary : Theme.border
-                    border.width: 1
-
-                    Text {
-                        anchors.left: parent.left
-                        anchors.leftMargin: 14
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.profileName.length > 0 ? root.profileName : "Tap to enter name..."
-                        color: root.profileName.length > 0 ? Theme.textPrimary : Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeBody
-                    }
-
-                    MouseArea {
-                        id: nameMouse
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            appController.openKeyboard("profile_name", root.profileName, false, "Enter Profile Name");
-                        }
-                    }
-                }
-            }
-
-            // Grade selection
-            Column {
-                spacing: 6
-                width: parent.width
-
-                Text {
-                    text: "Class / Grade"
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeCaption
-                }
+                id: contentCol
+                anchors.centerIn: parent
+                width: parent.width - Spacing.xl * 2
+                spacing: Spacing.md
 
                 Row {
-                    spacing: 8
-                    Repeater {
-                        model: ["Primary 4", "Primary 5", "Primary 6", "Secondary 1"]
-                        delegate: Rectangle {
-                            width: (contentCol.width - 24) / 4
-                            height: 44
-                            radius: 8
-                            color: root.selectedGrade === modelData ? Theme.primaryLight : Theme.surfaceActive
-                            border.color: root.selectedGrade === modelData ? Theme.primary : Theme.border
-                            border.width: root.selectedGrade === modelData ? 2 : 1
+                    spacing: Spacing.sm
+                    Rectangle {
+                        width: 36
+                        height: 36
+                        radius: 18
+                        color: Theme.softSage
+                        Image {
+                            anchors.centerIn: parent
+                            width: 20
+                            height: 20
+                            source: Assets.account
+                            fillMode: Image.PreserveAspectFit
+                        }
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        Text {
+                            text: "Student Profile Details"
+                            color: Theme.textPrimary
+                            font.pixelSize: Typography.pageTitle
+                            font.family: Typography.fontSerif
+                            font.bold: true
+                        }
+                        Text {
+                            text: "Personalize your learning space"
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.caption
+                            font.family: Typography.fontFamily
+                        }
+                    }
+                }
+
+                // Name field input area
+                Column {
+                    spacing: Spacing.xs
+                    width: parent.width
+
+                    Text {
+                        text: "Student Name"
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.fontFamily
+                        font.bold: true
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: Metrics.touchNormal
+                        radius: Metrics.radiusSm
+                        color: Theme.surfaceActive
+                        border.color: nameInput.activeFocus ? Theme.forest : Theme.border
+                        border.width: nameInput.activeFocus ? 2 : 1
+
+                        Item {
+                            anchors.fill: parent
+                            anchors.leftMargin: Spacing.md
+                            anchors.rightMargin: Spacing.sm
+                            anchors.topMargin: Spacing.xs
+                            anchors.bottomMargin: Spacing.xs
 
                             Text {
-                                anchors.centerIn: parent
-                                text: modelData
-                                font.pixelSize: 13
-                                font.bold: root.selectedGrade === modelData
-                                color: root.selectedGrade === modelData ? Theme.primaryDark : Theme.textPrimary
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                text: "Type student name here..."
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.body
+                                font.family: Typography.fontFamily
+                                visible: nameInput.text.length === 0
                             }
 
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: root.selectedGrade = modelData
+                            TextInput {
+                                id: nameInput
+                                anchors.left: parent.left
+                                anchors.right: kbBtn.left
+                                anchors.rightMargin: Spacing.xs
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                verticalAlignment: TextInput.AlignVCenter
+                                text: root.profileName
+                                color: Theme.textPrimary
+                                font.pixelSize: Typography.body
+                                font.family: Typography.fontFamily
+                                font.bold: true
+                                focus: true
+                                selectByMouse: true
+                                onTextChanged: {
+                                    root.profileName = text;
+                                }
+                                onAccepted: {
+                                    if (root.profileName.trim().length > 0) {
+                                        profileController.createProfile(root.profileName, root.selectedGrade);
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                id: kbBtn
+                                width: 36
+                                height: 36
+                                radius: 18
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: kbMouse.containsPress ? Theme.softSage : Theme.surfaceWarm
+                                border.color: Theme.border
+                                border.width: 1
+
+                                Image {
+                                    anchors.centerIn: parent
+                                    source: Assets.keyboard
+                                    width: 20
+                                    height: 20
+                                    fillMode: Image.PreserveAspectFit
+                                }
+
+                                MouseArea {
+                                    id: kbMouse
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        appController.openKeyboard("profile_name", root.profileName, false, "Enter Student Name");
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Item { width: 1; height: 8 }
+                // Grade selection
+                Column {
+                    spacing: Spacing.xs
+                    width: parent.width
 
-            PrimaryButton {
-                width: parent.width
-                preferredHeight: Theme.touchNormal
-                text: "Save Profile"
-                enabled: root.profileName.trim().length > 0
-                onClicked: {
-                    profileController.createProfile(root.profileName, root.selectedGrade);
+                    Text {
+                        text: "Class / Grade Level"
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.fontFamily
+                        font.bold: true
+                    }
+
+                    Row {
+                        spacing: Spacing.sm
+                        Repeater {
+                            model: ["Primary 4", "Primary 5", "Primary 6", "Secondary 1"]
+                            delegate: Rectangle {
+                                width: (contentCol.width - Spacing.sm * 3) / 4
+                                height: 44
+                                radius: Metrics.radiusSm
+                                color: root.selectedGrade === modelData ? Theme.forest : Theme.surfaceActive
+                                border.color: root.selectedGrade === modelData ? Theme.forest : Theme.border
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData
+                                    font.pixelSize: Typography.metadata
+                                    font.bold: root.selectedGrade === modelData
+                                    font.family: Typography.fontFamily
+                                    color: root.selectedGrade === modelData ? Theme.paper : Theme.textPrimary
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.selectedGrade = modelData
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Item { width: 1; height: Spacing.xs }
+
+                PrimaryButton {
+                    width: parent.width
+                    preferredHeight: Metrics.touchNormal
+                    text: "Create & Start Learning"
+                    enabled: root.profileName.trim().length > 0
+                    onClicked: {
+                        profileController.createProfile(root.profileName, root.selectedGrade);
+                    }
                 }
             }
         }
@@ -142,6 +233,7 @@ Rectangle {
         function onKeyboardSubmitted(text) {
             if (appController.keyboardTarget === "profile_name") {
                 root.profileName = text;
+                nameInput.text = text;
             }
         }
     }

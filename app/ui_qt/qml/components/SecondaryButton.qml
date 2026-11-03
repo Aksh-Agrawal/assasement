@@ -6,17 +6,17 @@ Rectangle {
 
     property string text: ""
     property url iconSource: ""
-    property int preferredHeight: Theme.touchNormal
-    property color textColor: Theme.textPrimary
+    property int preferredHeight: Metrics.touchNormal
+    property color textColor: Theme.deepInk
     property color borderColor: Theme.border
 
     signal clicked()
 
-    implicitHeight: preferredHeight
+    implicitHeight: Math.max(Metrics.touchMin, preferredHeight)
     implicitWidth: Math.max(130, contentRow.implicitWidth + 32)
-    radius: Theme.buttonRadius
+    radius: Metrics.radiusMedium
     color: mouseArea.containsPress ? Theme.surfaceActive : Theme.surface
-    border.color: mouseArea.containsPress ? Theme.primary : borderColor
+    border.color: mouseArea.containsPress ? Theme.forest : borderColor
     border.width: 1
     opacity: enabled ? 1.0 : 0.6
 
@@ -27,11 +27,12 @@ Rectangle {
     Row {
         id: contentRow
         anchors.centerIn: parent
-        spacing: 8
+        anchors.verticalCenterOffset: mouseArea.containsPress ? 1 : 0
+        spacing: Spacing.sm
 
         Image {
-            width: 20
-            height: 20
+            width: 18
+            height: 18
             anchors.verticalCenter: parent.verticalCenter
             visible: root.iconSource.toString().length > 0
             source: root.iconSource
@@ -43,9 +44,9 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             text: root.text
             color: root.textColor
-            font.pixelSize: Theme.fontSizeSecondary
-            font.bold: true
-            font.family: Theme.fontFamily
+            font.pixelSize: Typography.body
+            font.bold: false
+            font.family: Typography.family
         }
     }
 
@@ -57,13 +58,14 @@ Rectangle {
         onClicked: root.clicked()
     }
 
+    // Accessible keyboard focus indicator
     Rectangle {
         anchors.fill: parent
         anchors.margins: -3
         radius: root.radius + 3
         color: "transparent"
         border.color: Theme.borderFocus
-        border.width: 2
+        border.width: Metrics.borderFocus
         visible: root.activeFocus
     }
 }

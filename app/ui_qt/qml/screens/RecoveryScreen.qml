@@ -15,60 +15,66 @@ Rectangle {
         Column {
             id: contentCol
             anchors.centerIn: parent
-            width: parent.width - 48
-            spacing: 16
+            width: parent.width - Spacing.xl * 2
+            spacing: Spacing.md
 
+            // Illustration
             Rectangle {
-                width: 60
-                height: 60
-                radius: 30
-                color: "#FFEBEE"
+                width: 68
+                height: 68
+                radius: 34
+                color: Theme.surfaceActive
+                border.color: Theme.border
+                border.width: 1
                 anchors.horizontalCenter: parent.horizontalCenter
 
-                Text {
+                Image {
                     anchors.centerIn: parent
-                    text: "!"
-                    color: Theme.warning
-                    font.pixelSize: 32
-                    font.bold: true
+                    width: 44
+                    height: 44
+                    source: Assets.recovery_guide
+                    fillMode: Image.PreserveAspectFit
                 }
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "We couldn't start normally."
+                text: "We couldn't start normally"
                 color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeTitle
+                font.pixelSize: Typography.heroTitle
+                font.family: Typography.fontSerif
                 font.bold: true
-                font.family: Theme.fontFamily
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Your assessment data is safe. Try restarting the check or run diagnostics."
+                text: "Your learning history and saved answers are safely preserved on this device. You can restart the startup check or view system diagnostics."
                 color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeBody
-                font.family: Theme.fontFamily
+                font.pixelSize: Typography.body
+                font.family: Typography.fontFamily
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 width: parent.width
+                lineHeight: 1.3
             }
 
-            Item { width: 1; height: 8 }
+            Item { width: 1; height: Spacing.xs }
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 16
+                spacing: Spacing.md
 
                 SecondaryButton {
-                    text: "Diagnostics"
-                    preferredHeight: Theme.touchNormal
+                    text: "View Diagnostics"
+                    iconSource: Assets.diagnostics
+                    preferredHeight: Metrics.touchNormal
                     onClicked: appController.navigate("diagnostics")
                 }
 
                 PrimaryButton {
-                    text: "Try Again"
-                    preferredHeight: Theme.touchNormal
+                    text: "Try Opening Again"
+                    iconSource: Assets.refresh
+                    preferredHeight: Metrics.touchNormal
                     onClicked: appController.retryStartup()
                 }
             }

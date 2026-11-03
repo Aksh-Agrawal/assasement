@@ -7,10 +7,8 @@ Rectangle {
     property string currentTab: "home" // "home", "library", "practice", "history", "settings"
     signal tabSelected(string tab)
 
-    width: Theme.navRailWidth
+    width: Metrics.navRailWidth
     color: Theme.surface
-    border.color: Theme.border
-    border.width: 1
 
     // Right-edge divider line
     Rectangle {
@@ -23,16 +21,18 @@ Rectangle {
 
     Column {
         anchors.fill: parent
-        anchors.topMargin: 12
-        anchors.bottomMargin: 12
-        spacing: 8
+        anchors.topMargin: Spacing.sm
+        anchors.bottomMargin: Spacing.sm
+        spacing: 6
 
-        // Mini device mark at top
+        // Educational emblem at top
         Rectangle {
-            width: 44
-            height: 44
-            radius: 22
+            width: 42
+            height: 42
+            radius: 21
             color: Theme.primaryLight
+            border.color: Theme.sage
+            border.width: 1
             anchors.horizontalCenter: parent.horizontalCenter
 
             Image {
@@ -44,35 +44,44 @@ Rectangle {
             }
         }
 
-        Item { width: 1; height: 8 }
+        Item { width: 1; height: 4 }
 
         Repeater {
             model: [
                 { id: "home", label: "Home", icon: Assets.home },
                 { id: "library", label: "Library", icon: Assets.library },
                 { id: "practice", label: "Practice", icon: Assets.practice },
-                { id: "history", label: "History", icon: Assets.history },
+                { id: "history", label: "Progress", icon: Assets.history },
                 { id: "settings", label: "Settings", icon: Assets.settings }
             ]
 
             delegate: Rectangle {
                 id: navItem
-                width: root.width - 16
-                height: 60
+                width: root.width - 12
+                height: 56
                 anchors.horizontalCenter: parent.horizontalCenter
-                radius: 12
+                radius: Metrics.radiusMedium
                 color: root.currentTab === modelData.id ? Theme.primaryLight : (itemMouseArea.containsPress ? Theme.surfaceActive : "transparent")
-
-                border.color: root.currentTab === modelData.id ? Theme.primary : "transparent"
-                border.width: root.currentTab === modelData.id ? 1 : 0
 
                 Behavior on color {
                     ColorAnimation { duration: Theme.animDuration }
                 }
 
+                // Left active accent bar
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 3
+                    height: 28
+                    radius: 1.5
+                    color: Theme.forest
+                    visible: root.currentTab === modelData.id
+                }
+
                 Column {
                     anchors.centerIn: parent
-                    spacing: 4
+                    spacing: 3
 
                     Image {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -85,10 +94,10 @@ Rectangle {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: modelData.label
-                        color: root.currentTab === modelData.id ? Theme.primaryDark : Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
+                        color: root.currentTab === modelData.id ? Theme.forest : Theme.mutedInk
+                        font.pixelSize: Typography.caption
                         font.bold: root.currentTab === modelData.id
-                        font.family: Theme.fontFamily
+                        font.family: Typography.family
                     }
                 }
 
@@ -97,6 +106,17 @@ Rectangle {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.tabSelected(modelData.id)
+                }
+
+                // Focus ring
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -2
+                    radius: navItem.radius + 2
+                    color: "transparent"
+                    border.color: Theme.borderFocus
+                    border.width: Metrics.borderFocus
+                    visible: navItem.activeFocus
                 }
             }
         }

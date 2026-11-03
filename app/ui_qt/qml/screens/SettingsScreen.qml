@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     Row {
         anchors.fill: parent
@@ -37,85 +37,102 @@ Rectangle {
                 onBackClicked: appController.navigate("home")
             }
 
-            ListView {
+            Item {
                 width: parent.width
-                height: parent.height - Theme.headerHeight
-                clip: true
-                spacing: 8
-                topMargin: 8
-                bottomMargin: 16
+                height: parent.height - Metrics.headerHeight
 
-                model: [
-                    { id: "wifi", title: "Wi-Fi / Network", desc: "Connect to the internet and networks", icon: Assets.wifi },
-                    { id: "sync", title: "Sync", desc: "Sync progress and assessments with cloud", icon: Assets.sync },
-                    { id: "account", title: "Account & Profiles", desc: "Manage device pairing and study profiles", icon: Assets.account },
-                    { id: "content", title: "Content & Downloads", desc: "Installed packs and storage space", icon: Assets.download },
-                    { id: "software_update", title: "Software Update", desc: "System updates and version checks", icon: Assets.update },
-                    { id: "device_info", title: "Device & System", desc: "Hardware and OS status", icon: Assets.device },
-                    { id: "diagnostics", title: "Diagnostics", desc: "Check hardware, database and API health", icon: Assets.diagnostics },
-                    { id: "about", title: "About", desc: "App version and device license info", icon: Assets.info }
-                ]
+                // Single Flat Appliance Ledger Panel
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: Spacing.md
+                    radius: Metrics.radiusMedium
+                    color: Theme.surface
+                    border.color: Theme.border
+                    border.width: 1
+                    clip: true
 
-                delegate: Item {
-                    width: parent.width
-                    height: 58
+                    ListView {
+                        anchors.fill: parent
+                        clip: true
 
-                    AppCard {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - 32
-                        height: 54
-                        interactive: true
-                        onClicked: appController.navigate(modelData.id)
+                        model: [
+                            { id: "wifi", title: "Wi-Fi & Network", value: settingsController.isWifiConnected ? settingsController.connectedSsid : "Not connected", icon: Assets.wifi },
+                            { id: "sync", title: "Cloud Synchronization", value: settingsController.syncStatusSummary, icon: Assets.sync },
+                            { id: "account", title: "Account & Profiles", value: appController.activeProfileName, icon: Assets.account },
+                            { id: "content", title: "Content & Storage", value: "Offline Library", icon: Assets.download },
+                            { id: "software_update", title: "Software Update", value: settingsController.currentVersion, icon: Assets.update },
+                            { id: "device_info", title: "Device & System", value: "Raspberry Pi", icon: Assets.device },
+                            { id: "diagnostics", title: "Hardware Diagnostics", value: "Health check", icon: Assets.diagnostics },
+                            { id: "about", title: "About Device", value: "Open-source", icon: Assets.info }
+                        ]
 
-                        Row {
-                            anchors.fill: parent
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            spacing: 14
+                        delegate: Rectangle {
+                            width: parent.width
+                            height: 48
+                            color: rowMouse.containsPress ? Theme.surfaceActive : "transparent"
 
+                            // Bottom row divider line
                             Rectangle {
-                                width: 36
-                                height: 36
-                                radius: 10
-                                color: Theme.surfaceActive
+                                anchors.bottom: parent.bottom
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                height: 1
+                                color: Theme.borderLight
+                                visible: index < 7
+                            }
+
+                            Row {
+                                anchors.left: parent.left
+                                anchors.leftMargin: Spacing.lg
                                 anchors.verticalCenter: parent.verticalCenter
+                                spacing: Spacing.md
 
                                 Image {
-                                    anchors.centerIn: parent
-                                    width: 20
-                                    height: 20
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 18
+                                    height: 18
                                     source: modelData.icon
                                     fillMode: Image.PreserveAspectFit
                                 }
-                            }
-
-                            Column {
-                                width: parent.width - 36 - 14 - 40
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 2
 
                                 Text {
+                                    anchors.verticalCenter: parent.verticalCenter
                                     text: modelData.title
-                                    color: Theme.textPrimary
-                                    font.pixelSize: Theme.fontSizeBody
+                                    color: Theme.deepInk
+                                    font.pixelSize: Typography.body
                                     font.bold: true
-                                    font.family: Theme.fontFamily
-                                }
-
-                                Text {
-                                    text: modelData.desc
-                                    color: Theme.textSecondary
-                                    font.pixelSize: Theme.fontSizeCaption
-                                    font.family: Theme.fontFamily
+                                    font.family: Typography.fontFamily
                                 }
                             }
 
-                            Image {
+                            Row {
                                 anchors.right: parent.right
+                                anchors.rightMargin: Spacing.lg
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 18
-                                height: 18
-                                source: Assets.chevron_right
+                                spacing: Spacing.sm
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData.value
+                                    color: Theme.mutedInk
+                                    font.pixelSize: Typography.caption
+                                    font.family: Typography.fontFamily
+                                    horizontalAlignment: Text.AlignRight
+                                }
+
+                                Image {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 14
+                                    height: 14
+                                    source: Assets.chevron_right
+                                }
+                            }
+
+                            MouseArea {
+                                id: rowMouse
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: appController.navigate(modelData.id)
                             }
                         }
                     }

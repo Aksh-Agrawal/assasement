@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     Row {
         anchors.fill: parent
@@ -41,7 +41,7 @@ Rectangle {
             EmptyState {
                 anchors.centerIn: parent
                 visible: libraryController.packs.length === 0
-                title: "No Assessment Packs Found"
+                title: "No Practice Sets Found"
                 description: "There are currently no practice packs for " + libraryController.selectedSubject + "."
                 actionText: "Back to Topics"
                 onActionClicked: appController.navigate("chapters")
@@ -49,22 +49,21 @@ Rectangle {
 
             ListView {
                 width: parent.width
-                height: parent.height - Theme.headerHeight
+                height: parent.height - Metrics.headerHeight
                 clip: true
-                spacing: 10
-                topMargin: 8
-                bottomMargin: 16
+                spacing: Spacing.sm
+                topMargin: Spacing.xs
+                bottomMargin: Spacing.md
                 visible: libraryController.packs.length > 0
-
                 model: libraryController.packs
 
                 delegate: Item {
                     width: parent.width
-                    height: 74
+                    height: 76
 
                     AppCard {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - 32
+                        width: parent.width - Spacing.xl
                         height: 70
                         interactive: true
                         onClicked: {
@@ -75,66 +74,59 @@ Rectangle {
                             }
                         }
 
-                        Row {
+                        Item {
                             anchors.fill: parent
-                            anchors.leftMargin: 18
-                            anchors.rightMargin: 18
-                            spacing: 14
+                            anchors.leftMargin: Spacing.md
+                            anchors.rightMargin: Spacing.md
 
-                            Rectangle {
-                                width: 44
-                                height: 44
-                                radius: 12
-                                color: modelData.isInstalled ? Theme.primaryLight : "#FFF3E0"
+                            Row {
+                                anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
+                                spacing: Spacing.md
 
+                                // Subject Art Medallion
                                 Image {
-                                    anchors.centerIn: parent
-                                    width: 22
-                                    height: 22
-                                    source: modelData.isInstalled ? Assets.practice : Assets.download
+                                    width: 44
+                                    height: 44
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    source: Theme.subjectIcon(libraryController.selectedSubject)
                                     fillMode: Image.PreserveAspectFit
                                 }
-                            }
 
-                            Column {
-                                width: parent.width - 44 - 14 - 140
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
+                                // Pack Title & Human-Friendly Info
+                                Column {
+                                    width: 420
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 3
 
-                                Row {
-                                    spacing: 8
                                     Text {
                                         text: modelData.title
-                                        color: Theme.textPrimary
-                                        font.pixelSize: Theme.fontSizeBody
+                                        color: Theme.deepInk
+                                        font.pixelSize: Typography.body
                                         font.bold: true
-                                        font.family: Theme.fontFamily
+                                        font.family: Typography.fontFamily
                                         elide: Text.ElideRight
+                                        width: parent.width
                                     }
 
-                                    StatusBadge {
-                                        text: modelData.badge
-                                        statusType: modelData.badge === "Official" ? "success" : "neutral"
-                                        implicitHeight: 22
+                                    Text {
+                                        text: modelData.questionCount + " questions • ~" + Math.max(5, Math.round(modelData.questionCount * 0.8)) + " mins • " + (modelData.isInstalled ? "Ready offline" : "Available to download")
+                                        color: Theme.mutedInk
+                                        font.pixelSize: Typography.caption
+                                        font.family: Typography.fontFamily
                                     }
-                                }
-
-                                Text {
-                                    text: modelData.questionCount + " questions" + (modelData.isInstalled ? " • Ready on this device" : " • Available for download")
-                                    color: Theme.textSecondary
-                                    font.pixelSize: Theme.fontSizeCaption
-                                    font.family: Theme.fontFamily
                                 }
                             }
 
+                            // Action Button: Start or Download
                             PrimaryButton {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 preferredHeight: 46
-                                text: modelData.isInstalled ? "Practice →" : "Download"
-                                buttonColor: modelData.isInstalled ? Theme.primary : Theme.surfaceActive
-                                textColor: modelData.isInstalled ? Theme.textOnPrimary : Theme.textPrimary
+                                text: modelData.isInstalled ? "Start →" : "Download"
+                                buttonColor: modelData.isInstalled ? Theme.forest : Theme.surfaceActive
+                                textColor: modelData.isInstalled ? Theme.textOnPrimary : Theme.deepInk
+                                iconSource: modelData.isInstalled ? "" : Assets.download
                                 onClicked: {
                                     if (modelData.isInstalled) {
                                         libraryController.selectPack(modelData.id, modelData.version);

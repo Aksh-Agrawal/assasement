@@ -155,8 +155,8 @@ Window {
     // Global Toast / Message Banner
     Rectangle {
         id: toastBanner
-        anchors.top: parent.top
-        anchors.topMargin: appController.message.length > 0 ? 12 : -70
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: appController.message.length > 0 ? 16 : -60
         anchors.horizontalCenter: parent.horizontalCenter
         width: Math.min(600, messageRow.implicitWidth + 36)
         height: 48
@@ -167,7 +167,7 @@ Window {
         visible: opacity > 0
         opacity: appController.message.length > 0 ? 1.0 : 0.0
 
-        Behavior on anchors.topMargin {
+        Behavior on anchors.bottomMargin {
             NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
         }
         Behavior on opacity {
@@ -219,7 +219,7 @@ Window {
         isPassword: appController.keyboardIsPassword
         title: appController.keyboardTitle
         onSubmitted: function(text) {
-            appController.keyboardSubmitted(text);
+            appController.submitKeyboard(text);
         }
         onCancelled: {
             appController.keyboardCancelled();

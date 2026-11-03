@@ -13,7 +13,7 @@ Rectangle {
     signal cancelClicked()
 
     anchors.fill: parent
-    color: "#802E2E2E" // semi-transparent backdrop
+    color: "#6623302D" // deep ink scrim
 
     // Dismiss on background click
     MouseArea {
@@ -24,7 +24,7 @@ Rectangle {
     AppCard {
         anchors.centerIn: parent
         width: 520
-        implicitHeight: modalCol.implicitHeight + 48
+        implicitHeight: modalCol.implicitHeight + Spacing.xl * 2
 
         // Prevent click-through
         MouseArea {
@@ -34,38 +34,38 @@ Rectangle {
         Column {
             id: modalCol
             anchors.centerIn: parent
-            width: parent.width - 48
-            spacing: 16
+            width: parent.width - Spacing.xl * 2
+            spacing: Spacing.md
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Ready to submit?"
+                text: "Submit Assessment?"
                 color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeTitle
+                font.pixelSize: Typography.heroTitle
+                font.family: Typography.fontSerif
                 font.bold: true
-                font.family: Theme.fontFamily
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Great job completing your practice!"
+                text: "Review your completed responses before submitting."
                 color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSecondary
-                font.family: Theme.fontFamily
+                font.pixelSize: Typography.body
+                font.family: Typography.fontFamily
             }
 
             // Breakdown card
             Rectangle {
                 width: parent.width
                 height: 72
-                radius: 12
+                radius: Metrics.radiusSm
                 color: Theme.surfaceActive
                 border.color: Theme.border
                 border.width: 1
 
                 Row {
                     anchors.centerIn: parent
-                    spacing: 24
+                    spacing: Spacing.xl
 
                     // Answered
                     Column {
@@ -73,15 +73,17 @@ Rectangle {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "✓ " + root.answeredCount
-                            color: Theme.success
-                            font.pixelSize: Theme.fontSizeHeading
+                            color: Theme.forest
+                            font.pixelSize: Typography.pageTitle
+                            font.family: Typography.fontSerif
                             font.bold: true
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "Answered"
                             color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeCaption
+                            font.pixelSize: Typography.caption
+                            font.family: Typography.fontFamily
                         }
                     }
 
@@ -93,15 +95,17 @@ Rectangle {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "○ " + root.unansweredCount
-                            color: root.unansweredCount > 0 ? Theme.warning : Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeHeading
+                            color: root.unansweredCount > 0 ? Theme.terracotta : Theme.textSecondary
+                            font.pixelSize: Typography.pageTitle
+                            font.family: Typography.fontSerif
                             font.bold: true
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "Unanswered"
                             color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeCaption
+                            font.pixelSize: Typography.caption
+                            font.family: Typography.fontFamily
                         }
                     }
 
@@ -113,35 +117,37 @@ Rectangle {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "🚩 " + root.markedCount
-                            color: Theme.highlight
-                            font.pixelSize: Theme.fontSizeHeading
+                            color: Theme.terracotta
+                            font.pixelSize: Typography.pageTitle
+                            font.family: Typography.fontSerif
                             font.bold: true
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "For Review"
                             color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeCaption
+                            font.pixelSize: Typography.caption
+                            font.family: Typography.fontFamily
                         }
                     }
                 }
             }
 
-            Item { width: 1; height: 4 }
+            Item { width: 1; height: Spacing.xs }
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 16
+                spacing: Spacing.md
 
                 SecondaryButton {
                     text: "Review Answers"
-                    preferredHeight: Theme.touchNormal
+                    preferredHeight: Metrics.touchNormal
                     onClicked: root.reviewClicked()
                 }
 
                 PrimaryButton {
                     text: "Submit Assessment"
-                    preferredHeight: Theme.touchNormal
+                    preferredHeight: Metrics.touchNormal
                     onClicked: root.submitClicked()
                 }
             }

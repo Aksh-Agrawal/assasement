@@ -12,7 +12,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "Reading Passage / Question Detail"
+        title: "Reading Passage & Detail"
         showBack: true
         onBackClicked: appController.navigate("question")
     }
@@ -22,24 +22,49 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 16
+        anchors.margins: Spacing.md
 
         Flickable {
             anchors.fill: parent
-            anchors.margins: 20
+            anchors.margins: Spacing.lg
             contentWidth: width
-            contentHeight: detailText.implicitHeight
+            contentHeight: detailCol.implicitHeight
             clip: true
 
-            Text {
-                id: detailText
+            Column {
+                id: detailCol
                 width: parent.width
-                text: assessmentController.questionText
-                color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeHeading
-                font.family: Theme.fontFamily
-                lineHeight: 1.4
-                wrapMode: Text.Wrap
+                spacing: Spacing.md
+
+                Row {
+                    spacing: Spacing.sm
+                    Rectangle {
+                        width: 4
+                        height: 22
+                        radius: 2
+                        color: Theme.forest
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Full Assessment Item Text"
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.fontFamily
+                        font.bold: true
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                Text {
+                    id: detailText
+                    width: parent.width
+                    text: assessmentController.questionText
+                    color: Theme.textPrimary
+                    font.pixelSize: Typography.question
+                    font.family: Typography.fontSerif
+                    lineHeight: 1.45
+                    wrapMode: Text.Wrap
+                }
             }
         }
     }

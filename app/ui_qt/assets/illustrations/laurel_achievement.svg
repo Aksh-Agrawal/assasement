@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 140" width="180" height="140">
+  <!-- Sunburst glow rays -->
+  <g stroke="#FAF0D7" stroke-width="2" stroke-linecap="round" opacity="0.8">
+    <line x1="90" y1="35" x2="90" y2="18"/>
+    <line x1="110" y1="40" x2="122" y2="28"/>
+    <line x1="125" y1="55" x2="140" y2="48"/>
+    <line x1="70" y1="40" x2="58" y2="28"/>
+    <line x1="55" y1="55" x2="40" y2="48"/>
+  </g>
+
+  <!-- Central Academic Medallion -->
+  <circle cx="90" cy="65" r="34" fill="#FBF7EF" stroke="#23302D" stroke-width="2"/>
+  <circle cx="90" cy="65" r="28" fill="#F9F3E5" stroke="#D5A64A" stroke-width="2" stroke-dasharray="3,2"/>
+  <!-- Wisdom 5-Point Star -->
+  <polygon points="90 48 94 59 105 59 97 66 100 77 90 70 80 77 83 66 75 59 86 59" fill="#D5A64A" stroke="#23302D" stroke-width="1.5"/>
+
+  <!-- Laurel Wreath Leaves (Left Branch) -->
+  <path d="M90 118 C55 115 32 85 40 45" fill="none" stroke="#27685E" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Left laurel pairs -->
+  <ellipse cx="38" cy="52" rx="7" ry="4" transform="rotate(-30 38 52)" fill="#A9C4B1" stroke="#23302D" stroke-width="1.2"/>
+  <ellipse cx="44" cy="68" rx="8" ry="4" transform="rotate(-15 44 68)" fill="#27685E" stroke="#23302D" stroke-width="1.2"/>
+  <ellipse cx="54" cy="85" rx="8" ry="4" transform="rotate(10 54 85)" fill="#A9C4B1" stroke="#23302D" stroke-width="1.2"/>
+  <ellipse cx="68" cy="102" rx="8" ry="4" transform="rotate(35 68 102)" fill="#27685E" stroke="#23302D" stroke-width="1.2"/>
+
+  <!-- Laurel Wreath Leaves (Right Branch) -->
+  <path d="M90 118 C125 115 148 85 140 45" fill="none" stroke="#27685E" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Right laurel pairs -->
+  <ellipse cx="142" cy="52" rx="7" ry="4" transform="rotate(30 142 52)" fill="#A9C4B1" stroke="#23302D" stroke-width="1.2"/>
+  <ellipse cx="136" cy="68" rx="8" ry="4" transform="rotate(15 136 68)" fill="#27685E" stroke="#23302D" stroke-width="1.2"/>
+  <ellipse cx="126" cy="85" rx="8" ry="4" transform="rotate(-10 126 85)" fill="#A9C4B1" stroke="#23302D" stroke-width="1.2"/>
+  <ellipse cx="112" cy="102" rx="8" ry="4" transform="rotate(-35 112 102)" fill="#27685E" stroke="#23302D" stroke-width="1.2"/>
+
+  <!-- Tied Silk Ribbon at bottom -->
+  <path d="M72 118 C82 112 98 112 108 118 L114 134 L102 128 L94 136 L90 122 L86 136 L78 128 L66 134 Z" fill="#C76848" stroke="#23302D" stroke-width="1.5"/>
+  <circle cx="90" cy="118" r="4" fill="#D5A64A" stroke="#23302D" stroke-width="1"/>
+</svg>

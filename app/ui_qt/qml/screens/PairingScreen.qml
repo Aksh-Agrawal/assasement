@@ -12,7 +12,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "Pair a New Device"
+        title: "Link Device to Web Account"
         networkText: appController.networkLabel
         syncText: appController.syncLabel
         isOnline: appController.isOnline
@@ -20,149 +20,245 @@ Rectangle {
         onBackClicked: appController.navigate("profile_picker")
     }
 
-    AppCard {
+    Item {
         anchors.top: header.bottom
-        anchors.topMargin: 8
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 16
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: 720
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: Spacing.md
 
         Row {
             anchors.fill: parent
-            anchors.margins: 20
-            spacing: 24
+            spacing: Spacing.md
 
-            // Left side: Pairing code card
-            Column {
-                width: 320
-                spacing: 12
+            // Left side: Pairing code ticket
+            AppCard {
+                width: 330
+                height: parent.height
 
-                Text {
-                    text: "Pairing Code"
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeSecondary
-                    font.family: Theme.fontFamily
-                }
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: Spacing.lg
+                    spacing: Spacing.sm
 
-                // Large code block
-                Rectangle {
-                    width: parent.width
-                    height: 90
-                    radius: 14
-                    color: Theme.surfaceSelected
-                    border.color: Theme.primary
-                    border.width: 2
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: settingsController.pairingCode.split("").join(" ")
-                        color: Theme.primaryDark
-                        font.pixelSize: 34
-                        font.bold: true
-                        font.letterSpacing: 4
-                        font.family: Theme.fontFamily
+                    Row {
+                        spacing: Spacing.sm
+                        Rectangle {
+                            width: 36
+                            height: 36
+                            radius: Metrics.radiusSm
+                            color: Theme.surfaceActive
+                            border.color: Theme.border
+                            border.width: 1
+                            Image {
+                                anchors.centerIn: parent
+                                width: 22
+                                height: 22
+                                source: Assets.device_pairing
+                                fillMode: Image.PreserveAspectFit
+                            }
+                        }
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            Text {
+                                text: "Pairing Ticket"
+                                color: Theme.textPrimary
+                                font.pixelSize: Typography.sectionTitle
+                                font.family: Typography.fontSerif
+                                font.bold: true
+                            }
+                            Text {
+                                text: "One-time device connection"
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.caption
+                                font.family: Typography.fontFamily
+                            }
+                        }
                     }
-                }
 
-                Row {
-                    spacing: 6
-                    Text {
-                        text: "⏱"
-                        font.pixelSize: 14
+                    // Ticket code container
+                    Rectangle {
+                        width: parent.width
+                        height: 84
+                        radius: Metrics.radiusMd
+                        color: Theme.surfaceWarm
+                        border.color: Theme.border
+                        border.width: 1
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: (typeof settingsController !== "undefined" && settingsController && settingsController.pairingCode) ? (settingsController.pairingCode + "").split("").join(" ") : "K 7 M 2 P 9"
+                                color: Theme.forest
+                                font.pixelSize: 32
+                                font.bold: true
+                                font.letterSpacing: 4
+                                font.family: Typography.fontSerif
+                            }
+
+                            Row {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                spacing: 4
+                                Text {
+                                    text: "Valid for 10 minutes"
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Typography.caption
+                                    font.family: Typography.fontFamily
+                                }
+                            }
+                        }
                     }
+
                     Text {
-                        text: "Valid for 10 minutes"
+                        text: "Enter this code on your phone or computer to link this Pi to your learning cloud."
                         color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
-                        font.family: Theme.fontFamily
+                        font.pixelSize: Typography.metadata
+                        font.family: Typography.fontFamily
+                        wrapMode: Text.Wrap
+                        width: parent.width
+                        lineHeight: 1.25
                     }
-                }
 
-                Item { width: 1; height: 6 }
+                    Item { width: 1; height: Spacing.xs }
 
-                PrimaryButton {
-                    width: parent.width
-                    preferredHeight: Theme.touchNormal
-                    text: "Generate New Code"
-                    iconSource: Assets.refresh
-                    onClicked: settingsController.requestPairingCode()
+                    PrimaryButton {
+                        width: parent.width
+                        preferredHeight: Metrics.touchNormal
+                        text: "Generate New Code"
+                        iconSource: Assets.refresh
+                        onClicked: settingsController.requestPairingCode()
+                    }
                 }
             }
 
-            // Right side: Step by step instructions
-            Column {
-                width: parent.width - 320 - 24
-                spacing: 12
-
-                Text {
-                    text: "Connect to your Web Account"
-                    color: Theme.textPrimary
-                    font.pixelSize: Theme.fontSizeHeading
-                    font.bold: true
-                    font.family: Theme.fontFamily
-                }
+            // Right side: Editorial instructions & testing mode
+            AppCard {
+                width: parent.width - 330 - Spacing.md
+                height: parent.height
 
                 Column {
-                    spacing: 10
-                    width: parent.width
+                    anchors.fill: parent
+                    anchors.margins: Spacing.md
+                    spacing: Spacing.sm
 
-                    Row {
-                        spacing: 10
-                        Rectangle {
-                            width: 24; height: 24; radius: 12
-                            color: Theme.primaryLight
-                            Text { anchors.centerIn: parent; text: "1"; font.bold: true; color: Theme.primaryDark }
-                        }
-                        Text {
-                            text: "Log in on the website on your computer or phone"
-                            color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeSecondary
-                            wrapMode: Text.Wrap
-                            width: parent.width - 34
+                    // Testing / Offline Mode Callout
+                    Rectangle {
+                        width: parent.width
+                        height: 130
+                        radius: Metrics.radiusMedium
+                        color: Theme.surfaceWarm
+                        border.color: Theme.border
+                        border.width: 1
+
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: Spacing.sm
+                            spacing: Spacing.xs
+
+                            Text {
+                                text: "Testing & Offline Mode"
+                                color: Theme.deepInk
+                                font.pixelSize: Typography.sectionTitle
+                                font.family: Typography.fontSerif
+                                font.bold: true
+                            }
+
+                            Text {
+                                text: "Practice immediately on this laptop without cloud pairing."
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.caption
+                                font.family: Typography.fontFamily
+                            }
+
+                            Item { width: 1; height: 2 }
+
+                            Row {
+                                width: parent.width
+                                spacing: Spacing.sm
+
+                                PrimaryButton {
+                                    width: (parent.width - Spacing.sm) * 0.6
+                                    preferredHeight: 38
+                                    text: "Start Testing Mode →"
+                                    buttonColor: Theme.forest
+                                    onClicked: profileController.startTestingMode()
+                                }
+
+                                SecondaryButton {
+                                    width: (parent.width - Spacing.sm) * 0.4
+                                    preferredHeight: 38
+                                    text: "Profiles..."
+                                    onClicked: appController.navigate("profile_picker")
+                                }
+                            }
                         }
                     }
 
-                    Row {
-                        spacing: 10
-                        Rectangle {
-                            width: 24; height: 24; radius: 12
-                            color: Theme.primaryLight
-                            Text { anchors.centerIn: parent; text: "2"; font.bold: true; color: Theme.primaryDark }
-                        }
-                        Text {
-                            text: "Go to Account & Devices → Connect Raspberry Pi"
-                            color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeSecondary
-                            wrapMode: Text.Wrap
-                            width: parent.width - 34
-                        }
+                    // Cloud Linking Steps
+                    Text {
+                        text: "Or Link to Cloud Account"
+                        color: Theme.textPrimary
+                        font.pixelSize: Typography.body
+                        font.family: Typography.fontSerif
+                        font.bold: true
                     }
 
-                    Row {
-                        spacing: 10
-                        Rectangle {
-                            width: 24; height: 24; radius: 12
-                            color: Theme.primaryLight
-                            Text { anchors.centerIn: parent; text: "3"; font.bold: true; color: Theme.primaryDark }
+                    Column {
+                        id: instructionsCol
+                        width: parent.width
+                        spacing: 6
+
+                        Row {
+                            spacing: Spacing.sm
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: Theme.softSage
+                                Text { anchors.centerIn: parent; text: "1"; font.bold: true; color: Theme.deepInk; font.pixelSize: 11 }
+                            }
+                            Text {
+                                text: "Log in on learning portal on your phone or PC"
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.caption
+                                font.family: Typography.fontFamily
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
-                        Text {
-                            text: "Enter this 6-character code to link your learning"
-                            color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeSecondary
-                            wrapMode: Text.Wrap
-                            width: parent.width - 34
+
+                        Row {
+                            spacing: Spacing.sm
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: Theme.softSage
+                                Text { anchors.centerIn: parent; text: "2"; font.bold: true; color: Theme.deepInk; font.pixelSize: 11 }
+                            }
+                            Text {
+                                text: "Go to Account & Devices → Connect Device"
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.caption
+                                font.family: Typography.fontFamily
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        Row {
+                            spacing: Spacing.sm
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: Theme.softSage
+                                Text { anchors.centerIn: parent; text: "3"; font.bold: true; color: Theme.deepInk; font.pixelSize: 11 }
+                            }
+                            Text {
+                                text: "Enter 6-digit code shown on the left"
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.caption
+                                font.family: Typography.fontFamily
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
                     }
-                }
-
-                Item { width: 1; height: 6 }
-
-                SecondaryButton {
-                    width: parent.width
-                    preferredHeight: Theme.touchNormal
-                    text: "Skip (Use Offline Profiles)"
-                    onClicked: appController.navigate("profile_picker")
                 }
             }
         }

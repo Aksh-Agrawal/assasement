@@ -794,3 +794,37 @@ def test_auto_sync_toggle_persists_and_manual_sync_remains_available(qapp, tmp_p
         ctrl._poll_timer.stop()
     with Repository(path) as repo:
         assert repo.get_setting("automatic_sync") == "0"
+
+
+def test_local_profile_creation_and_testing_mode(qapp, tmp_path):
+    """Verify local profile creation and testing mode work offline without cloud pairing."""
+    from app.data.repo import Repository
+
+    db_path = tmp_path / "offline_profile.db"
+    with Repository(db_path) as repo:
+        ctrl = AppController(db_path, AppConfig(database_path=db_path), CredentialStore(tmp_path / "creds.json"))
+        ctrl.startup_session.repository = repo
+        ctrl.startup_session.complete = True
+        ctrl._initialize_runtime()
+
+        prof_ctrl = ProfileController(ctrl)
+
+        # Signal test
+        received_text = []
+        ctrl.keyboardSubmitted.connect(lambda text: received_text.append(text))
+        ctrl.submitKeyboard("Test Student")
+        assert received_text == ["Test Student"]
+        assert not ctrl.keyboardVisible
+
+        # Create local profile directly
+        prof_ctrl.createProfile("Alice Learner", "Primary 5")
+        assert any(p["name"] == "Alice Learner" for p in prof_ctrl.profiles)
+        assert ctrl.activeProfileName == "Alice Learner"
+        assert ctrl.screen == "home"
+
+        # Testing mode quick start
+        prof_ctrl.startTestingMode()
+        assert ctrl.screen == "home"
+        assert ctrl.activeProfileName != ""
+
+        ctrl.close()

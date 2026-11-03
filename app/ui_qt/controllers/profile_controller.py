@@ -117,9 +117,11 @@ class ProfileController(QObject):
         else:
             self._activate_profile(index)
 
-    def _activate_profile(self, index: int):
+    def _activate_profile(self, index: int = 0):
         ui = self.app.ui_controller
         ui.refresh_catalog()
+        if not self._pending_profile_id and 0 <= index < len(ui.profiles):
+            self._pending_profile_id = ui.profiles[index].id
         profile = next((p for p in ui.profiles if p.id == self._pending_profile_id), None)
         if profile is None or (profile.ownership_state == "owned" and profile.link_state != "linked"):
             self.cancelPin()
@@ -190,6 +192,58 @@ class ProfileController(QObject):
             self.app.showNotification("Maximum 3 Study Profiles allowed.", "warning")
             return
 
-        if self.app.device:
+        # Cloud account creation if paired
+        if (
+            self.app.device
+            and self.app.credentials
+            and self.app.credentials.load_safe()
+            and self.app.repository
+            and self.app.repository.get_student_account_context()
+        ):
             self.app.device.start("account_create", create={"name": name, "exam_context": grade})
-            self.app.showNotification("Creating Study Profile…", "info")
+            self.app.showNotification("Creating Cloud Study Profile…", "info")
+            return
+
+        # Local profile creation directly in SQLite repository for offline/testing mode
+        if self.app.repository:
+            from uuid import uuid4
+
+            from app.core.models import Profile
+
+            profile_id = str(uuid4())
+            profile = Profile(id=profile_id, display_name=name)
+            self.app.repository.create_profile(profile)
+
+            try:
+                cached = json.loads(self.app.repository.get_setting("account_profiles") or "{}")
+                p_list = cached.get("profiles", [])
+                p_list.append({"local_profile_id": profile_id, "exam_context": grade, "name": name})
+                cached["profiles"] = p_list
+                self.app.repository.set_setting("account_profiles", json.dumps(cached))
+            except Exception:
+                pass
+
+            if self.app.ui_controller:
+                self.app.ui_controller.refresh_catalog()
+
+            self.profilesChanged.emit()
+            self._pending_profile_id = profile_id
+            self._activate_profile(0)
+            self.app.showNotification(f"Profile '{name}' created!", "info")
+
+    @Slot()
+    def startTestingMode(self):
+        """Quick start in local / testing mode without requiring cloud pairing."""
+        if not self.app.ui_controller:
+            return
+        self.app.ui_controller.refresh_catalog()
+        profs = self.app.ui_controller.profiles
+        if profs:
+            self._pending_profile_id = profs[0].id
+            self._activate_profile(0)
+        else:
+            dev_profile = self.app.ui_controller.create_development_profile()
+            self.app.ui_controller.refresh_catalog()
+            self.profilesChanged.emit()
+            self._pending_profile_id = dev_profile.id
+            self._activate_profile(0)

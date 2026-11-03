@@ -12,9 +12,9 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "Account & Profiles"
+        title: "Account & Student Profiles"
         profileText: appController.activeProfileName
-                networkText: appController.networkLabel
+        networkText: appController.networkLabel
         syncText: appController.syncLabel
         isOnline: appController.isOnline
         showBack: true
@@ -26,11 +26,11 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 16
+        anchors.margins: Spacing.md
 
         Row {
             anchors.fill: parent
-            spacing: 16
+            spacing: Spacing.md
 
             // LEFT: Account & Connection Card
             AppCard {
@@ -39,51 +39,66 @@ Rectangle {
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 18
-                    spacing: 12
+                    anchors.margins: Spacing.lg
+                    spacing: Spacing.sm
 
                     Text {
-                        text: "Connected Account"
+                        text: "Cloud Account"
                         color: Theme.textPrimary
-                        font.pixelSize: Theme.fontSizeHeading
+                        font.pixelSize: Typography.sectionTitle
+                        font.family: Typography.fontSerif
                         font.bold: true
-                        font.family: Theme.fontFamily
                     }
 
                     Rectangle {
                         width: parent.width
                         height: 64
-                        radius: 12
+                        radius: Metrics.radiusSm
                         color: Theme.surfaceActive
+                        border.color: Theme.border
+                        border.width: 1
 
                         Row {
                             anchors.fill: parent
-                            anchors.margins: 12
-                            spacing: 10
+                            anchors.margins: Spacing.sm
+                            spacing: Spacing.sm
 
                             Rectangle {
-                                width: 40; height: 40; radius: 20
-                                color: Theme.primaryLight
-                                Image { anchors.centerIn: parent; width: 22; height: 22; source: Assets.account }
+                                width: 38; height: 38; radius: 19
+                                color: Theme.softSage
+                                anchors.verticalCenter: parent.verticalCenter
+                                Image {
+                                    anchors.centerIn: parent
+                                    width: 20; height: 20
+                                    source: Assets.account
+                                    fillMode: Image.PreserveAspectFit
+                                }
                             }
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                Text { text: settingsController.accountName; font.bold: true; font.pixelSize: 15; color: Theme.textPrimary }
+                                spacing: 2
+                                Text {
+                                    text: settingsController.accountName
+                                    font.bold: true
+                                    font.pixelSize: Typography.body
+                                    font.family: Typography.fontFamily
+                                    color: Theme.textPrimary
+                                }
                                 StatusBadge {
-                                    text: settingsController.isPaired ? "Connected" : "Unpaired"
+                                    text: settingsController.isPaired ? "Connected to Cloud" : "Not Paired"
                                     statusType: settingsController.isPaired ? "online" : "offline"
-                                    implicitHeight: 22
+                                    implicitHeight: 20
                                 }
                             }
                         }
                     }
 
-                    Item { width: 1; height: 8 }
+                    Item { width: 1; height: Spacing.xs }
 
                     PrimaryButton {
                         width: parent.width
-                        preferredHeight: Theme.touchNormal
+                        preferredHeight: Metrics.touchNormal
                         text: settingsController.isPaired ? "Sync Study Profiles" : "Pair This Raspberry Pi"
                         iconSource: Assets.sync
                         onClicked: {
@@ -97,11 +112,11 @@ Rectangle {
 
                     SecondaryButton {
                         width: parent.width
-                        preferredHeight: Theme.touchNormal
+                        preferredHeight: Metrics.touchNormal
                         visible: settingsController.isPaired
                         text: "Unlink Device"
-                        textColor: Theme.warning
-                        borderColor: Theme.warning
+                        textColor: Theme.terracotta
+                        borderColor: Theme.terracotta
                         onClicked: settingsController.disconnectAccount()
                     }
                 }
@@ -109,22 +124,22 @@ Rectangle {
 
             // RIGHT: Active Study Profiles Card
             AppCard {
-                width: parent.width - 320 - 16
+                width: parent.width - 320 - Spacing.md
                 height: parent.height
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 18
-                    spacing: 10
+                    anchors.margins: Spacing.lg
+                    spacing: Spacing.sm
 
                     Row {
                         width: parent.width
                         Text {
-                            text: "Study Profiles (" + profileController.profileCount + " of 3)"
+                            text: "Active Profiles (" + profileController.profileCount + " of 3)"
                             color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeHeading
+                            font.pixelSize: Typography.sectionTitle
+                            font.family: Typography.fontSerif
                             font.bold: true
-                            font.family: Theme.fontFamily
                         }
                     }
 
@@ -139,49 +154,69 @@ Rectangle {
 
                     ListView {
                         width: parent.width
-                        height: parent.height - 40
+                        height: parent.height - 44
                         clip: true
-                        spacing: 8
+                        spacing: Spacing.xs
                         visible: profileController.profiles.length > 0
                         model: profileController.profiles
 
                         delegate: Rectangle {
                             width: parent.width
-                            height: 56
-                            radius: 10
-                            color: Theme.surfaceActive
-                            border.color: modelData.isActive ? Theme.primary : Theme.border
+                            height: 54
+                            radius: Metrics.radiusSm
+                            color: modelData.isActive ? Theme.surfaceWarm : Theme.surfaceActive
+                            border.color: modelData.isActive ? Theme.forest : Theme.border
                             border.width: modelData.isActive ? 2 : 1
+
                             MouseArea {
                                 anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: profileController.selectProfileId(modelData.id)
                             }
 
                             Item {
                                 anchors.fill: parent
-                                anchors.margins: 12
+                                anchors.margins: Spacing.sm
 
                                 Row {
                                     anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 10
+                                    spacing: Spacing.sm
 
                                     Rectangle {
                                         width: 32; height: 32; radius: 16
-                                        color: modelData.isActive ? Theme.primaryLight : Theme.surface
-                                        Image { anchors.centerIn: parent; width: 18; height: 18; source: Assets.account }
+                                        color: modelData.isActive ? Theme.forest : Theme.softSage
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        Image {
+                                            anchors.centerIn: parent
+                                            width: 16; height: 16
+                                            source: Assets.account
+                                            fillMode: Image.PreserveAspectFit
+                                        }
                                     }
 
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        Text { text: modelData.name; font.bold: true; font.pixelSize: 15; color: Theme.textPrimary }
-                                        Text { text: modelData.grade; font.pixelSize: 12; color: Theme.textSecondary }
+                                        spacing: 2
+                                        Text {
+                                            text: modelData.name
+                                            font.bold: true
+                                            font.pixelSize: Typography.body
+                                            font.family: Typography.fontFamily
+                                            color: Theme.textPrimary
+                                        }
+                                        Text {
+                                            text: modelData.grade
+                                            font.pixelSize: Typography.caption
+                                            font.family: Typography.fontFamily
+                                            color: Theme.textSecondary
+                                        }
                                     }
                                 }
 
                                 StatusBadge {
                                     visible: modelData.isActive
-                                    text: "Currently using"
+                                    text: "In Use"
                                     statusType: "success"
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter

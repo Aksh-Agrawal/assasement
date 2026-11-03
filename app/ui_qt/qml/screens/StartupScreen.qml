@@ -5,18 +5,18 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     Column {
         anchors.centerIn: parent
-        spacing: 16
+        spacing: Spacing.lg
         width: 480
 
-        // Device educational mark
+        // Device educational emblem
         Rectangle {
-            width: 76
-            height: 76
-            radius: 38
+            width: 84
+            height: 84
+            radius: 42
             color: Theme.surface
             border.color: Theme.border
             border.width: 1
@@ -24,45 +24,53 @@ Rectangle {
 
             Image {
                 anchors.centerIn: parent
-                width: 44
-                height: 44
+                width: 48
+                height: 48
                 source: Assets.raspberry
                 fillMode: Image.PreserveAspectFit
             }
         }
 
-        Text {
+        Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Raspberry Pi Study Buddy"
-            color: Theme.textPrimary
-            font.pixelSize: Theme.fontSizeTitle
-            font.bold: true
-            font.family: Theme.fontFamily
+            spacing: Spacing.xs
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Raspberry Pi Study Buddy"
+                color: Theme.deepInk
+                font.pixelSize: Typography.hero
+                font.bold: true
+                font.family: Typography.familyEditorial
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Your dedicated offline learning companion"
+                color: Theme.mutedInk
+                font.pixelSize: Typography.body
+                font.family: Typography.family
+            }
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "A brighter tomorrow through practice"
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSizeSecondary
-            font.family: Theme.fontFamily
-        }
+        Item { width: 1; height: Spacing.sm }
 
-        Item { width: 1; height: 12 }
-
+        // Two-tone paper progress rail
         ProgressBar {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 360
-            height: 14
+            width: 340
+            height: 10
+            barColor: Theme.forest
+            trackColor: Theme.borderLight
             progress: appController.startupProgress
         }
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: appController.startupStatus
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSizeCaption
-            font.family: Theme.fontFamily
+            color: Theme.mutedInk
+            font.pixelSize: Typography.caption
+            font.family: Typography.family
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             width: parent.width

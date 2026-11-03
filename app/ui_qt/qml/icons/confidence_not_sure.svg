@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Balanced dual scales indicating narrowed options -->
+  <circle cx="32" cy="32" r="28" fill="#FAF5E9" stroke="#D5A64A" stroke-width="2"/>
+  <!-- Fulcrum and beam -->
+  <line x1="32" y1="20" x2="32" y2="44" stroke="#23302D" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="18" y1="25" x2="46" y2="25" stroke="#23302D" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="32" cy="22" r="3" fill="#D5A64A" stroke="#23302D" stroke-width="1.5"/>
+  <!-- Left Pan -->
+  <path d="M18 25 L14 36 L22 36 Z" fill="#D5A64A" stroke="#23302D" stroke-width="1.2"/>
+  <!-- Right Pan -->
+  <path d="M46 25 L42 36 L50 36 Z" fill="#D5A64A" stroke="#23302D" stroke-width="1.2"/>
+  <rect x="24" y="44" width="16" height="5" rx="2" fill="#23302D"/>
+</svg>

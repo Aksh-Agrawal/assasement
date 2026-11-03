@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- Subtle circular badge background -->
+  <circle cx="40" cy="40" r="38" fill="#EDF5F1" stroke="#A9C4B1" stroke-width="1.5"/>
+
+  <!-- Stylized Botanical Leaf -->
+  <path d="M22 62 C22 35 48 18 60 16 C58 35 45 58 22 62 Z" fill="#27685E" stroke="#23302D" stroke-width="1.8"/>
+  <!-- Leaf veins -->
+  <path d="M24 60 C38 45 48 32 58 18" stroke="#A9C4B1" stroke-width="1.5" fill="none"/>
+  <path d="M34 49 Q42 45 46 48" stroke="#A9C4B1" stroke-width="1.2" fill="none"/>
+  <path d="M42 38 Q50 34 54 37" stroke="#A9C4B1" stroke-width="1.2" fill="none"/>
+
+  <!-- Plant/Animal Cell Structure with Nucleus (Bottom Left) -->
+  <circle cx="28" cy="30" r="14" fill="#FBF7EF" stroke="#23302D" stroke-width="1.5"/>
+  <circle cx="28" cy="30" r="6" fill="#A9C4B1" stroke="#23302D" stroke-width="1.2"/>
+  <circle cx="29" cy="29" r="2" fill="#27685E"/>
+
+  <!-- Small DNA double helix rungs (Right side) -->
+  <g stroke="#C76848" stroke-width="1.5" stroke-linecap="round">
+    <line x1="52" y1="50" x2="64" y2="46"/>
+    <line x1="54" y1="58" x2="66" y2="54"/>
+    <line x1="56" y1="66" x2="68" y2="62"/>
+    <circle cx="52" cy="50" r="1.5" fill="#C76848"/>
+    <circle cx="64" cy="46" r="1.5" fill="#C76848"/>
+    <circle cx="54" cy="58" r="1.5" fill="#C76848"/>
+    <circle cx="66" cy="54" r="1.5" fill="#C76848"/>
+  </g>
+</svg>

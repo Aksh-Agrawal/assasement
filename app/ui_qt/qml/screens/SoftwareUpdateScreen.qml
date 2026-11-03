@@ -12,7 +12,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "Software Update"
+        title: "Software & System Update"
         networkText: appController.networkLabel
         syncText: appController.syncLabel
         isOnline: appController.isOnline
@@ -25,33 +25,38 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 16
+        anchors.margins: Spacing.md
 
         AppCard {
             anchors.centerIn: parent
-            width: 540
-            implicitHeight: contentCol.implicitHeight + 44
+            width: 520
+            implicitHeight: contentCol.implicitHeight + Spacing.xl * 2
 
             Column {
                 id: contentCol
                 anchors.centerIn: parent
-                width: parent.width - 48
-                spacing: 16
+                width: parent.width - Spacing.xl * 2
+                spacing: Spacing.md
 
                 Rectangle {
                     width: 56; height: 56; radius: 28
-                    color: Theme.primaryLight
+                    color: Theme.softSage
                     anchors.horizontalCenter: parent.horizontalCenter
-                    Image { anchors.centerIn: parent; width: 28; height: 28; source: Assets.update }
+                    Image {
+                        anchors.centerIn: parent
+                        width: 28; height: 28
+                        source: Assets.update
+                        fillMode: Image.PreserveAspectFit
+                    }
                 }
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: settingsController.updateStatus
                     color: Theme.textPrimary
-                    font.pixelSize: Theme.fontSizeHeading
+                    font.pixelSize: Typography.pageTitle
+                    font.family: Typography.fontSerif
                     font.bold: true
-                    font.family: Theme.fontFamily
                 }
 
                 Column {
@@ -61,32 +66,36 @@ Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "Installed Application Version: v" + settingsController.appVersion
                         color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeSecondary
+                        font.pixelSize: Typography.body
+                        font.family: Typography.fontFamily
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Operating System: Raspberry Pi OS (Bookworm 64-bit)"
+                        text: "Platform: Raspberry Pi OS (Linux 64-bit Appliance)"
                         color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.fontFamily
                     }
                 }
 
-                Item { width: 1; height: 6 }
+                Item { width: 1; height: Spacing.xs }
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 14
+                    spacing: Spacing.md
 
                     PrimaryButton {
                         text: "Check for Updates"
                         iconSource: Assets.refresh
+                        preferredHeight: Metrics.touchNormal
                         onClicked: settingsController.checkUpdate()
                     }
 
                     PrimaryButton {
                         visible: settingsController.hasUpdate
-                        text: "Download Update"
-                        buttonColor: Theme.primaryDark
+                        text: "Download & Install"
+                        buttonColor: Theme.forest
+                        preferredHeight: Metrics.touchNormal
                         onClicked: settingsController.downloadUpdate()
                     }
                 }

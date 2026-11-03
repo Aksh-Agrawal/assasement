@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <circle cx="40" cy="40" r="38" fill="#FBF7EF" stroke="#D8D0C1" stroke-width="1.5"/>
+
+  <!-- Terrestrial Globe with graduation band -->
+  <circle cx="38" cy="38" r="22" fill="#EBF3F5" stroke="#23302D" stroke-width="2"/>
+  <!-- Latitude / Longitude arcs -->
+  <ellipse cx="38" cy="38" rx="10" ry="22" fill="none" stroke="#A9C7CF" stroke-width="1.2"/>
+  <line x1="16" y1="38" x2="60" y2="38" stroke="#A9C7CF" stroke-width="1.2"/>
+  <!-- Stand & Base -->
+  <path d="M38 12 A26 26 0 0 1 58 48 L64 56 L38 56" fill="none" stroke="#23302D" stroke-width="2"/>
+  <rect x="30" y="60" width="22" height="6" rx="2" fill="#D5A64A" stroke="#23302D" stroke-width="1.5"/>
+</svg>

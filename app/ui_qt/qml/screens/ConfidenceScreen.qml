@@ -5,82 +5,75 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     Column {
         anchors.centerIn: parent
-        spacing: 20
-        width: 640
+        spacing: Spacing.lg
+        width: 660
 
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 6
+            spacing: Spacing.xs
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "How confident are you?"
-                color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeTitle
+                color: Theme.deepInk
+                font.pixelSize: Typography.pageTitle
                 font.bold: true
-                font.family: Theme.fontFamily
+                font.family: Typography.familyEditorial
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Tell us how you feel about your answer."
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSecondary
-                font.family: Theme.fontFamily
+                text: "Reflecting on your answers builds lasting mastery."
+                color: Theme.mutedInk
+                font.pixelSize: Typography.body
+                font.family: Typography.family
             }
         }
 
-        // 3 Large Tap Cards
+        // 3 Tactile Metacognitive Choice Cards
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 16
+            spacing: Spacing.lg
 
-            // Sure
+            // 1. SURE
             AppCard {
-                width: 190
-                height: 180
+                width: 200
+                height: 190
                 interactive: true
                 onClicked: assessmentController.setConfidence("sure")
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 12
+                    spacing: Spacing.md
                     width: parent.width - 24
 
-                    Rectangle {
-                        width: 56
-                        height: 56
-                        radius: 28
-                        color: "#E8F5E9"
+                    Image {
                         anchors.horizontalCenter: parent.horizontalCenter
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "★"
-                            font.pixelSize: 28
-                            color: Theme.success
-                        }
+                        width: 54
+                        height: 54
+                        source: Assets.confidence_sure
+                        fillMode: Image.PreserveAspectFit
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "I'm sure"
-                        color: Theme.textPrimary
-                        font.pixelSize: Theme.fontSizeHeading
+                        text: "Sure"
+                        color: Theme.deepInk
+                        font.pixelSize: Typography.sectionTitle
                         font.bold: true
-                        font.family: Theme.fontFamily
+                        font.family: Typography.family
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "I think this is correct."
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
-                        font.family: Theme.fontFamily
+                        text: "I knew the answer"
+                        color: Theme.mutedInk
+                        font.pixelSize: Typography.metadata
+                        font.family: Typography.family
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.Wrap
                         width: parent.width
@@ -88,48 +81,41 @@ Rectangle {
                 }
             }
 
-            // Not sure
+            // 2. NOT SURE
             AppCard {
-                width: 190
-                height: 180
+                width: 200
+                height: 190
                 interactive: true
                 onClicked: assessmentController.setConfidence("not_sure")
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 12
+                    spacing: Spacing.md
                     width: parent.width - 24
 
-                    Rectangle {
-                        width: 56
-                        height: 56
-                        radius: 28
-                        color: "#FFF3E0"
+                    Image {
                         anchors.horizontalCenter: parent.horizontalCenter
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "●"
-                            font.pixelSize: 24
-                            color: "#E67E22"
-                        }
+                        width: 54
+                        height: 54
+                        source: Assets.confidence_not_sure
+                        fillMode: Image.PreserveAspectFit
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "Not sure"
-                        color: Theme.textPrimary
-                        font.pixelSize: Theme.fontSizeHeading
+                        color: Theme.deepInk
+                        font.pixelSize: Typography.sectionTitle
                         font.bold: true
-                        font.family: Theme.fontFamily
+                        font.family: Typography.family
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "I wasn't completely sure."
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
-                        font.family: Theme.fontFamily
+                        text: "I narrowed it down"
+                        color: Theme.mutedInk
+                        font.pixelSize: Typography.metadata
+                        font.family: Typography.family
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.Wrap
                         width: parent.width
@@ -137,49 +123,41 @@ Rectangle {
                 }
             }
 
-            // Guessing
+            // 3. GUESSING
             AppCard {
-                width: 190
-                height: 180
+                width: 200
+                height: 190
                 interactive: true
                 onClicked: assessmentController.setConfidence("guessing")
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 12
+                    spacing: Spacing.md
                     width: parent.width - 24
 
-                    Rectangle {
-                        width: 56
-                        height: 56
-                        radius: 28
-                        color: "#FFEBEE"
+                    Image {
                         anchors.horizontalCenter: parent.horizontalCenter
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "?"
-                            font.pixelSize: 28
-                            font.bold: true
-                            color: Theme.warning
-                        }
+                        width: 54
+                        height: 54
+                        source: Assets.confidence_guessing
+                        fillMode: Image.PreserveAspectFit
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "I was guessing"
-                        color: Theme.textPrimary
-                        font.pixelSize: Theme.fontSizeHeading
+                        text: "Guessing"
+                        color: Theme.deepInk
+                        font.pixelSize: Typography.sectionTitle
                         font.bold: true
-                        font.family: Theme.fontFamily
+                        font.family: Typography.family
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "I chose without knowing."
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
-                        font.family: Theme.fontFamily
+                        text: "I wasn't sure"
+                        color: Theme.mutedInk
+                        font.pixelSize: Typography.metadata
+                        font.family: Typography.family
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.Wrap
                         width: parent.width
@@ -188,12 +166,12 @@ Rectangle {
             }
         }
 
-        Item { width: 1; height: 4 }
+        Item { width: 1; height: Spacing.xs }
 
         SecondaryButton {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Skip Rating →"
-            preferredHeight: 46
+            preferredHeight: 44
             onClicked: assessmentController.setConfidence("unrated")
         }
     }

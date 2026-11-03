@@ -9,10 +9,10 @@ Rectangle {
     property bool selected: false
     signal clicked()
 
-    implicitHeight: Math.max(Theme.touchLarge, textLayout.implicitHeight + 20)
-    radius: Theme.cardRadius
+    implicitHeight: Math.max(Metrics.touchNormal, textLayout.implicitHeight + 18)
+    radius: Metrics.radiusMedium
     color: selected ? Theme.surfaceSelected : (mouseArea.containsPress ? Theme.surfaceActive : Theme.surface)
-    border.color: selected ? Theme.primary : Theme.border
+    border.color: selected ? Theme.forest : (mouseArea.containsPress ? Theme.primaryDark : Theme.border)
     border.width: selected ? 2 : 1
     opacity: enabled ? 1.0 : 0.6
 
@@ -26,57 +26,58 @@ Rectangle {
     Row {
         id: textLayout
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 14
+        anchors.leftMargin: Spacing.md
+        anchors.rightMargin: Spacing.md
+        anchors.topMargin: Spacing.sm
+        anchors.bottomMargin: Spacing.sm
+        spacing: Spacing.md
 
-        // Option Key Badge (e.g. "A")
+        // Option Key Disc (e.g. "A")
         Rectangle {
-            width: 38
-            height: 38
-            radius: 19
+            width: 36
+            height: 36
+            radius: 18
             anchors.verticalCenter: parent.verticalCenter
-            color: root.selected ? Theme.primary : Theme.surfaceActive
+            color: root.selected ? Theme.forest : Theme.surfaceActive
             border.color: root.selected ? Theme.primaryDark : Theme.border
             border.width: 1
 
             Text {
                 anchors.centerIn: parent
                 text: root.optionKey
-                color: root.selected ? Theme.textOnPrimary : Theme.textPrimary
-                font.pixelSize: Theme.fontSizeHeading
+                color: root.selected ? Theme.textOnPrimary : Theme.deepInk
+                font.pixelSize: Typography.sectionTitle
                 font.bold: true
-                font.family: Theme.fontFamily
+                font.family: Typography.family
             }
         }
 
-        // Option Text
+        // Option Text (Wrap correctly without ellipsis truncation)
         Text {
             id: contentText
-            width: parent.width - 38 - 14 - (root.selected ? 36 : 0)
+            width: parent.width - 36 - Spacing.md - (root.selected ? 34 : 0)
             anchors.verticalCenter: parent.verticalCenter
             text: root.optionText
-            color: Theme.textPrimary
-            font.pixelSize: Theme.fontSizeBody
-            font.family: Theme.fontFamily
+            color: Theme.deepInk
+            font.pixelSize: Typography.body
+            font.family: Typography.family
             wrapMode: Text.Wrap
-            maximumLineCount: 3
-            elide: Text.ElideRight
         }
 
         // Selected Checkmark indicator (non-color indicator!)
         Rectangle {
-            width: 28
-            height: 28
-            radius: 14
+            width: 26
+            height: 26
+            radius: 13
             anchors.verticalCenter: parent.verticalCenter
-            color: Theme.primary
+            color: Theme.forest
             visible: root.selected
 
             Text {
                 anchors.centerIn: parent
                 text: "✓"
                 color: Theme.textOnPrimary
-                font.pixelSize: 16
+                font.pixelSize: 15
                 font.bold: true
             }
         }
@@ -97,7 +98,7 @@ Rectangle {
         radius: root.radius + 3
         color: "transparent"
         border.color: Theme.borderFocus
-        border.width: 2
+        border.width: Metrics.borderFocus
         visible: root.activeFocus
     }
 }

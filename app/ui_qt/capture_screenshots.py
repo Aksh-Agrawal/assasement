@@ -1,20 +1,31 @@
-"""Capture development screenshots of major Qt Quick screens at exactly 800x480."""
+"""Capture development and review screenshots of Qt Quick screens at 800x480 (and 800x600 fallback)."""
 
 import os
+import sys
 from pathlib import Path
 from unittest.mock import Mock
+
+# Ensure project root is in sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QSG_RENDER_LOOP"] = "basic"
 
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401
 
 from app.auth.credentials import CredentialStore
 from app.config import AppConfig
-from app.core.models import Confidence, MarkingScheme, Option, Profile, Question, QuestionSet
+from app.core.models import (
+    Confidence,
+    MarkingScheme,
+    Option,
+    Profile,
+    Question,
+    QuestionSet,
+)
 from app.ui_qt.controllers.app_controller import AppController
 from app.ui_qt.controllers.assessment_controller import AssessmentController
 from app.ui_qt.controllers.library_controller import LibraryController
@@ -25,8 +36,20 @@ from app.ui_qt.controllers.settings_controller import SettingsController
 def capture_all():
     app = QGuiApplication.instance() or QGuiApplication([])
 
-    output_dir = Path("var/screenshots/qt_800x480")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Ensure clean font rendering in offscreen mode
+    for font_file in ["segoeui.ttf", "segoeuib.ttf", "segoeuisb.ttf", "arial.ttf", "arialbd.ttf"]:
+        font_path = Path("C:/Windows/Fonts") / font_file
+        if font_path.exists():
+            QFontDatabase.addApplicationFont(str(font_path))
+    app.setFont(QFont("Segoe UI", 11))
+
+    # Directories for screenshots
+    dirs = [
+        Path("var/screenshots/qt_800x480"),
+        Path("artifacts/pi-ui-review"),
+    ]
+    for d in dirs:
+        d.mkdir(parents=True, exist_ok=True)
 
     db_path = Path("var/dev_test.db")
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -45,39 +68,84 @@ def capture_all():
     mock_repo.count_attempts_by_sync_status.return_value = 0
     mock_repo.sync_diagnostic_summary.return_value = {"attention_required": False}
 
-    qset = QuestionSet(
-        id="bio-pack-01",
-        version=1,
-        title="Fractions & Decimals Practice",
-        subject="Biology",
-        chapter="Fractions",
-        marking=MarkingScheme(),
-        questions=(
-            Question(
-                id="q1",
-                position=1,
-                topic="Fractions",
-                difficulty=1,
-                question_text="What fraction of this shape is shaded?",
-                options=(
-                    Option(key="A", text="1/4 of total area"),
-                    Option(key="B", text="1/2 of total area"),
-                    Option(key="C", text="3/4 of total area"),
-                    Option(key="D", text="1/3 of total area"),
-                ),
-                correct_key="A",
-                explanation="1 of the 4 equal parts is shaded, representing 1/4.",
-            ),
+    q1 = Question(
+        id="q1",
+        position=1,
+        topic="Cell Biology",
+        difficulty=1,
+        question_text="Which organelle is primarily responsible for generating cellular ATP through oxidative phosphorylation?",
+        options=(
+            Option(key="A", text="Mitochondrion (inner folding matrix)"),
+            Option(key="B", text="Chloroplast (thylakoid membrane)"),
+            Option(key="C", text="Ribosome (polypeptide synthesis)"),
+            Option(key="D", text="Endoplasmic reticulum"),
         ),
+        correct_key="A",
+        explanation="Mitochondria are the primary sites of ATP synthesis in eukaryotic cells via the electron transport chain on the inner mitochondrial membrane.",
     )
+    q2 = Question(
+        id="q2",
+        position=2,
+        topic="Cell Biology",
+        difficulty=2,
+        question_text="What distinguishes eukaryotic plant cells from animal cells?",
+        options=(
+            Option(key="A", text="Rigid cellulose cell wall and chloroplasts"),
+            Option(key="B", text="Presence of a true nucleus"),
+            Option(key="C", text="Linear DNA chromosomes"),
+            Option(key="D", text="Phospholipid bilayer membrane"),
+        ),
+        correct_key="A",
+        explanation="Plant cells possess a cellulose cell wall, large central vacuole, and plastids such as chloroplasts.",
+    )
+
+    qset = QuestionSet(
+        id="bio-cell-01",
+        version=1,
+        title="Cell Structure & Organelles",
+        subject="Biology",
+        chapter="Cell Biology",
+        marking=MarkingScheme(),
+        questions=(q1, q2),
+    )
+
+    qset2 = QuestionSet(
+        id="chem-atom-01",
+        version=1,
+        title="Atomic Structure & Isotopes",
+        subject="Chemistry",
+        chapter="Atomic Theory",
+        marking=MarkingScheme(),
+        questions=(q1,),
+    )
+
+    qset3 = QuestionSet(
+        id="math-alg-01",
+        version=1,
+        title="Linear Equations & Inequalities",
+        subject="Mathematics",
+        chapter="Algebra",
+        marking=MarkingScheme(),
+        questions=(q1,),
+    )
+
+    all_qsets = (qset, qset2, qset3)
     mock_repo.get_question_set.return_value = qset
-    mock_repo.list_question_sets.return_value = (qset,)
-    mock_repo.visible_question_sets.return_value = (qset,)
+    mock_repo.list_question_sets.return_value = all_qsets
+    mock_repo.visible_question_sets.return_value = all_qsets
     mock_repo.profile_library_catalog.return_value = ()
     mock_repo.institute_work.return_value = ()
+    mock_repo.can_start_pack.return_value = True
+
+    # Mock historical attempts
+    mock_repo.completed_results.return_value = ()
+    mock_repo.save_response.side_effect = lambda resp, **kwargs: resp
     mock_repo.find_in_progress_attempt.return_value = None
     mock_repo.list_attempts.return_value = ()
-    mock_repo.get_student_account_context.return_value = {"cloud_account_id": "acc-01", "account_display_name": "Aksh"}
+    mock_repo.get_student_account_context.return_value = {
+        "cloud_account_id": "acc-01",
+        "account_display_name": "Aksh",
+    }
 
     def fake_get_setting(key):
         if key == "account_profiles":
@@ -88,13 +156,43 @@ def capture_all():
     mock_repo.get_setting.side_effect = fake_get_setting
     mock_repo.get_profile_pin.return_value = (None, None)
 
-    prof1 = Profile(id="prof-01", display_name="Alex", cloud_account_id="acc-01", cloud_profile_id="c1", ownership_state="owned")
-    prof2 = Profile(id="prof-02", display_name="Maya", cloud_account_id="acc-01", cloud_profile_id="c2", ownership_state="owned")
+    prof1 = Profile(
+        id="prof-01",
+        display_name="Alex",
+        cloud_account_id="acc-01",
+        cloud_profile_id="c1",
+        ownership_state="owned",
+        link_state="linked",
+    )
+    prof2 = Profile(
+        id="prof-02",
+        display_name="Maya",
+        cloud_account_id="acc-01",
+        cloud_profile_id="c2",
+        ownership_state="owned",
+        link_state="linked",
+    )
     mock_repo.list_profiles.return_value = (prof1, prof2)
 
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
+
+    class MockHist:
+        def __init__(self, title, subject, score, maximum, completed_at, sync_status="synced"):
+            self.title = title
+            self.subject = subject
+            self.score = score
+            self.maximum = maximum
+            self.completed_at = completed_at
+            self.sync_status = Mock(value=sync_status)
+
+    mock_history = (
+        MockHist("Cell Structure & Organelles", "Biology", 8.0, 10.0, "01 Nov 2026"),
+        MockHist("Atomic Structure & Isotopes", "Chemistry", 9.0, 10.0, "31 Oct 2026"),
+        MockHist("Linear Equations & Graphs", "Mathematics", 7.0, 10.0, "30 Oct 2026"),
+    )
+    type(app_ctrl.ui_controller).history_items = property(lambda self: mock_history)
 
     engine = QQmlApplicationEngine()
     qml_dir = Path("app/ui_qt/qml").resolve()
@@ -104,6 +202,7 @@ def capture_all():
     lib_ctrl = LibraryController(app_ctrl)
     assess_ctrl = AssessmentController(app_ctrl)
     settings_ctrl = SettingsController(app_ctrl)
+    settings_ctrl._pairing_code = "K7M2P9"
 
     ctx = engine.rootContext()
     ctx.setContextProperty("appController", app_ctrl)
@@ -118,12 +217,12 @@ def capture_all():
     window.setHeight(480)
     window.show()
 
-    # Helper to grab current window surface
     def grab_and_save(filename):
         app.processEvents()
         image = window.grabWindow()
-        path = output_dir / filename
-        image.save(str(path))
+        for d in dirs:
+            p = d / filename
+            image.save(str(p))
         print(f"Captured {filename}: {image.width()}x{image.height()}")
 
     # 1. Startup screen
@@ -133,32 +232,42 @@ def capture_all():
     # 2. Profile Picker
     app_ctrl.navigate("profile_picker")
     grab_and_save("02_profile_picker_800x480.png")
+    prof_ctrl.selectProfile(0)
 
-    # 3. Home Dashboard
+    # 3. Home Dashboard (Contextual: ready for new practice)
     app_ctrl.navigate("home")
     grab_and_save("03_home_800x480.png")
 
-    # 4. Subject Selection
+    # 4. Subject Selection (Bookshelf)
     app_ctrl.navigate("subjects")
     grab_and_save("04_subjects_800x480.png")
 
-    # 5. Test Setup
+    # 5. Chapters (Biology)
+    lib_ctrl.selectSubject("Biology")
+    grab_and_save("05_chapters_800x480.png")
+
+    # 6. Question Sets (Packs in Cell Biology)
+    lib_ctrl.selectChapter("Cell Biology")
+    grab_and_save("06_packs_800x480.png")
+
+    # 7. Test Setup
+    lib_ctrl.selectPack("bio-cell-01", 1)
     app_ctrl.navigate("test_setup")
-    grab_and_save("05_test_setup_800x480.png")
+    grab_and_save("07_test_setup_800x480.png")
 
-    # 6. Active Question
+    # 8. Active Question (Academically focused)
     assess_ctrl.startTest("practice", 10)
-    grab_and_save("06_question_800x480.png")
+    grab_and_save("08_question_800x480.png")
 
-    # 7. Confidence Rating
+    # 9. Confidence Rating
     app_ctrl.navigate("confidence")
-    grab_and_save("07_confidence_800x480.png")
+    grab_and_save("09_confidence_800x480.png")
 
-    # 8. Question Navigator
+    # 10. Question Navigator
     app_ctrl.navigate("question_nav")
-    grab_and_save("08_question_nav_800x480.png")
+    grab_and_save("10_question_nav_800x480.png")
 
-    # 9. Results
+    # 11. Results (Score & laurel achievement)
     assess_ctrl._result_cache = Mock(
         score=8.0,
         maximum=10.0,
@@ -167,38 +276,79 @@ def capture_all():
     )
     assess_ctrl.resultChanged.emit()
     app_ctrl.navigate("result")
-    grab_and_save("09_result_800x480.png")
+    grab_and_save("11_result_800x480.png")
 
-    # 10. Review Screen
+    # 12. Review Screen
     app_ctrl.navigate("review")
-    grab_and_save("10_review_800x480.png")
+    grab_and_save("12_review_800x480.png")
 
-    # 11. Practice & Downloads (Content)
-    app_ctrl.navigate("content")
-    grab_and_save("11_downloads_800x480.png")
-
-    # 12. History
+    # 13. History Journal
     app_ctrl.navigate("history")
-    grab_and_save("12_history_800x480.png")
+    grab_and_save("13_history_800x480.png")
 
-    # 13. Settings Overview
+    # 14. Practice & Downloads (Content)
+    app_ctrl.navigate("content")
+    grab_and_save("14_content_downloads_800x480.png")
+
+    # 15. Settings Overview
     app_ctrl.navigate("settings")
-    grab_and_save("13_settings_800x480.png")
+    grab_and_save("15_settings_800x480.png")
 
-    # 14. Wi-Fi
+    # 16. Wi-Fi Appliance Screen
     app_ctrl.navigate("wifi")
-    grab_and_save("14_wifi_800x480.png")
+    grab_and_save("16_wifi_800x480.png")
 
-    # 15. Diagnostics
+    # 17. Sync Screen
+    app_ctrl.navigate("sync")
+    grab_and_save("17_sync_800x480.png")
+
+    # 18. Connected Account & Profiles
+    app_ctrl.navigate("account")
+    grab_and_save("18_account_800x480.png")
+
+    # 19. Device Info / Specifications
+    app_ctrl.navigate("device_info")
+    grab_and_save("19_device_info_800x480.png")
+
+    # 20. Diagnostics & Health
     app_ctrl.navigate("diagnostics")
-    grab_and_save("15_diagnostics_800x480.png")
+    grab_and_save("20_diagnostics_800x480.png")
 
-    # 16. Device Pairing
+    # 21. Software Update
+    app_ctrl.navigate("software_update")
+    grab_and_save("21_software_update_800x480.png")
+
+    # 22. About Screen
+    app_ctrl.navigate("about")
+    grab_and_save("22_about_800x480.png")
+
+    # 23. Device Pairing Ticket
     app_ctrl.navigate("pairing")
-    grab_and_save("16_pairing_800x480.png")
+    grab_and_save("23_pairing_800x480.png")
+
+    # 24. Recovery Mode Screen
+    app_ctrl.navigate("recovery")
+    grab_and_save("24_recovery_800x480.png")
+
+    # 25. Create Student Profile
+    app_ctrl.navigate("create_profile")
+    grab_and_save("25_create_profile_800x480.png")
+
+    # 26. Question Detail Passage
+    app_ctrl.navigate("question_detail")
+    grab_and_save("26_question_detail_800x480.png")
+
+    # Test 800x600 Fallback Resolution
+    window.setWidth(800)
+    window.setHeight(600)
+    app_ctrl.navigate("home")
+    grab_and_save("27_home_800x600_fallback.png")
+
+    assess_ctrl.startTest("practice", 10)
+    grab_and_save("28_question_800x600_fallback.png")
 
     app_ctrl.close()
-    print("All 16 development screenshots captured at exactly 800x480.")
+    print("All 28 review screenshots successfully captured at 800x480 and 800x600 fallback.")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     Row {
         anchors.fill: parent
@@ -42,197 +42,275 @@ Rectangle {
             // Scrollable / Responsive Content Body
             Item {
                 width: parent.width
-                height: parent.height - Theme.headerHeight
+                height: parent.height - Metrics.headerHeight
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 12
+                    anchors.leftMargin: Spacing.lg
+                    anchors.rightMargin: Spacing.lg
+                    anchors.topMargin: Spacing.xs
+                    anchors.bottomMargin: Spacing.md
+                    spacing: Spacing.md
 
-                    // Greeting
-                    Column {
-                        spacing: 2
-                        Text {
-                            text: "Good day, " + appController.activeProfileName + "!"
-                            color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeTitle
-                            font.bold: true
-                            font.family: Theme.fontFamily
-                        }
-                        Text {
-                            text: "Ready to explore and practice today?"
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeSecondary
-                            font.family: Theme.fontFamily
-                        }
-                    }
-
-                    // Continue Practice Hero Card
+                    // -------------------------------------------------------------
+                    // HERO SECTION (Contextual: In-Progress vs Fresh Practice)
+                    // -------------------------------------------------------------
                     AppCard {
                         width: parent.width
-                        height: 150
-                        interactive: libraryController.canResume
-                        onClicked: {
-                            if (libraryController.canResume) {
-                                assessmentController.resumeTest();
-                            }
-                        }
+                        height: 230
+                        interactive: false
 
+                        // Content row inside Hero
                         Row {
                             anchors.fill: parent
-                            anchors.margins: 18
-                            spacing: 16
+                            anchors.margins: Spacing.lg
+                            spacing: Spacing.lg
 
-                            // Card icon
-                            Rectangle {
-                                width: 54
-                                height: 54
-                                radius: 14
-                                color: libraryController.canResume ? Theme.primaryLight : Theme.surfaceActive
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                Image {
-                                    anchors.centerIn: parent
-                                    width: 28
-                                    height: 28
-                                    source: libraryController.canResume ? Assets.practice : Assets.library
-                                    fillMode: Image.PreserveAspectFit
-                                }
-                            }
-
-                            // Card details
+                            // Left Text & Action Column
                             Column {
-                                width: parent.width - 54 - 16 - 150
+                                width: parent.width - 240
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 6
+                                spacing: Spacing.sm
 
-                                Text {
-                                    text: libraryController.canResume ? "Continue Practice" : "Start New Practice"
-                                    color: Theme.textSecondary
-                                    font.pixelSize: Theme.fontSizeCaption
-                                    font.bold: true
-                                    font.family: Theme.fontFamily
+                                // Badge / Context Label
+                                Rectangle {
+                                    height: 24
+                                    width: heroBadgeText.implicitWidth + 16
+                                    radius: 12
+                                    color: libraryController.canResume ? Theme.terracottaLight : Theme.primaryLight
+                                    border.color: libraryController.canResume ? Theme.terracotta : Theme.sage
+                                    border.width: 1
+
+                                    Text {
+                                        id: heroBadgeText
+                                        anchors.centerIn: parent
+                                        text: libraryController.canResume ? "● In Progress" : "Daily Practice"
+                                        color: libraryController.canResume ? Theme.terracotta : Theme.forest
+                                        font.pixelSize: Typography.caption
+                                        font.bold: true
+                                        font.family: Typography.family
+                                    }
                                 }
 
+                                // Greeting / Resume Title
                                 Text {
-                                    text: libraryController.canResume ? libraryController.resumeTitle : "Choose a topic from the library"
-                                    color: Theme.textPrimary
-                                    font.pixelSize: Theme.fontSizeHeading
+                                    text: libraryController.canResume ? ("Continue " + libraryController.resumeTitle) : ("Good morning, " + appController.activeProfileName)
+                                    color: Theme.deepInk
+                                    font.pixelSize: Typography.pageTitle
                                     font.bold: true
-                                    font.family: Theme.fontFamily
+                                    font.family: Typography.familyEditorial
                                     elide: Text.ElideRight
                                     width: parent.width
                                 }
 
+                                // Subtext
+                                Text {
+                                    text: libraryController.canResume ? (libraryController.resumeAnswered + " of " + libraryController.resumeTotal + " questions complete") : "Ready for today's practice? Choose a topic to begin."
+                                    color: Theme.mutedInk
+                                    font.pixelSize: Typography.body
+                                    font.family: Typography.family
+                                    wrapMode: Text.Wrap
+                                    width: parent.width
+                                }
+
+                                // Progress rail if resuming
                                 Row {
-                                    spacing: 12
+                                    spacing: Spacing.sm
                                     visible: libraryController.canResume
                                     ProgressBar {
                                         width: 180
-                                        height: 10
+                                        height: 8
+                                        barColor: Theme.terracotta
                                         progress: libraryController.resumeTotal > 0 ? (libraryController.resumeAnswered / libraryController.resumeTotal) : 0
                                     }
                                     Text {
-                                        text: libraryController.resumeAnswered + " of " + libraryController.resumeTotal + " answered"
-                                        color: Theme.textSecondary
-                                        font.pixelSize: Theme.fontSizeCaption
-                                        font.family: Theme.fontFamily
+                                        text: (libraryController.resumeTotal > 0 ? Math.round((libraryController.resumeAnswered / libraryController.resumeTotal) * 100) : 0) + "%"
+                                        color: Theme.mutedInk
+                                        font.pixelSize: Typography.caption
+                                        font.bold: true
+                                        font.family: Typography.family
+                                    }
+                                }
+
+                                Item { width: 1; height: Spacing.xs }
+
+                                // ONE Strong Primary Action Button
+                                PrimaryButton {
+                                    preferredHeight: Metrics.touchNormal
+                                    buttonColor: libraryController.canResume ? Theme.forest : Theme.forest
+                                    text: libraryController.canResume ? "Continue Practice →" : "Start Practice →"
+                                    onClicked: {
+                                        if (libraryController.canResume) {
+                                            assessmentController.resumeTest();
+                                        } else {
+                                            appController.navigate("subjects");
+                                        }
                                     }
                                 }
                             }
 
-                            // Continue / Browse Action Button
-                            PrimaryButton {
+                            // Right Hero Artwork
+                            Image {
+                                width: 220
+                                height: 180
                                 anchors.verticalCenter: parent.verticalCenter
-                                preferredHeight: Theme.touchNormal
-                                text: libraryController.canResume ? "Continue →" : "Browse →"
-                                onClicked: {
-                                    if (libraryController.canResume) {
-                                        assessmentController.resumeTest();
-                                    } else {
-                                        appController.navigate("subjects");
-                                    }
-                                }
+                                source: libraryController.canResume ? Assets.home_resume : Assets.home_hero
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true
                             }
                         }
                     }
 
-                    // Quick Action Buttons
+                    // -------------------------------------------------------------
+                    // SECONDARY DESTINATIONS: Illustrated Subject Cards
+                    // -------------------------------------------------------------
                     Row {
                         width: parent.width
-                        spacing: 12
+                        spacing: Spacing.md
 
+                        // Biology
                         AppCard {
-                            width: (parent.width - 24) / 3
-                            height: 80
+                            width: (parent.width - Spacing.md * 2) / 3
+                            height: 125
                             interactive: true
-                            onClicked: appController.navigate("subjects")
+                            onClicked: libraryController.selectSubject("Biology")
 
                             Row {
-                                anchors.centerIn: parent
-                                spacing: 12
-                                Rectangle {
-                                    width: 40; height: 40; radius: 20
-                                    color: Theme.primaryLight
-                                    Image {
-                                        anchors.centerIn: parent; width: 20; height: 20
-                                        source: Assets.library
-                                    }
-                                }
-                                Column {
+                                anchors.fill: parent
+                                anchors.margins: Spacing.md
+                                spacing: Spacing.md
+
+                                Image {
+                                    width: 48
+                                    height: 48
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Browse Library"; font.bold: true; font.pixelSize: 15; color: Theme.textPrimary }
-                                    Text { text: "All subjects"; font.pixelSize: 12; color: Theme.textSecondary }
+                                    source: Assets.biology
+                                    fillMode: Image.PreserveAspectFit
+                                }
+
+                                Column {
+                                    width: parent.width - 48 - Spacing.md
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 3
+
+                                    Text {
+                                        text: "Biology"
+                                        font.bold: true
+                                        font.pixelSize: Typography.body
+                                        color: Theme.deepInk
+                                        font.family: Typography.family
+                                    }
+                                    Text {
+                                        text: "Cells • Genetics • Physiology"
+                                        font.pixelSize: Typography.caption
+                                        color: Theme.mutedInk
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+                                    Text {
+                                        text: "Practice →"
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: Theme.forest
+                                    }
                                 }
                             }
                         }
 
+                        // Chemistry
                         AppCard {
-                            width: (parent.width - 24) / 3
-                            height: 80
+                            width: (parent.width - Spacing.md * 2) / 3
+                            height: 125
                             interactive: true
-                            onClicked: appController.navigate("content")
+                            onClicked: libraryController.selectSubject("Chemistry")
 
                             Row {
-                                anchors.centerIn: parent
-                                spacing: 12
-                                Rectangle {
-                                    width: 40; height: 40; radius: 20
-                                    color: "#FFF3E0"
-                                    Image {
-                                        anchors.centerIn: parent; width: 20; height: 20
-                                        source: Assets.download
-                                    }
-                                }
-                                Column {
+                                anchors.fill: parent
+                                anchors.margins: Spacing.md
+                                spacing: Spacing.md
+
+                                Image {
+                                    width: 48
+                                    height: 48
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Downloads"; font.bold: true; font.pixelSize: 15; color: Theme.textPrimary }
-                                    Text { text: "Offline packs"; font.pixelSize: 12; color: Theme.textSecondary }
+                                    source: Assets.chemistry
+                                    fillMode: Image.PreserveAspectFit
+                                }
+
+                                Column {
+                                    width: parent.width - 48 - Spacing.md
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 3
+
+                                    Text {
+                                        text: "Chemistry"
+                                        font.bold: true
+                                        font.pixelSize: Typography.body
+                                        color: Theme.deepInk
+                                        font.family: Typography.family
+                                    }
+                                    Text {
+                                        text: "Atoms • Bonding • Reactions"
+                                        font.pixelSize: Typography.caption
+                                        color: Theme.mutedInk
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+                                    Text {
+                                        text: "Practice →"
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: Theme.terracotta
+                                    }
                                 }
                             }
                         }
 
+                        // Mathematics
                         AppCard {
-                            width: (parent.width - 24) / 3
-                            height: 80
+                            width: (parent.width - Spacing.md * 2) / 3
+                            height: 125
                             interactive: true
-                            onClicked: appController.navigate("history")
+                            onClicked: libraryController.selectSubject("Mathematics")
 
                             Row {
-                                anchors.centerIn: parent
-                                spacing: 12
-                                Rectangle {
-                                    width: 40; height: 40; radius: 20
-                                    color: "#E8F5E9"
-                                    Image {
-                                        anchors.centerIn: parent; width: 20; height: 20
-                                        source: Assets.history
-                                    }
-                                }
-                                Column {
+                                anchors.fill: parent
+                                anchors.margins: Spacing.md
+                                spacing: Spacing.md
+
+                                Image {
+                                    width: 48
+                                    height: 48
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Past Attempts"; font.bold: true; font.pixelSize: 15; color: Theme.textPrimary }
-                                    Text { text: "Scores & review"; font.pixelSize: 12; color: Theme.textSecondary }
+                                    source: Assets.mathematics
+                                    fillMode: Image.PreserveAspectFit
+                                }
+
+                                Column {
+                                    width: parent.width - 48 - Spacing.md
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 3
+
+                                    Text {
+                                        text: "Mathematics"
+                                        font.bold: true
+                                        font.pixelSize: Typography.body
+                                        color: Theme.deepInk
+                                        font.family: Typography.family
+                                    }
+                                    Text {
+                                        text: "Numbers • Algebra • Geometry"
+                                        font.pixelSize: Typography.caption
+                                        color: Theme.mutedInk
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+                                    Text {
+                                        text: "Practice →"
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: Theme.gold
+                                    }
                                 }
                             }
                         }

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130" width="180" height="130">
+  <!-- Wooden bookshelf tier -->
+  <rect x="15" y="98" width="150" height="12" rx="2" fill="#D8D0C1" stroke="#23302D" stroke-width="2"/>
+  <path d="M25 110 L25 125 M155 110 L155 125" stroke="#23302D" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Left Bookend and Books -->
+  <rect x="25" y="45" width="12" height="53" rx="2" fill="#27685E" stroke="#23302D" stroke-width="1.5"/>
+  <rect x="39" y="52" width="10" height="46" rx="2" fill="#C76848" stroke="#23302D" stroke-width="1.5"/>
+  <rect x="51" y="40" width="14" height="58" rx="2" fill="#D5A64A" stroke="#23302D" stroke-width="1.5"/>
+
+  <!-- Antique Table Globe (Middle right) -->
+  <circle cx="125" cy="55" r="22" fill="#EBF3F5" stroke="#23302D" stroke-width="1.5"/>
+  <!-- Continents in sage -->
+  <path d="M115 48 Q125 45 130 52 Q125 62 115 58 Z" fill="#A9C4B1"/>
+  <path d="M128 60 Q138 65 132 72 Q122 70 128 60 Z" fill="#A9C4B1"/>
+  <!-- Axis and Stand -->
+  <path d="M102 55 A24 24 0 0 0 138 78 L138 88 L112 88 L112 98 L138 98" fill="none" stroke="#23302D" stroke-width="2"/>
+
+  <!-- Warm sparkling star indicating open space to fill -->
+  <g transform="translate(82, 50)">
+    <polygon points="0 -12 3 -3 12 0 3 3 0 12 -3 3 -12 0 -3 -3" fill="#D5A64A"/>
+    <circle cx="0" cy="0" r="2" fill="#FBF7EF"/>
+  </g>
+</svg>

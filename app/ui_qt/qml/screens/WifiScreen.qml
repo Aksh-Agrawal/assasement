@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     property string selectedSsid: ""
     property string wifiPassword: ""
@@ -28,82 +28,54 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 16
+        anchors.margins: Spacing.md
 
-        Row {
+        Column {
             anchors.fill: parent
-            spacing: 16
+            spacing: Spacing.sm
 
-            // LEFT PANEL: Connectivity Status Card
-            AppCard {
-                width: 300
-                height: parent.height
+            // Native Device Wi-Fi Status Bar
+            Rectangle {
+                width: parent.width
+                height: 48
+                radius: Metrics.radiusMedium
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
 
-                Column {
+                Row {
                     anchors.fill: parent
-                    anchors.margins: 18
-                    spacing: 12
+                    anchors.leftMargin: Spacing.lg
+                    anchors.rightMargin: Spacing.lg
 
-                    Text {
-                        text: "Connection Status"
-                        color: Theme.textPrimary
-                        font.pixelSize: Theme.fontSizeHeading
-                        font.bold: true
-                        font.family: Theme.fontFamily
-                    }
+                    Row {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Spacing.sm
 
-                    // Wi-Fi Status
-                    Column {
-                        spacing: 2
-                        Text { text: "Wi-Fi Network"; color: Theme.textSecondary; font.pixelSize: 13 }
-                        Row {
-                            spacing: 6
-                            StatusBadge {
-                                text: settingsController.isConnecting ? "Connecting…" : (settingsController.isWifiConnected ? "Connected" : "Disconnected")
-                                statusType: settingsController.isConnecting ? "syncing" : (settingsController.isWifiConnected ? "online" : "offline")
-                            }
-                            Text {
-                                text: settingsController.connectedSsid
-                                color: Theme.textPrimary
-                                font.pixelSize: 14
-                                font.bold: true
-                                elide: Text.ElideRight
-                                width: 140
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
+                        Image {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 20
+                            height: 20
+                            source: settingsController.isWifiConnected ? Assets.wifi : Assets.wifi_off
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: settingsController.isWifiConnected ? ("Connected to " + settingsController.connectedSsid) : "Wi-Fi is On"
+                            color: Theme.deepInk
+                            font.pixelSize: Typography.body
+                            font.bold: true
+                            font.family: Typography.family
                         }
                     }
 
-                    Rectangle { width: parent.width; height: 1; color: Theme.divider }
-
-                    // Internet Status
-                    Column {
-                        spacing: 2
-                        Text { text: "Internet Reachability"; color: Theme.textSecondary; font.pixelSize: 13 }
-                        StatusBadge {
-                            text: settingsController.internetStatus
-                            statusType: settingsController.internetStatus === "Available" ? "success" : (settingsController.internetStatus === "Checking…" ? "neutral" : "offline")
-                        }
-                    }
-
-                    Rectangle { width: parent.width; height: 1; color: Theme.divider }
-
-                    // Cloud Server Status
-                    Column {
-                        spacing: 2
-                        Text { text: "Study Buddy Cloud"; color: Theme.textSecondary; font.pixelSize: 13 }
-                        StatusBadge {
-                            text: settingsController.cloudStatus
-                            statusType: settingsController.cloudStatus === "Online" ? "success" : (settingsController.cloudStatus === "Server unavailable" || settingsController.cloudStatus === "Authentication required" ? "warning" : (settingsController.cloudStatus === "Checking…" ? "neutral" : "offline"))
-                        }
-                    }
-
-                    Item { width: 1; height: 12 }
-
-                    PrimaryButton {
-                        width: parent.width
-                        preferredHeight: Theme.touchNormal
-                        text: settingsController.isScanning ? "Scanning…" : "Scan Networks"
+                    // Rescan button
+                    SecondaryButton {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        preferredHeight: 36
+                        text: settingsController.isScanning ? "Scanning…" : "Scan"
                         iconSource: Assets.refresh
                         enabled: !settingsController.isScanning
                         onClicked: settingsController.scanWifi()
@@ -111,138 +83,138 @@ Rectangle {
                 }
             }
 
-            // RIGHT PANEL: Available Networks List
-            AppCard {
-                width: parent.width - 300 - 16
-                height: parent.height
+            // Available Networks Panel
+            Rectangle {
+                width: parent.width
+                height: parent.height - 58
+                radius: Metrics.radiusMedium
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
+                clip: true
 
-                Column {
+                // Scanning State
+                LoadingState {
+                    anchors.centerIn: parent
+                    visible: settingsController.isScanning && settingsController.availableNetworks.length === 0
+                    message: "Scanning for wireless networks…"
+                }
+
+                // Empty / Scan Failed State
+                EmptyState {
+                    anchors.centerIn: parent
+                    visible: !settingsController.isScanning && settingsController.availableNetworks.length === 0
+                    title: "No Networks Found"
+                    description: "No wireless hotspots found in range. Tap 'Scan' to refresh."
+                    actionText: "Scan Again"
+                    onActionClicked: settingsController.scanWifi()
+                }
+
+                ListView {
                     anchors.fill: parent
-                    anchors.margins: 18
-                    spacing: 10
+                    clip: true
+                    visible: settingsController.availableNetworks.length > 0
+                    model: settingsController.availableNetworks
 
-                    Row {
+                    delegate: Rectangle {
                         width: parent.width
-                        Text {
-                            text: "Available Networks"
-                            color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeHeading
-                            font.bold: true
-                            font.family: Theme.fontFamily
+                        height: 50
+                        color: netMouse.containsPress ? Theme.surfaceActive : (modelData.connected ? Theme.surfaceSelected : "transparent")
+
+                        // Row bottom divider
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: 1
+                            color: Theme.borderLight
                         }
-                    }
 
-                    // Scanning State
-                    LoadingState {
-                        anchors.centerIn: parent
-                        visible: settingsController.isScanning && settingsController.availableNetworks.length === 0
-                        message: "Scanning for wireless networks…"
-                    }
+                        Item {
+                            anchors.fill: parent
+                            anchors.leftMargin: Spacing.lg
+                            anchors.rightMargin: Spacing.lg
 
-                    // Empty / Scan Failed State
-                    EmptyState {
-                        anchors.centerIn: parent
-                        visible: !settingsController.isScanning && settingsController.availableNetworks.length === 0
-                        title: "No Wi-Fi Networks Found"
-                        description: "Couldn’t find wireless networks in range. Tap 'Retry' to rescan."
-                        actionText: "Retry Scan"
-                        onActionClicked: settingsController.scanWifi()
-                    }
+                            Row {
+                                anchors.left: parent.left
+                                anchors.right: statusRow.left
+                                anchors.rightMargin: Spacing.md
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: Spacing.md
 
-                    ListView {
-                        width: parent.width
-                        height: parent.height - 40
-                        clip: true
-                        spacing: 6
-                        visible: settingsController.availableNetworks.length > 0
-                        model: settingsController.availableNetworks
-
-                        delegate: Rectangle {
-                            width: parent.width
-                            height: 52
-                            radius: 8
-                            color: netMouse.containsPress ? Theme.surfaceActive : Theme.surface
-                            border.color: modelData.connected ? Theme.primary : Theme.border
-                            border.width: modelData.connected ? 2 : 1
-
-                            Item {
-                                anchors.fill: parent
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 12
-
-                                Row {
-                                    anchors.left: parent.left
-                                    anchors.right: statusBadgeRow.left
-                                    anchors.rightMargin: 8
+                                Image {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 10
-
-                                    Image {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: 20
-                                        height: 20
-                                        source: Assets.wifi
-                                    }
-
-                                    Text {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: modelData.ssid
-                                        color: Theme.textPrimary
-                                        font.pixelSize: 15
-                                        font.bold: modelData.connected
-                                        elide: Text.ElideRight
-                                        width: parent.width - 80
-                                    }
+                                    width: 18
+                                    height: 18
+                                    source: Assets.wifi
                                 }
 
-                                Row {
-                                    id: statusBadgeRow
-                                    anchors.right: parent.right
+                                Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 8
-
-                                    Text {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: modelData.signal + "%"
-                                        color: Theme.textSecondary
-                                        font.pixelSize: 12
-                                    }
-
-                                    StatusBadge {
-                                        visible: modelData.connected
-                                        text: "Connected"
-                                        statusType: "online"
-                                    }
-
-                                    StatusBadge {
-                                        visible: modelData.saved && !modelData.connected
-                                        text: "Saved"
-                                        statusType: "neutral"
-                                    }
-
-                                    Image {
-                                        visible: modelData.encrypted && !modelData.connected
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: 16
-                                        height: 16
-                                        source: Assets.lock
-                                    }
+                                    text: modelData.ssid
+                                    color: Theme.deepInk
+                                    font.pixelSize: Typography.body
+                                    font.bold: modelData.connected
+                                    font.family: Typography.family
+                                    elide: Text.ElideRight
+                                    width: parent.width - 24
                                 }
                             }
 
-                            MouseArea {
-                                id: netMouse
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (!modelData.connected) {
-                                        root.selectedSsid = modelData.ssid;
-                                        if (modelData.saved || !modelData.encrypted) {
-                                            // Saved network or open hotspot: connect directly without password prompt
-                                            settingsController.connectWifi(modelData.ssid, "");
-                                        } else {
-                                            appController.openKeyboard("wifi_password", "", true, "Enter Password for " + modelData.ssid);
-                                        }
+                            Row {
+                                id: statusRow
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: Spacing.sm
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData.signal + "%"
+                                    color: Theme.mutedInk
+                                    font.pixelSize: Typography.caption
+                                }
+
+                                Image {
+                                    visible: modelData.encrypted && !modelData.connected
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 14
+                                    height: 14
+                                    source: Assets.lock
+                                }
+
+                                Rectangle {
+                                    visible: modelData.connected
+                                    height: 24
+                                    width: connectedText.implicitWidth + 14
+                                    radius: 12
+                                    color: Theme.surfaceSelected
+                                    border.color: Theme.forest
+                                    border.width: 1
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Text {
+                                        id: connectedText
+                                        anchors.centerIn: parent
+                                        text: "✓ Connected"
+                                        color: Theme.forest
+                                        font.pixelSize: Typography.caption
+                                        font.bold: true
+                                    }
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: netMouse
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (!modelData.connected) {
+                                    root.selectedSsid = modelData.ssid;
+                                    if (modelData.saved || !modelData.encrypted) {
+                                        settingsController.connectWifi(modelData.ssid, "");
+                                    } else {
+                                        appController.openKeyboard("wifi_password", "", true, "Enter Password for " + modelData.ssid);
                                     }
                                 }
                             }

@@ -483,11 +483,14 @@ class UIController(LegacyController):
         super().refresh_catalog()
         if self.student_flow and os.environ.get("ASSESS_MAINTENANCE") != "1":
             context = self.repository.get_student_account_context()
-            cached = json.loads(self.repository.get_setting("account_profiles") or "{}")
-            active_ids = {p["local_profile_id"] for p in cached.get("profiles", [])}
-            self.profiles = tuple(p for p in self.profiles if context and
-                p.cloud_account_id == context["cloud_account_id"] and p.id in active_ids and p.link_state == "linked")
-            self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
+            if context:
+                cached = json.loads(self.repository.get_setting("account_profiles") or "{}")
+                active_ids = {p["local_profile_id"] for p in cached.get("profiles", [])}
+                self.profiles = tuple(p for p in self.profiles if
+                    p.cloud_account_id == context["cloud_account_id"] and p.id in active_ids and p.link_state == "linked")
+                self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
+            else:
+                self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
         if os.environ.get("ASSESS_MAINTENANCE") == "1" and getattr(self, "legacy_mode", False):
             self.profiles = tuple(p for p in self.profiles if p.ownership_state == "legacy_unclaimed")
             self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))

@@ -1,2 +1,5 @@
 singleton Theme 1.0 Theme.qml
+singleton Typography 1.0 Typography.qml
+singleton Spacing 1.0 Spacing.qml
+singleton Metrics 1.0 Metrics.qml
 singleton Assets 1.0 Assets.qml

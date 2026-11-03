@@ -5,27 +5,29 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
-    // Active Assessment Header (Full 800px width)
+    // -------------------------------------------------------------------------
+    // Top Active Assessment Header (Compact 44px)
+    // -------------------------------------------------------------------------
     Rectangle {
         id: questionHeader
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 52
+        height: 44
         color: Theme.surface
-        border.color: Theme.divider
+        border.color: Theme.border
         border.width: 1
 
         Row {
             anchors.left: parent.left
-            anchors.leftMargin: 16
+            anchors.leftMargin: Spacing.md
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 12
+            spacing: Spacing.md
 
             IconButton {
-                buttonSize: 38
+                buttonSize: 34
                 iconSource: Assets.arrow_back
                 onClicked: leaveModal.visible = true
             }
@@ -33,68 +35,107 @@ Rectangle {
             Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: assessmentController.subject + (assessmentController.chapter.length > 0 ? " • " + assessmentController.chapter : "")
-                color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeHeading
+                color: Theme.deepInk
+                font.pixelSize: Typography.sectionTitle
                 font.bold: true
-                font.family: Theme.fontFamily
+                font.family: Typography.family
+                elide: Text.ElideRight
+                width: 340
             }
         }
 
         Row {
             anchors.right: parent.right
-            anchors.rightMargin: 16
+            anchors.rightMargin: Spacing.md
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 14
+            spacing: Spacing.md
 
-            // Question counter
-            Text {
+            // Question counter (e.g. "4 / 10")
+            Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Question " + assessmentController.questionIndex + " of " + assessmentController.totalQuestions
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeBody
-                font.bold: true
-                font.family: Theme.fontFamily
+                height: 28
+                width: counterText.implicitWidth + 18
+                radius: 14
+                color: Theme.surfaceActive
+                border.color: Theme.border
+                border.width: 1
+
+                Text {
+                    id: counterText
+                    anchors.centerIn: parent
+                    text: assessmentController.questionIndex + " / " + assessmentController.totalQuestions
+                    color: Theme.deepInk
+                    font.pixelSize: Typography.metadata
+                    font.bold: true
+                    font.family: Typography.family
+                }
             }
 
             // Countdown timer (if enabled)
             Rectangle {
                 visible: assessmentController.timerEnabled
-                width: 82
-                height: 32
-                radius: 16
-                color: assessmentController.remainingSeconds < 60 ? "#FFEBEE" : Theme.surfaceActive
-                border.color: assessmentController.remainingSeconds < 60 ? Theme.warning : Theme.border
+                width: 78
+                height: 28
+                radius: 14
+                color: assessmentController.remainingSeconds < 60 ? Theme.terracottaLight : Theme.surfaceActive
+                border.color: assessmentController.remainingSeconds < 60 ? Theme.terracotta : Theme.border
+                border.width: 1
 
                 Row {
                     anchors.centerIn: parent
                     spacing: 4
-                    Text { text: "⏱"; font.pixelSize: 12 }
+                    Text { text: "⏱"; font.pixelSize: 11 }
                     Text {
                         text: assessmentController.timerFormatted
-                        font.pixelSize: 13
+                        font.pixelSize: 12
                         font.bold: true
-                        color: assessmentController.remainingSeconds < 60 ? Theme.warning : Theme.textPrimary
+                        color: assessmentController.remainingSeconds < 60 ? Theme.terracotta : Theme.deepInk
                     }
                 }
             }
 
             // Flag / Mark for review button
             IconButton {
-                buttonSize: 38
+                buttonSize: 34
                 iconSource: assessmentController.isMarkedForReview ? Assets.flag_filled : Assets.flag
-                backgroundColor: assessmentController.isMarkedForReview ? "#FFF3E0" : Theme.surface
+                backgroundColor: assessmentController.isMarkedForReview ? Theme.goldLight : Theme.surface
+                borderColor: assessmentController.isMarkedForReview ? Theme.gold : Theme.border
                 onClicked: assessmentController.toggleMarkReview()
+            }
+        }
+
+        // Thin progress indicator rail underneath header
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 3
+            color: Theme.borderLight
+
+            Rectangle {
+                height: parent.height
+                width: parent.width * (assessmentController.totalQuestions > 0 ? (assessmentController.questionIndex / assessmentController.totalQuestions) : 0)
+                color: Theme.forest
+                Behavior on width {
+                    NumberAnimation { duration: Theme.animDuration; easing.type: Easing.OutQuad }
+                }
             }
         }
     }
 
-    // Question Body & Options Area
-    Item {
+    // -------------------------------------------------------------------------
+    // Question Body & Options Area (Scrollable Flickable for long content)
+    // -------------------------------------------------------------------------
+    Flickable {
+        id: scrollViewport
         anchors.top: questionHeader.bottom
         anchors.bottom: bottomActionBar.top
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 14
+        anchors.margins: Spacing.md
+        contentWidth: width
+        contentHeight: questionColumn.implicitHeight + Spacing.sm
+        clip: true
 
         EmptyState {
             anchors.centerIn: parent
@@ -106,41 +147,49 @@ Rectangle {
         }
 
         Column {
-            anchors.fill: parent
-            spacing: 12
+            id: questionColumn
+            width: parent.width
+            spacing: Spacing.md
             visible: assessmentController.isActive && assessmentController.questionText.length > 0
 
-            // Question Text (Flickable for long text)
-            Flickable {
+            // Academic Question Prompt Card
+            Rectangle {
                 width: parent.width
-                height: Math.min(100, questionContentText.implicitHeight + 10)
-                contentWidth: width
-                contentHeight: questionContentText.implicitHeight
-                clip: true
+                implicitHeight: questionTextItem.implicitHeight + Spacing.lg
+                radius: Metrics.radiusMedium
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
 
-                Text {
-                    id: questionContentText
-                    width: parent.width
-                    text: assessmentController.questionText
-                    color: Theme.textPrimary
-                    font.pixelSize: Theme.fontSizeHeading
-                    font.bold: true
-                    font.family: Theme.fontFamily
-                    wrapMode: Text.Wrap
+                Item {
+                    anchors.fill: parent
+                    anchors.margins: Spacing.md
+
+                    Text {
+                        id: questionTextItem
+                        anchors.fill: parent
+                        text: assessmentController.questionText
+                        color: Theme.deepInk
+                        font.pixelSize: Typography.question
+                        font.bold: true
+                        font.family: Typography.family
+                        wrapMode: Text.Wrap
+                        lineHeight: 1.25
+                    }
                 }
             }
 
-            // 2x2 MCQ Option Cards Grid (Takes the remaining vertical space comfortably)
+            // 2-Column Responsive MCQ Option Cards Grid
             Grid {
                 width: parent.width
                 columns: 2
-                spacing: 12
+                spacing: Spacing.md
 
                 Repeater {
                     model: assessmentController.options
 
                     delegate: QuestionOption {
-                        width: (parent.width - 12) / 2
+                        width: (parent.width - Spacing.md) / 2
                         optionKey: modelData.key
                         optionText: modelData.text
                         selected: modelData.selected
@@ -153,32 +202,34 @@ Rectangle {
         }
     }
 
-    // Bottom Action Bar
+    // -------------------------------------------------------------------------
+    // Bottom Action Bar (Fixed 52px Touch Navigation)
+    // -------------------------------------------------------------------------
     Rectangle {
         id: bottomActionBar
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 64
+        height: 52
         color: Theme.surface
-        border.color: Theme.divider
+        border.color: Theme.border
         border.width: 1
 
         Row {
             anchors.left: parent.left
-            anchors.leftMargin: 16
+            anchors.leftMargin: Spacing.md
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 12
+            spacing: Spacing.md
 
             SecondaryButton {
-                preferredHeight: 48
-                text: assessmentController.isMarkedForReview ? "Flagged for Review 🚩" : "Mark for Review"
-                borderColor: assessmentController.isMarkedForReview ? Theme.highlight : Theme.border
+                preferredHeight: 42
+                text: assessmentController.isMarkedForReview ? "Flagged 🚩" : "Mark for Review"
+                borderColor: assessmentController.isMarkedForReview ? Theme.gold : Theme.border
                 onClicked: assessmentController.toggleMarkReview()
             }
 
             SecondaryButton {
-                preferredHeight: 48
+                preferredHeight: 42
                 text: "Question Grid"
                 iconSource: Assets.library
                 onClicked: appController.navigate("question_nav")
@@ -187,19 +238,20 @@ Rectangle {
 
         Row {
             anchors.right: parent.right
-            anchors.rightMargin: 16
+            anchors.rightMargin: Spacing.md
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 12
+            spacing: Spacing.md
 
             SecondaryButton {
-                preferredHeight: 48
+                preferredHeight: 42
                 text: "← Previous"
                 enabled: assessmentController.questionIndex > 1
                 onClicked: assessmentController.previousQuestion()
             }
 
             PrimaryButton {
-                preferredHeight: 48
+                preferredHeight: 42
+                buttonColor: Theme.forest
                 text: assessmentController.questionIndex === assessmentController.totalQuestions ? "Submit Test →" : "Next →"
                 onClicked: {
                     if (assessmentController.questionIndex === assessmentController.totalQuestions) {

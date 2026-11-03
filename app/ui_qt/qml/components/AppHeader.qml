@@ -14,33 +14,33 @@ Rectangle {
     signal switchProfileClicked()
     signal backClicked()
 
-    height: Theme.headerHeight
+    height: Metrics.headerHeight
     color: "transparent"
 
     Row {
         anchors.left: parent.left
-        anchors.leftMargin: 16
+        anchors.leftMargin: Spacing.lg
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 12
+        spacing: Spacing.md
 
         // Back button if in nested screen
         IconButton {
             visible: root.showBack
-            buttonSize: 38
+            buttonSize: 36
             iconSource: Assets.arrow_back
             onClicked: root.backClicked()
         }
 
-        // Full identity area is a touchscreen profile control on Home.
+        // Learner identity control / Screen Title
         Row {
             id: identity
-            height: 48
+            height: 40
             Accessible.name: "Switch Profile"
             TapHandler {
                 enabled: root.allowProfileSwitch
                 onTapped: root.switchProfileClicked()
             }
-            spacing: 8
+            spacing: Spacing.sm
             anchors.verticalCenter: parent.verticalCenter
 
             Rectangle {
@@ -48,6 +48,8 @@ Rectangle {
                 height: 32
                 radius: 16
                 color: Theme.primaryLight
+                border.color: Theme.sage
+                border.width: 1
                 visible: root.profileText.length > 0 && !root.showBack
 
                 Image {
@@ -62,31 +64,31 @@ Rectangle {
             Column {
                 anchors.verticalCenter: parent.verticalCenter
                 Text {
-                    width: Math.min(implicitWidth, root.allowProfileSwitch ? 220 : 300)
+                    width: Math.min(implicitWidth, root.allowProfileSwitch ? 220 : 320)
                     elide: Text.ElideRight
                     text: root.title.length > 0 ? root.title : root.profileText + (root.allowProfileSwitch ? " ▾" : "")
-                    color: Theme.textPrimary
-                    font.pixelSize: root.title.length > 0 ? Theme.fontSizeHeading : Theme.fontSizeBody
+                    color: Theme.deepInk
+                    font.pixelSize: root.title.length > 0 ? Typography.sectionTitle : Typography.body
                     font.bold: true
-                    font.family: Theme.fontFamily
+                    font.family: Typography.family
                 }
                 Text {
                     visible: root.title.length > 0 && root.profileText.length > 0
                     text: root.profileText
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeCaption
-                    font.family: Theme.fontFamily
+                    color: Theme.mutedInk
+                    font.pixelSize: Typography.caption
+                    font.family: Typography.family
                 }
             }
         }
     }
 
-    // Right-aligned status indicators
+    // Right-aligned status indicators (Calm, non-flashy)
     Row {
         anchors.right: parent.right
-        anchors.rightMargin: 16
+        anchors.rightMargin: Spacing.lg
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 10
+        spacing: Spacing.sm
 
         StatusBadge {
             text: root.networkText

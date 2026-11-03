@@ -5,11 +5,11 @@ Rectangle {
     id: root
 
     property real progress: 0.0 // 0.0 to 1.0
-    property color barColor: Theme.primary
-    property color trackColor: Theme.border
+    property color barColor: Theme.forest
+    property color trackColor: Theme.borderLight
 
-    implicitHeight: 12
-    implicitWidth: 200
+    implicitHeight: 10
+    implicitWidth: 180
     radius: height / 2
     color: trackColor
     clip: true

@@ -30,6 +30,7 @@ class SettingsController(QObject):
         self.app.statusChanged.connect(self.wifiChanged.emit)
         self.app.statusChanged.connect(self.syncChanged.emit)
         self.app.statusChanged.connect(self.diagnosticsChanged.emit)
+        self.app.statusChanged.connect(self.accountChanged.emit)
         self.app.activeProfileChanged.connect(self.accountChanged.emit)
         self.app.activeProfileChanged.connect(self.instituteChanged.emit)
         self.app.activeProfileChanged.connect(self.storageChanged.emit)

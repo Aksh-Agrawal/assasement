@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130" width="180" height="130">
+  <!-- Radiating connection wave arches -->
+  <path d="M90 70 A30 30 0 0 1 140 70" fill="none" stroke="#A9C7CF" stroke-width="2" stroke-dasharray="3,3"/>
+  <path d="M85 70 A45 45 0 0 1 155 70" fill="none" stroke="#27685E" stroke-width="2" stroke-dasharray="4,4" opacity="0.7"/>
+
+  <!-- Raspberry Pi Study Buddy Device (Left) -->
+  <rect x="25" y="45" width="58" height="42" rx="6" fill="#FBF7EF" stroke="#23302D" stroke-width="2"/>
+  <rect x="30" y="50" width="48" height="32" rx="3" fill="#27685E"/>
+  <!-- Screen illustration -->
+  <rect x="34" y="54" width="30" height="4" rx="1" fill="#FBF7EF"/>
+  <rect x="34" y="62" width="22" height="4" rx="1" fill="#A9C4B1"/>
+  <circle cx="68" cy="74" r="4" fill="#D5A64A"/>
+
+  <!-- Cloud / Web Knowledge Hub (Right) -->
+  <path d="M125 65 A12 12 0 0 1 145 55 A16 16 0 0 1 168 65 A10 10 0 0 1 162 82 L125 82 A10 10 0 0 1 125 65 Z" fill="#FBF7EF" stroke="#23302D" stroke-width="2"/>
+  <!-- Keyhole icon inside cloud -->
+  <circle cx="145" cy="68" r="3" fill="#27685E"/>
+  <polygon points="144 69 146 69 147 74 143 74" fill="#27685E"/>
+</svg>

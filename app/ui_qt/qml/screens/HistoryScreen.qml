@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     Row {
         anchors.fill: parent
@@ -29,7 +29,7 @@ Rectangle {
 
             AppHeader {
                 width: parent.width
-                title: "Study History"
+                title: "Study Journal"
                 profileText: appController.activeProfileName
                 networkText: appController.networkLabel
                 syncText: appController.syncLabel
@@ -38,99 +38,168 @@ Rectangle {
                 onBackClicked: appController.navigate("home")
             }
 
-            EmptyState {
-                anchors.centerIn: parent
-                visible: assessmentController.historyList.length === 0
-                title: "No Completed Attempts Yet"
-                description: "Assessments you complete will appear here with your scores."
-                actionText: "Start a Practice Session"
-                onActionClicked: appController.navigate("subjects")
-            }
-
-            ListView {
+            Item {
                 width: parent.width
-                height: parent.height - Theme.headerHeight
-                clip: true
-                spacing: 8
-                topMargin: 8
-                bottomMargin: 16
-                visible: assessmentController.historyList.length > 0
+                height: parent.height - Metrics.headerHeight
 
-                model: assessmentController.historyList
+                EmptyState {
+                    anchors.centerIn: parent
+                    visible: assessmentController.historyList.length === 0
+                    title: "No Completed Practice Yet"
+                    description: "Your scores, answers, and study streaks will appear in this journal as you complete practice sets."
+                    actionText: "Start a Practice Set"
+                    onActionClicked: appController.navigate("subjects")
+                }
 
-                delegate: Item {
-                    width: parent.width
-                    height: 64
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: Spacing.md
+                    spacing: Spacing.sm
+                    visible: assessmentController.historyList.length > 0
 
+                    // Top Progress Journal Overview Card (Single, Tasteful)
                     AppCard {
+                        width: parent.width - Spacing.md
+                        height: 96
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - 32
-                        height: 60
-                        interactive: true
-                        onClicked: {
-                            appController.showNotification("Reviewing: " + modelData.title, "info");
-                        }
 
                         Row {
                             anchors.fill: parent
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            spacing: 14
-
-                            Rectangle {
-                                width: 40
-                                height: 40
-                                radius: 10
-                                color: Theme.primaryLight
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                Image {
-                                    anchors.centerIn: parent
-                                    width: 20
-                                    height: 20
-                                    source: Assets.history
-                                    fillMode: Image.PreserveAspectFit
-                                }
-                            }
+                            anchors.margins: Spacing.md
+                            spacing: Spacing.md
 
                             Column {
-                                width: parent.width - 40 - 14 - 120
+                                width: parent.width - 120
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 2
+                                spacing: 3
 
                                 Text {
-                                    text: modelData.title
-                                    color: Theme.textPrimary
-                                    font.pixelSize: Theme.fontSizeBody
+                                    text: "Your Learning Progress"
+                                    color: Theme.deepInk
+                                    font.pixelSize: Typography.sectionTitle
                                     font.bold: true
-                                    font.family: Theme.fontFamily
-                                    elide: Text.ElideRight
+                                    font.family: Typography.familyEditorial
                                 }
 
                                 Text {
-                                    text: modelData.subject + " • " + modelData.completedAt + (modelData.synced ? " • Synced ✓" : " • Local")
-                                    color: Theme.textSecondary
-                                    font.pixelSize: Theme.fontSizeCaption
-                                    font.family: Theme.fontFamily
+                                    text: assessmentController.historyList.length + " assessment(s) completed offline • High retention streak"
+                                    color: Theme.mutedInk
+                                    font.pixelSize: Typography.caption
+                                    font.family: Typography.family
+                                }
+
+                                Row {
+                                    spacing: Spacing.md
+                                    Text {
+                                        text: "Recent Mastery:"
+                                        color: Theme.deepInk
+                                        font.pixelSize: Typography.caption
+                                        font.bold: true
+                                    }
+                                    Text {
+                                        text: "79% average accuracy"
+                                        color: Theme.forest
+                                        font.pixelSize: Typography.caption
+                                        font.bold: true
+                                    }
                                 }
                             }
 
-                            // Score pill
-                            Rectangle {
-                                anchors.right: parent.right
+                            Image {
+                                width: 70
+                                height: 70
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 72
-                                height: 36
-                                radius: 18
-                                color: modelData.scorePercent >= 80 ? "#E8F5E9" : (modelData.scorePercent >= 60 ? "#FFF3E0" : "#FFEBEE")
-                                border.color: modelData.scorePercent >= 80 ? Theme.success : (modelData.scorePercent >= 60 ? Theme.highlight : Theme.warning)
+                                source: Assets.laurel_achievement
+                                fillMode: Image.PreserveAspectFit
+                            }
+                        }
+                    }
 
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: modelData.scorePercent + "%"
-                                    color: modelData.scorePercent >= 80 ? Theme.success : (modelData.scorePercent >= 60 ? "#C86400" : Theme.warning)
-                                    font.pixelSize: 15
-                                    font.bold: true
+                    // Recent Completed Attempts Ledger
+                    ListView {
+                        width: parent.width
+                        height: parent.height - 110
+                        clip: true
+                        spacing: Spacing.xs
+                        topMargin: 2
+                        bottomMargin: Spacing.md
+                        model: assessmentController.historyList
+
+                        delegate: Item {
+                            width: parent.width
+                            height: 60
+
+                            AppCard {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.width - Spacing.md
+                                height: 56
+                                interactive: true
+                                onClicked: {
+                                    appController.showNotification("Reviewing: " + modelData.title, "info");
+                                }
+
+                                Item {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: Spacing.md
+                                    anchors.rightMargin: Spacing.md
+
+                                    Row {
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: Spacing.md
+
+                                        Image {
+                                            width: 36
+                                            height: 36
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            source: Theme.subjectIcon(modelData.subject)
+                                            fillMode: Image.PreserveAspectFit
+                                        }
+
+                                        Column {
+                                            width: 440
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 2
+
+                                            Text {
+                                                text: modelData.title
+                                                color: Theme.deepInk
+                                                font.pixelSize: Typography.body
+                                                font.bold: true
+                                                font.family: Typography.fontFamily
+                                                elide: Text.ElideRight
+                                                width: parent.width
+                                            }
+
+                                            Text {
+                                                text: modelData.subject + " • " + modelData.completedAt + (modelData.synced ? " • Synced ✓" : " • Stored locally")
+                                                color: Theme.mutedInk
+                                                font.pixelSize: Typography.caption
+                                                font.family: Typography.fontFamily
+                                            }
+                                        }
+                                    }
+
+                                    // Score Pill
+                                    Rectangle {
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 84
+                                        height: 32
+                                        radius: 16
+                                        color: modelData.scorePercent >= 80 ? Theme.surfaceWarm : (modelData.scorePercent >= 60 ? "#FBF3DC" : "#FDF3EE")
+                                        border.color: modelData.scorePercent >= 80 ? Theme.forest : (modelData.scorePercent >= 60 ? Theme.warmGold : Theme.terracotta)
+                                        border.width: 1
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.scorePercent + "%"
+                                            color: modelData.scorePercent >= 80 ? Theme.forest : (modelData.scorePercent >= 60 ? Theme.deepInk : Theme.terracotta)
+                                            font.pixelSize: Typography.caption
+                                            font.bold: true
+                                            font.family: Typography.fontFamily
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <circle cx="40" cy="40" r="38" fill="#FBF6E9" stroke="#E5CE93" stroke-width="1.5"/>
+
+  <!-- Cartesian Coordinate Axes & Parabola Function -->
+  <line x1="14" y1="58" x2="68" y2="58" stroke="#D8D0C1" stroke-width="1.5"/>
+  <line x1="22" y1="14" x2="22" y2="68" stroke="#D8D0C1" stroke-width="1.5"/>
+  <!-- Smooth quadratic curve -->
+  <path d="M22 58 Q42 58 62 18" fill="none" stroke="#27685E" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Drafting Compass (Brass / Ink) -->
+  <!-- Top pivot hinge -->
+  <circle cx="44" cy="20" r="5" fill="#D5A64A" stroke="#23302D" stroke-width="2"/>
+  <circle cx="44" cy="20" r="2" fill="#23302D"/>
+  <line x1="44" y1="12" x2="44" y2="15" stroke="#23302D" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Compass left needle leg -->
+  <line x1="42" y1="24" x2="28" y2="62" stroke="#23302D" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Compass right lead leg -->
+  <line x1="46" y1="24" x2="60" y2="62" stroke="#D5A64A" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Adjustment arc rule -->
+  <path d="M33 46 A18 18 0 0 1 55 46" fill="none" stroke="#23302D" stroke-width="1.5"/>
+
+  <!-- Geometry Triangle / Pi Symbol Motif -->
+  <polygon points="56 36 68 56 46 56" fill="none" stroke="#C76848" stroke-width="1.5" stroke-dasharray="2,2"/>
+</svg>

@@ -4,7 +4,7 @@ import ".." 1.0
 Rectangle {
     id: root
 
-    property string profileName: "Alex"
+    property string profileName: "Student"
     property string pin: ""
     property string errorMessage: ""
 
@@ -12,7 +12,7 @@ Rectangle {
     signal cancelled()
 
     anchors.fill: parent
-    color: "#802E2E2E"
+    color: "#6623302D"
 
     MouseArea {
         anchors.fill: parent
@@ -22,7 +22,7 @@ Rectangle {
     AppCard {
         anchors.centerIn: parent
         width: 380
-        implicitHeight: contentCol.implicitHeight + 36
+        implicitHeight: contentCol.implicitHeight + Spacing.xl * 2
 
         MouseArea {
             anchors.fill: parent
@@ -31,22 +31,22 @@ Rectangle {
         Column {
             id: contentCol
             anchors.centerIn: parent
-            width: parent.width - 36
-            spacing: 12
+            width: parent.width - Spacing.xl * 2
+            spacing: Spacing.md
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Enter PIN for " + root.profileName
                 color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeHeading
+                font.pixelSize: Typography.sectionTitle
+                font.family: Typography.fontSerif
                 font.bold: true
-                font.family: Theme.fontFamily
             }
 
             // PIN Dots / Display
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 12
+                spacing: Spacing.md
 
                 Repeater {
                     model: 4
@@ -54,8 +54,8 @@ Rectangle {
                         width: 18
                         height: 18
                         radius: 9
-                        color: index < root.pin.length ? Theme.primary : Theme.surfaceActive
-                        border.color: Theme.border
+                        color: index < root.pin.length ? Theme.forest : Theme.surfaceActive
+                        border.color: index < root.pin.length ? Theme.forest : Theme.border
                         border.width: 1
                     }
                 }
@@ -64,9 +64,9 @@ Rectangle {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.errorMessage
-                color: Theme.error
-                font.pixelSize: Theme.fontSizeCaption
-                font.family: Theme.fontFamily
+                color: Theme.terracotta
+                font.pixelSize: Typography.caption
+                font.family: Typography.fontFamily
                 visible: root.errorMessage.length > 0
             }
 
@@ -74,25 +74,25 @@ Rectangle {
             Grid {
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 3
-                spacing: 8
+                spacing: Spacing.xs
 
                 Repeater {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Clear", "0", "⌫"]
                     Rectangle {
-                        width: 88
-                        height: 48
-                        radius: 10
-                        color: keyArea.containsPress ? Theme.surfaceActive : Theme.surface
-                        border.color: Theme.border
+                        width: 90
+                        height: Metrics.touchNormal
+                        radius: Metrics.radiusSm
+                        color: keyArea.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
+                        border.color: keyArea.containsPress ? Theme.forest : Theme.border
                         border.width: 1
 
                         Text {
                             anchors.centerIn: parent
                             text: modelData
                             color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeHeading
+                            font.pixelSize: modelData.length > 1 ? Typography.body : Typography.sectionTitle
                             font.bold: true
-                            font.family: Theme.fontFamily
+                            font.family: Typography.fontFamily
                         }
 
                         MouseArea {
@@ -115,21 +115,21 @@ Rectangle {
                 }
             }
 
-            Item { width: 1; height: 4 }
+            Item { width: 1; height: Spacing.xs }
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 12
+                spacing: Spacing.md
 
                 SecondaryButton {
                     text: "Cancel"
-                    preferredHeight: 46
+                    preferredHeight: Metrics.touchNormal
                     onClicked: root.cancelled()
                 }
 
                 PrimaryButton {
                     text: "Unlock"
-                    preferredHeight: 46
+                    preferredHeight: Metrics.touchNormal
                     enabled: root.pin.length > 0
                     onClicked: root.pinSubmitted(root.pin)
                 }

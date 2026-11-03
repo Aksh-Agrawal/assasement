@@ -12,7 +12,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "System Diagnostics"
+        title: "Device Diagnostics & Health"
         networkText: appController.networkLabel
         syncText: appController.syncLabel
         isOnline: appController.isOnline
@@ -25,31 +25,33 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 14
+        anchors.margins: Spacing.md
 
         Row {
             anchors.fill: parent
-            spacing: 14
+            spacing: Spacing.md
 
             // Overall Summary Card
             AppCard {
-                width: 260
+                width: 270
                 height: parent.height
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 18
-                    spacing: 12
+                    anchors.margins: Spacing.lg
+                    spacing: Spacing.sm
 
                     Rectangle {
-                        width: 48; height: 48; radius: 24
-                        color: appController.isOnline ? "#E8F5E9" : "#FFF3E0"
+                        width: 44; height: 44; radius: 22
+                        color: appController.isOnline ? Theme.surfaceWarm : "#FDF3EE"
+                        border.color: appController.isOnline ? Theme.forest : Theme.terracotta
+                        border.width: 1
                         anchors.horizontalCenter: parent.horizontalCenter
                         Text {
                             anchors.centerIn: parent
                             text: appController.isOnline ? "✓" : "!"
-                            color: appController.isOnline ? Theme.success : Theme.highlight
-                            font.pixelSize: 26
+                            color: appController.isOnline ? Theme.forest : Theme.terracotta
+                            font.pixelSize: 22
                             font.bold: true
                         }
                     }
@@ -58,26 +60,28 @@ Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: settingsController.overallHealth
                         color: Theme.textPrimary
-                        font.pixelSize: Theme.fontSizeHeading
+                        font.pixelSize: Typography.sectionTitle
+                        font.family: Typography.fontSerif
                         font.bold: true
-                        font.family: Theme.fontFamily
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Hardware, storage, database, internet, and cloud connectivity diagnostics."
+                        text: "Hardware, storage, SQLite assessment database, network connectivity, and cloud sync checks."
                         color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.fontFamily
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.Wrap
                         width: parent.width
+                        lineHeight: 1.25
                     }
 
-                    Item { width: 1; height: 10 }
+                    Item { width: 1; height: Spacing.xs }
 
                     PrimaryButton {
                         width: parent.width
-                        preferredHeight: Theme.touchNormal
+                        preferredHeight: Metrics.touchNormal
                         text: "Run Diagnostics"
                         iconSource: Assets.diagnostics
                         onClicked: settingsController.runDiagnostics()
@@ -85,8 +89,8 @@ Rectangle {
 
                     SecondaryButton {
                         width: parent.width
-                        preferredHeight: Theme.touchNormal
-                        text: "Export Bundle"
+                        preferredHeight: Metrics.touchNormal
+                        text: "Export Support Bundle"
                         iconSource: Assets.download
                         onClicked: settingsController.exportSupportBundle()
                     }
@@ -95,39 +99,54 @@ Rectangle {
 
             // Diagnostic Section Breakdown
             AppCard {
-                width: parent.width - 260 - 14
+                width: parent.width - 270 - Spacing.md
                 height: parent.height
 
                 ListView {
                     anchors.fill: parent
-                    anchors.margins: 14
+                    anchors.margins: Spacing.md
                     clip: true
-                    spacing: 8
+                    spacing: Spacing.xs
 
                     model: settingsController.diagnosticItems
 
                     delegate: Rectangle {
                         width: parent.width
                         height: 52
-                        radius: 8
+                        radius: Metrics.radiusSm
                         color: Theme.surfaceActive
                         border.color: Theme.border
                         border.width: 1
 
-                        Row {
+                        Item {
                             anchors.fill: parent
-                            anchors.margins: 12
-                            spacing: 12
+                            anchors.margins: Spacing.sm
 
                             Column {
-                                width: parent.width - 130
+                                anchors.left: parent.left
+                                anchors.right: statusBadge.left
+                                anchors.rightMargin: Spacing.sm
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 2
-                                Text { text: modelData.name; font.bold: true; font.pixelSize: 14; color: Theme.textPrimary }
-                                Text { text: modelData.detail; font.pixelSize: 11; color: Theme.textSecondary; elide: Text.ElideRight; width: parent.width }
+                                Text {
+                                    text: modelData.name
+                                    font.bold: true
+                                    font.pixelSize: Typography.metadata
+                                    font.family: Typography.fontFamily
+                                    color: Theme.textPrimary
+                                }
+                                Text {
+                                    text: modelData.detail
+                                    font.pixelSize: Typography.caption
+                                    font.family: Typography.fontFamily
+                                    color: Theme.textSecondary
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
                             }
 
                             StatusBadge {
+                                id: statusBadge
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.status

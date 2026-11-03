@@ -14,27 +14,29 @@ Item {
     AppCard {
         anchors.centerIn: parent
         width: Math.min(parent.width - 40, 460)
-        implicitHeight: contentCol.implicitHeight + 40
+        implicitHeight: contentCol.implicitHeight + Spacing.xl * 2
 
         Column {
             id: contentCol
             anchors.centerIn: parent
-            width: parent.width - 40
-            spacing: 12
+            width: parent.width - Spacing.xl * 2
+            spacing: Spacing.md
 
             Rectangle {
-                width: 48
-                height: 48
-                radius: 24
-                color: "#FFEBEE"
+                width: 52
+                height: 52
+                radius: 26
+                color: Theme.surfaceActive
+                border.color: Theme.border
+                border.width: 1
                 anchors.horizontalCenter: parent.horizontalCenter
 
-                Text {
+                Image {
                     anchors.centerIn: parent
-                    text: "!"
-                    color: Theme.error
-                    font.pixelSize: 24
-                    font.bold: true
+                    width: 32
+                    height: 32
+                    source: Assets.recovery_guide
+                    fillMode: Image.PreserveAspectFit
                 }
             }
 
@@ -42,9 +44,9 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.message
                 color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeHeading
+                font.pixelSize: Typography.sectionTitle
+                font.family: Typography.fontSerif
                 font.bold: true
-                font.family: Theme.fontFamily
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 width: parent.width
@@ -52,18 +54,19 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Your data is safe." + (root.errorCode.length > 0 ? " (" + root.errorCode + ")" : "")
+                text: "Your learning data is safe." + (root.errorCode.length > 0 ? " (" + root.errorCode + ")" : "")
                 color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSecondary
-                font.family: Theme.fontFamily
+                font.pixelSize: Typography.metadata
+                font.family: Typography.fontFamily
             }
 
-            Item { width: 1; height: 8 }
+            Item { width: 1; height: Spacing.xs }
 
             PrimaryButton {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.retryText
-                buttonColor: Theme.primary
+                buttonColor: Theme.forest
+                preferredHeight: Metrics.touchNormal
                 onClicked: root.retryClicked()
             }
         }

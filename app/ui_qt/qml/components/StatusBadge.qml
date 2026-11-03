@@ -8,28 +8,28 @@ Rectangle {
     property string statusType: "neutral" // "online", "offline", "syncing", "success", "warning", "neutral"
     property string symbol: ""
 
-    implicitHeight: 28
-    implicitWidth: badgeRow.implicitWidth + 20
-    radius: Theme.pillRadius
+    implicitHeight: 26
+    implicitWidth: badgeRow.implicitWidth + 18
+    radius: Metrics.radiusPill
 
     color: {
         switch (statusType) {
             case "online":
-            case "success": return "#E8F5E9"
-            case "syncing": return "#E0F2F1"
-            case "warning": return "#FFF3E0"
+            case "success": return Theme.surfaceSelected
+            case "syncing": return Theme.primaryLight
+            case "warning": return Theme.terracottaLight
             case "offline":
-            case "error": return "#FFEBEE"
-            default: return "#F5F5F5"
+            case "error": return "#FBEAE7"
+            default: return Theme.surfaceActive
         }
     }
 
     border.color: {
         switch (statusType) {
             case "online":
-            case "success": return Theme.success
-            case "syncing": return Theme.primary
-            case "warning": return Theme.highlight
+            case "success": return Theme.sage
+            case "syncing": return Theme.forest
+            case "warning": return Theme.terracotta
             case "offline":
             case "error": return Theme.warning
             default: return Theme.border
@@ -40,7 +40,7 @@ Rectangle {
     Row {
         id: badgeRow
         anchors.centerIn: parent
-        spacing: 6
+        spacing: 5
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
@@ -56,16 +56,16 @@ Rectangle {
                     default: return "•"
                 }
             }
-            font.pixelSize: 12
+            font.pixelSize: 11
             color: {
                 switch (root.statusType) {
                     case "online":
-                    case "success": return Theme.success
-                    case "syncing": return Theme.primary
-                    case "warning": return "#C86400"
+                    case "success": return Theme.forest
+                    case "syncing": return Theme.forest
+                    case "warning": return Theme.terracotta
                     case "offline":
                     case "error": return Theme.warning
-                    default: return Theme.textSecondary
+                    default: return Theme.mutedInk
                 }
             }
             font.bold: true
@@ -74,10 +74,10 @@ Rectangle {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: root.text
-            color: Theme.textPrimary
-            font.pixelSize: Theme.fontSizeCaption
+            color: Theme.deepInk
+            font.pixelSize: Typography.caption
             font.bold: true
-            font.family: Theme.fontFamily
+            font.family: Typography.family
         }
     }
 }

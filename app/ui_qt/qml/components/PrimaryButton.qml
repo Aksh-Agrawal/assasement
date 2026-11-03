@@ -6,17 +6,19 @@ Rectangle {
 
     property string text: ""
     property url iconSource: ""
-    property int preferredHeight: Theme.touchNormal
-    property color buttonColor: Theme.primary
+    property int preferredHeight: Metrics.touchNormal
+    property color buttonColor: Theme.forest
     property color pressedColor: Theme.primaryDark
     property color textColor: Theme.textOnPrimary
 
     signal clicked()
 
-    implicitHeight: preferredHeight
+    implicitHeight: Math.max(Metrics.touchMin, preferredHeight)
     implicitWidth: Math.max(140, contentRow.implicitWidth + 36)
-    radius: Theme.buttonRadius
-    color: !enabled ? Theme.border : (mouseArea.containsPress ? pressedColor : buttonColor)
+    radius: Metrics.radiusMedium
+    color: !enabled ? Theme.borderLight : (mouseArea.containsPress ? pressedColor : buttonColor)
+    border.color: !enabled ? Theme.border : (mouseArea.containsPress ? Theme.primaryDark : Theme.forest)
+    border.width: 1
     opacity: enabled ? 1.0 : 0.65
 
     Behavior on color {
@@ -26,12 +28,13 @@ Rectangle {
     Row {
         id: contentRow
         anchors.centerIn: parent
-        spacing: 10
+        anchors.verticalCenterOffset: mouseArea.containsPress ? 1 : 0
+        spacing: Spacing.sm
 
         Image {
             id: iconImage
-            width: 22
-            height: 22
+            width: 20
+            height: 20
             anchors.verticalCenter: parent.verticalCenter
             visible: root.iconSource.toString().length > 0
             source: root.iconSource
@@ -44,9 +47,9 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             text: root.text
             color: root.textColor
-            font.pixelSize: Theme.fontSizeBody
+            font.pixelSize: Typography.body
             font.bold: true
-            font.family: Theme.fontFamily
+            font.family: Typography.family
         }
     }
 
@@ -65,7 +68,7 @@ Rectangle {
         radius: root.radius + 3
         color: "transparent"
         border.color: Theme.borderFocus
-        border.width: 2
+        border.width: Metrics.borderFocus
         visible: root.activeFocus
     }
 }

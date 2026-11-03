@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     Row {
         anchors.fill: parent
@@ -29,7 +29,7 @@ Rectangle {
 
             AppHeader {
                 width: parent.width
-                title: "Choose a Subject"
+                title: "Practice Library"
                 profileText: appController.activeProfileName
                 networkText: appController.networkLabel
                 syncText: appController.syncLabel
@@ -40,7 +40,7 @@ Rectangle {
 
             Item {
                 width: parent.width
-                height: parent.height - Theme.headerHeight
+                height: parent.height - Metrics.headerHeight
 
                 EmptyState {
                     anchors.centerIn: parent
@@ -51,84 +51,112 @@ Rectangle {
                     onActionClicked: appController.navigate("home")
                 }
 
-                Grid {
-                    anchors.centerIn: parent
-                    columns: 2
-                    spacing: 16
+                // Illustrated Subject Bookshelf List
+                ListView {
+                    width: parent.width
+                    height: parent.height
+                    anchors.margins: Spacing.md
+                    clip: true
+                    spacing: Spacing.sm
+                    topMargin: Spacing.xs
+                    bottomMargin: Spacing.md
                     visible: libraryController.subjects.length > 0
+                    model: libraryController.subjects
 
-                    Repeater {
-                        model: libraryController.subjects
+                    delegate: Item {
+                        width: parent.width
+                        height: 76
 
-                        delegate: AppCard {
-                            width: 320
-                            height: 140
+                        AppCard {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width - Spacing.xl
+                            height: 70
                             interactive: true
                             onClicked: libraryController.selectSubject(modelData)
 
-                            Row {
+                            Item {
                                 anchors.fill: parent
-                                anchors.margins: 16
-                                spacing: 16
+                                anchors.leftMargin: Spacing.md
+                                anchors.rightMargin: Spacing.lg
 
-                                Rectangle {
-                                    width: 60
-                                    height: 60
-                                    radius: 16
-                                    color: {
-                                        if (modelData === "Mathematics") return "#E0F2F1";
-                                        if (modelData === "Science") return "#FFEBEE";
-                                        if (modelData === "English") return "#FFF3E0";
-                                        return Theme.primaryLight;
-                                    }
+                                Row {
+                                    anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: Spacing.md
 
+                                    // Subject Art Medallion
                                     Image {
-                                        anchors.centerIn: parent
-                                        width: 32
-                                        height: 32
-                                        source: {
-                                            if (modelData === "Mathematics") return Assets.calculator;
-                                            if (modelData === "Science") return Assets.flask;
-                                            return Assets.library;
-                                        }
+                                        width: 48
+                                        height: 48
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        source: Theme.subjectIcon(modelData)
                                         fillMode: Image.PreserveAspectFit
                                     }
-                                }
 
-                                Column {
-                                    width: parent.width - 60 - 16 - 24
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 4
+                                    // Subject Title & Curated Topic List
+                                    Column {
+                                        width: 420
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 3
 
-                                    Text {
-                                        text: modelData
-                                        color: Theme.textPrimary
-                                        font.pixelSize: Theme.fontSizeHeading
-                                        font.bold: true
-                                        font.family: Theme.fontFamily
-                                    }
-
-                                    Text {
-                                        text: {
-                                            if (modelData === "Mathematics") return "Numbers, shapes & operations";
-                                            if (modelData === "Science") return "Living world, materials & forces";
-                                            if (modelData === "English") return "Grammar, comprehension & vocabulary";
-                                            return "General learning topics";
+                                        Text {
+                                            text: modelData
+                                            color: Theme.deepInk
+                                            font.pixelSize: Typography.sectionTitle
+                                            font.bold: true
+                                            font.family: Typography.fontFamily
                                         }
-                                        color: Theme.textSecondary
-                                        font.pixelSize: Theme.fontSizeCaption
-                                        font.family: Theme.fontFamily
-                                        wrapMode: Text.Wrap
-                                        width: parent.width
+
+                                        Text {
+                                            text: {
+                                                var s = modelData.toLowerCase();
+                                                if (s.indexOf("bio") !== -1) return "Cells • Genetics • Physiology • Plant Systems";
+                                                if (s.indexOf("chem") !== -1) return "Atoms • Chemical Bonding • Organic Reactions";
+                                                if (s.indexOf("math") !== -1) return "Numbers • Algebra • Geometry • Functions";
+                                                if (s.indexOf("sci") !== -1) return "Forces & Energy • Electricity • Living World";
+                                                if (s.indexOf("eng") !== -1) return "Comprehension • Grammar & Vocabulary";
+                                                return "Curriculum practice & assessment sets";
+                                            }
+                                            color: Theme.mutedInk
+                                            font.pixelSize: Typography.metadata
+                                            font.family: Typography.fontFamily
+                                            elide: Text.ElideRight
+                                            width: parent.width
+                                        }
                                     }
                                 }
 
-                                Image {
+                                // Action Arrow Pill
+                                Rectangle {
+                                    anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: 20
-                                    height: 20
-                                    source: Assets.chevron_right
+                                    height: 34
+                                    width: actionLabel.implicitWidth + 24
+                                    radius: 17
+                                    color: Theme.surfaceActive
+                                    border.color: Theme.border
+                                    border.width: 1
+
+                                    Row {
+                                        anchors.centerIn: parent
+                                        spacing: 4
+
+                                        Text {
+                                            id: actionLabel
+                                            text: "Explore"
+                                            color: Theme.deepInk
+                                            font.pixelSize: Typography.caption
+                                            font.bold: true
+                                            font.family: Typography.fontFamily
+                                        }
+
+                                        Text {
+                                            text: "→"
+                                            color: Theme.subjectAccent(modelData)
+                                            font.pixelSize: Typography.caption
+                                            font.bold: true
+                                        }
+                                    }
                                 }
                             }
                         }

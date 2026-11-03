@@ -29,7 +29,7 @@ Rectangle {
 
             AppHeader {
                 width: parent.width
-                title: "Practice & Downloads"
+                title: "Practice Downloads"
                 profileText: appController.activeProfileName
                 networkText: appController.networkLabel
                 syncText: appController.syncLabel
@@ -40,45 +40,59 @@ Rectangle {
 
             Item {
                 width: parent.width
-                height: parent.height - Theme.headerHeight
+                height: parent.height - Metrics.headerHeight
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 12
+                    anchors.margins: Spacing.md
+                    spacing: Spacing.sm
 
                     // Storage summary card
                     AppCard {
                         width: parent.width
-                        height: 74
+                        height: 68
 
-                        Row {
+                        Item {
                             anchors.fill: parent
-                            anchors.margins: 14
-                            spacing: 16
+                            anchors.margins: Spacing.md
 
-                            Rectangle {
-                                width: 44; height: 44; radius: 12
-                                color: Theme.primaryLight
-                                Image { anchors.centerIn: parent; width: 24; height: 24; source: Assets.download }
-                            }
-
-                            Column {
-                                width: parent.width - 44 - 16 - 220
+                            Row {
+                                anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
+                                spacing: Spacing.md
 
-                                Text {
-                                    text: "Raspberry Pi Local Storage"
-                                    color: Theme.textPrimary
-                                    font.pixelSize: 15
-                                    font.bold: true
+                                Rectangle {
+                                    width: 38; height: 38; radius: Metrics.radiusSm
+                                    color: Theme.surfaceActive
+                                    border.color: Theme.border
+                                    border.width: 1
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Image {
+                                        anchors.centerIn: parent
+                                        width: 20; height: 20
+                                        source: Assets.download
+                                        fillMode: Image.PreserveAspectFit
+                                    }
                                 }
 
-                                Text {
-                                    text: settingsController.storageUsedGb + " GB used of " + settingsController.storageTotalGb + " GB total"
-                                    color: Theme.textSecondary
-                                    font.pixelSize: 13
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Raspberry Pi Local Storage"
+                                        color: Theme.textPrimary
+                                        font.pixelSize: Typography.body
+                                        font.family: Typography.fontFamily
+                                        font.bold: true
+                                    }
+
+                                    Text {
+                                        text: settingsController.storageUsedGb + " GB used of " + settingsController.storageTotalGb + " GB storage"
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Typography.caption
+                                        font.family: Typography.fontFamily
+                                    }
                                 }
                             }
 
@@ -86,7 +100,7 @@ Rectangle {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 180
-                                height: 12
+                                height: 10
                                 progress: settingsController.storagePercent / 100.0
                             }
                         }
@@ -96,9 +110,9 @@ Rectangle {
                     Text {
                         text: "Downloaded Assessment Packs"
                         color: Theme.textPrimary
-                        font.pixelSize: Theme.fontSizeHeading
+                        font.pixelSize: Typography.sectionTitle
+                        font.family: Typography.fontSerif
                         font.bold: true
-                        font.family: Theme.fontFamily
                     }
 
                     // Installed packs list
@@ -113,43 +127,69 @@ Rectangle {
 
                     ListView {
                         width: parent.width
-                        height: parent.height - 74 - 40 - 24
+                        height: parent.height - 68 - 32 - Spacing.sm * 2
                         clip: true
-                        spacing: 8
+                        spacing: Spacing.xs
                         visible: settingsController.installedPacks.length > 0
                         model: settingsController.installedPacks
 
                         delegate: AppCard {
                             width: parent.width
-                            height: 60
+                            height: 56
                             interactive: true
                             onClicked: {
                                 libraryController.selectPack(modelData.id, modelData.version);
                             }
 
-                            Row {
+                            Item {
                                 anchors.fill: parent
-                                anchors.margins: 12
-                                spacing: 12
+                                anchors.margins: Spacing.sm
 
-                                Rectangle {
-                                    width: 36; height: 36; radius: 8
-                                    color: Theme.surfaceActive
-                                    Image { anchors.centerIn: parent; width: 20; height: 20; source: Assets.practice }
-                                }
-
-                                Column {
+                                Row {
+                                    anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - 36 - 12 - 160
-                                    spacing: 2
-                                    Text { text: modelData.title; font.bold: true; font.pixelSize: 15; color: Theme.textPrimary; elide: Text.ElideRight }
-                                    Text { text: modelData.subject + " • " + modelData.questionCount + " questions"; font.pixelSize: 12; color: Theme.textSecondary }
+                                    spacing: Spacing.sm
+
+                                    Rectangle {
+                                        width: 36; height: 36; radius: Metrics.radiusSm
+                                        color: Theme.surfaceWarm
+                                        border.color: Theme.border
+                                        border.width: 1
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        Image {
+                                            anchors.centerIn: parent
+                                            width: 22; height: 22
+                                            source: Theme.subjectIcon(modelData.subject)
+                                            fillMode: Image.PreserveAspectFit
+                                        }
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 440
+                                        spacing: 2
+                                        Text {
+                                            text: modelData.title
+                                            font.bold: true
+                                            font.pixelSize: Typography.body
+                                            font.family: Typography.fontFamily
+                                            color: Theme.textPrimary
+                                            elide: Text.ElideRight
+                                            width: parent.width
+                                        }
+                                        Text {
+                                            text: modelData.subject + " • " + modelData.questionCount + " questions"
+                                            font.pixelSize: Typography.caption
+                                            font.family: Typography.fontFamily
+                                            color: Theme.textSecondary
+                                        }
+                                    }
                                 }
 
                                 StatusBadge {
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "Ready on this device"
+                                    text: "Ready on Pi"
                                     statusType: "success"
                                 }
                             }

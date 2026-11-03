@@ -40,13 +40,13 @@ Rectangle {
 
             Item {
                 width: parent.width
-                height: parent.height - Theme.headerHeight
+                height: parent.height - Metrics.headerHeight
 
                 EmptyState {
                     anchors.centerIn: parent
-                    title: "No School Assignments"
-                    description: "When your school or tutor assigns homework packs, they will appear here."
-                    actionText: "Browse Study Library"
+                    title: "No Assigned Homework"
+                    description: "When your school, tutor, or learning center assigns practice packs, they will appear in this folder."
+                    actionText: "Explore Practice Library"
                     onActionClicked: appController.navigate("subjects")
                 }
             }

@@ -22,71 +22,71 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 16
+        anchors.margins: Spacing.md
 
         Row {
             anchors.fill: parent
-            spacing: 16
+            spacing: Spacing.md
 
             // LEFT SUMMARY PANEL
             AppCard {
-                width: 260
+                width: 250
                 height: parent.height
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 20
-                    spacing: 14
+                    anchors.margins: Spacing.lg
+                    spacing: Spacing.sm
 
                     Text {
-                        text: "Progress Summary"
+                        text: "Progress Ledger"
                         color: Theme.textPrimary
-                        font.pixelSize: Theme.fontSizeHeading
+                        font.pixelSize: Typography.sectionTitle
+                        font.family: Typography.fontSerif
                         font.bold: true
-                        font.family: Theme.fontFamily
                     }
 
                     Column {
                         width: parent.width
-                        spacing: 10
+                        spacing: Spacing.sm
 
                         // Answered
                         Row {
-                            spacing: 10
-                            Rectangle { width: 14; height: 14; radius: 7; color: Theme.success; anchors.verticalCenter: parent.verticalCenter }
-                            Text { text: "✓ Answered:"; color: Theme.textSecondary; font.pixelSize: 15 }
-                            Text { text: assessmentController.answeredCount + ""; font.bold: true; color: Theme.textPrimary; font.pixelSize: 15 }
+                            spacing: Spacing.sm
+                            Rectangle { width: 12; height: 12; radius: 6; color: Theme.forest; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: "Completed:"; color: Theme.textSecondary; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily }
+                            Text { text: assessmentController.answeredCount + ""; font.bold: true; color: Theme.forest; font.pixelSize: Typography.metadata }
                         }
 
                         // Unanswered
                         Row {
-                            spacing: 10
-                            Rectangle { width: 14; height: 14; radius: 7; color: Theme.border; anchors.verticalCenter: parent.verticalCenter }
-                            Text { text: "○ Unanswered:"; color: Theme.textSecondary; font.pixelSize: 15 }
-                            Text { text: assessmentController.unansweredCount + ""; font.bold: true; color: Theme.textPrimary; font.pixelSize: 15 }
+                            spacing: Spacing.sm
+                            Rectangle { width: 12; height: 12; radius: 6; color: Theme.border; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: "Unanswered:"; color: Theme.textSecondary; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily }
+                            Text { text: assessmentController.unansweredCount + ""; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.metadata }
                         }
 
                         // Flagged
                         Row {
-                            spacing: 10
-                            Rectangle { width: 14; height: 14; radius: 3; color: Theme.highlight; anchors.verticalCenter: parent.verticalCenter }
-                            Text { text: "🚩 For Review:"; color: Theme.textSecondary; font.pixelSize: 15 }
-                            Text { text: assessmentController.markedCount + ""; font.bold: true; color: Theme.textPrimary; font.pixelSize: 15 }
+                            spacing: Spacing.sm
+                            Rectangle { width: 12; height: 12; radius: 3; color: Theme.terracotta; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: "Flagged:"; color: Theme.textSecondary; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily }
+                            Text { text: assessmentController.markedCount + ""; font.bold: true; color: Theme.terracotta; font.pixelSize: Typography.metadata }
                         }
                     }
 
-                    Item { width: 1; height: 10 }
+                    Item { width: 1; height: Spacing.xs }
 
                     PrimaryButton {
                         width: parent.width
-                        preferredHeight: Theme.touchNormal
+                        preferredHeight: Metrics.touchNormal
                         text: "Submit Assessment"
                         onClicked: appController.navigate("submit_confirm")
                     }
 
                     SecondaryButton {
                         width: parent.width
-                        preferredHeight: Theme.touchNormal
+                        preferredHeight: Metrics.touchNormal
                         text: "Back to Question"
                         onClicked: appController.navigate("question")
                     }
@@ -95,49 +95,48 @@ Rectangle {
 
             // RIGHT QUESTION GRID
             AppCard {
-                width: parent.width - 260 - 16
+                width: parent.width - 250 - Spacing.md
                 height: parent.height
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 20
-                    spacing: 14
+                    anchors.margins: Spacing.lg
+                    spacing: Spacing.sm
 
                     Text {
-                        text: "Tap any question to jump to it"
+                        text: "Select a question to jump to it"
                         color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
-                        font.bold: true
-                        font.family: Theme.fontFamily
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.fontFamily
                     }
 
                     Grid {
                         width: parent.width
                         columns: 5
-                        spacing: 12
+                        spacing: Spacing.sm
 
                         Repeater {
                             model: assessmentController.navigatorList
 
                             delegate: Rectangle {
-                                width: (parent.width - 48) / 5
-                                height: 52
-                                radius: 10
+                                width: (parent.width - Spacing.sm * 4) / 5
+                                height: 50
+                                radius: Metrics.radiusSm
 
                                 // Color & border based on status
                                 color: {
-                                    if (modelData.status === "flagged") return "#FFF3E0";
-                                    if (modelData.status === "answered") return Theme.primaryLight;
-                                    return Theme.surfaceActive;
+                                    if (modelData.status === "flagged") return "#FDF3EE"; // subtle warm terracotta wash
+                                    if (modelData.status === "answered") return Theme.surfaceWarm;
+                                    return Theme.surface;
                                 }
 
                                 border.color: {
-                                    if (modelData.isCurrent) return Theme.primaryDark;
-                                    if (modelData.status === "flagged") return Theme.highlight;
-                                    if (modelData.status === "answered") return Theme.primary;
+                                    if (modelData.isCurrent) return Theme.forest;
+                                    if (modelData.status === "flagged") return Theme.terracotta;
+                                    if (modelData.status === "answered") return Theme.softSage;
                                     return Theme.border;
                                 }
-                                border.width: modelData.isCurrent ? 3 : 1
+                                border.width: modelData.isCurrent ? 2 : 1
 
                                 Row {
                                     anchors.centerIn: parent
@@ -146,9 +145,10 @@ Rectangle {
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
                                         text: modelData.index + ""
-                                        font.pixelSize: Theme.fontSizeHeading
+                                        font.pixelSize: Typography.sectionTitle
+                                        font.family: Typography.fontSerif
                                         font.bold: true
-                                        color: modelData.status === "answered" ? Theme.primaryDark : Theme.textPrimary
+                                        color: modelData.isCurrent ? Theme.forest : (modelData.status === "answered" ? Theme.forest : Theme.textPrimary)
                                     }
 
                                     Text {

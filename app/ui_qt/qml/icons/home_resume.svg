@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140" width="160" height="140">
+  <!-- Subtle warm badge backing -->
+  <rect x="10" y="10" width="140" height="120" rx="18" fill="#F4EDE0" stroke="#D8D0C1" stroke-width="1.5"/>
+  <rect x="16" y="16" width="128" height="108" rx="14" fill="#FBF7EF"/>
+
+  <!-- Botanical branch curving behind book -->
+  <path d="M35 110 Q45 60 75 35" fill="none" stroke="#27685E" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M48 75 Q60 65 65 72 Q55 82 48 75" fill="#A9C4B1" stroke="#23302D" stroke-width="1"/>
+  <path d="M58 55 Q72 45 78 52 Q68 62 58 55" fill="#A9C4B1" stroke="#23302D" stroke-width="1"/>
+  <path d="M70 38 Q84 28 90 35 Q80 45 70 38" fill="#27685E" stroke="#23302D" stroke-width="1"/>
+
+  <!-- Thick Bound Textbook -->
+  <rect x="52" y="42" width="68" height="74" rx="4" fill="#27685E" stroke="#23302D" stroke-width="2"/>
+  <path d="M52 42 L60 36 L128 36 L120 42 Z" fill="#1F554D" stroke="#23302D" stroke-width="1.5"/>
+  <path d="M120 42 L128 36 L128 110 L120 116 Z" fill="#E8DEC9" stroke="#23302D" stroke-width="1.5"/>
+
+  <!-- Gold Embossed Crest on cover -->
+  <circle cx="86" cy="74" r="14" fill="#FBF7EF" stroke="#D5A64A" stroke-width="1.5"/>
+  <polygon points="86 64 90 71 98 71 92 76 94 83 86 79 78 83 80 76 74 71 82 71" fill="#D5A64A"/>
+
+  <!-- Bookmark Ribbon hanging out -->
+  <path d="M82 116 L82 128 L86 124 L90 128 L90 116 Z" fill="#C76848" stroke="#23302D" stroke-width="1"/>
+</svg>

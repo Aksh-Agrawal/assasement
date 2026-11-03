@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <circle cx="40" cy="40" r="38" fill="#F6F3ED" stroke="#D8D0C1" stroke-width="1.5"/>
+
+  <!-- Open hardback book -->
+  <path d="M40 58 C30 55 18 50 14 42 L14 24 C20 30 32 34 40 36 Z" fill="#FBF7EF" stroke="#23302D" stroke-width="1.8"/>
+  <path d="M40 58 C50 55 62 50 66 42 L66 24 C60 30 48 34 40 36 Z" fill="#FBF7EF" stroke="#23302D" stroke-width="1.8"/>
+  <line x1="40" y1="36" x2="40" y2="58" stroke="#23302D" stroke-width="2"/>
+
+  <!-- Quill Pen in deep forest ink -->
+  <path d="M52 14 C48 24 38 42 36 50 L40 51 C42 43 54 26 56 16 Z" fill="#27685E" stroke="#23302D" stroke-width="1.2"/>
+  <!-- Feather vane details -->
+  <line x1="50" y1="22" x2="58" y2="24" stroke="#A9C4B1" stroke-width="1"/>
+  <line x1="46" y1="30" x2="54" y2="32" stroke="#A9C4B1" stroke-width="1"/>
+
+  <!-- Ink droplet -->
+  <circle cx="35" cy="54" r="2" fill="#23302D"/>
+</svg>

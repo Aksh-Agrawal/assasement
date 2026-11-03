@@ -5,7 +5,7 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     AppHeader {
         id: header
@@ -20,67 +20,60 @@ Rectangle {
         isOnline: appController.isOnline
     }
 
-    SecondaryButton {
-        visible: profileController.switchMode
-        text: "Cancel"
-        preferredHeight: 48
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: 12
-        onClicked: profileController.cancelSwitch()
-    }
-
     Item {
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 16
+        anchors.margins: Spacing.lg
 
-        // Horizontal Row of Profile Cards (Max 3 profiles + Create Profile)
+        // Horizontal Row of Learner Cards
         Row {
             anchors.centerIn: parent
-            spacing: 16
+            anchors.verticalCenterOffset: profileController.switchMode ? 0 : -16
+            spacing: Spacing.xl
 
             Repeater {
                 model: profileController.profiles
 
                 delegate: AppCard {
-                    width: 170
-                    height: 240
+                    width: 175
+                    height: 230
                     interactive: true
                     selected: modelData.isActive
                     onClicked: profileController.selectProfileId(modelData.id)
 
                     Column {
                         anchors.centerIn: parent
-                        spacing: 10
+                        spacing: Spacing.md
                         width: parent.width - 24
 
-                        // Avatar circle
+                        // Learner Avatar medallion
                         Rectangle {
-                            width: 64
-                            height: 64
-                            radius: 32
+                            width: 68
+                            height: 68
+                            radius: 34
                             color: modelData.isActive ? Theme.primaryLight : Theme.surfaceActive
-                            border.color: modelData.isActive ? Theme.primary : Theme.border
-                            border.width: 1
+                            border.color: modelData.isActive ? Theme.forest : Theme.border
+                            border.width: modelData.isActive ? 2 : 1
                             anchors.horizontalCenter: parent.horizontalCenter
 
                             Image {
                                 anchors.centerIn: parent
-                                width: 34
-                                height: 34
+                                width: 36
+                                height: 36
                                 source: Assets.account
                                 fillMode: Image.PreserveAspectFit
                             }
 
                             // Small lock badge if PIN protected
                             Rectangle {
-                                width: 20
-                                height: 20
-                                radius: 10
-                                color: Theme.highlight
+                                width: 22
+                                height: 22
+                                radius: 11
+                                color: Theme.gold
+                                border.color: Theme.deepInk
+                                border.width: 1
                                 anchors.bottom: parent.bottom
                                 anchors.right: parent.right
                                 visible: modelData.hasPin
@@ -95,67 +88,81 @@ Rectangle {
                             }
                         }
 
+                        // Student Name
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: modelData.name
-                            color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeHeading
+                            color: Theme.deepInk
+                            font.pixelSize: Typography.sectionTitle
                             font.bold: true
-                            font.family: Theme.fontFamily
+                            font.family: Typography.family
                             elide: Text.ElideRight
                             width: parent.width
                             horizontalAlignment: Text.AlignHCenter
                         }
 
-                        Text {
+                        // Exam Context Badge
+                        Rectangle {
+                            visible: modelData.grade.length > 0
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: modelData.grade
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeCaption
-                            font.family: Theme.fontFamily
+                            height: 22
+                            width: gradeText.implicitWidth + 14
+                            radius: 11
+                            color: Theme.surfaceActive
+                            border.color: Theme.border
+                            border.width: 1
+
+                            Text {
+                                id: gradeText
+                                anchors.centerIn: parent
+                                text: modelData.grade
+                                color: Theme.mutedInk
+                                font.pixelSize: Typography.caption
+                                font.bold: true
+                                font.family: Typography.family
+                            }
                         }
 
-                        Item { width: 1; height: 4 }
-
-                        PrimaryButton {
+                        // Status marker
+                        Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: parent.width
-                            preferredHeight: 44
-                            text: modelData.isActive && profileController.switchMode ? "Currently using" : "Use this profile"
-                            buttonColor: modelData.isActive ? Theme.primary : Theme.surfaceActive
-                            textColor: modelData.isActive ? Theme.textOnPrimary : Theme.textPrimary
-                            onClicked: profileController.selectProfileId(modelData.id)
+                            text: modelData.isActive ? "● Current Profile" : "Tap to select"
+                            color: modelData.isActive ? Theme.forest : Theme.mutedInk
+                            font.pixelSize: Typography.caption
+                            font.family: Typography.family
                         }
                     }
                 }
             }
 
-            // Create New Profile Card (if less than 3 profiles)
-            AppCard {
-                width: 170
-                height: 240
-                interactive: true
-                visible: profileController.canAddProfile
-                onClicked: appController.navigate("create_profile")
+            // Add Profile Card
+            Rectangle {
+                visible: profileController.canAddProfile && !profileController.switchMode
+                width: 155
+                height: 230
+                radius: Metrics.radiusLarge
+                color: addMouse.containsPress ? Theme.surfaceActive : "transparent"
+                border.color: Theme.border
+                border.width: 1.5
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 12
+                    spacing: Spacing.md
                     width: parent.width - 24
 
                     Rectangle {
-                        width: 60
-                        height: 60
-                        radius: 30
+                        width: 52
+                        height: 52
+                        radius: 26
                         color: Theme.surfaceActive
-                        border.color: Theme.primary
+                        border.color: Theme.border
                         border.width: 1
                         anchors.horizontalCenter: parent.horizontalCenter
 
                         Image {
                             anchors.centerIn: parent
-                            width: 28
-                            height: 28
+                            width: 24
+                            height: 24
                             source: Assets.plus
                             fillMode: Image.PreserveAspectFit
                         }
@@ -163,33 +170,58 @@ Rectangle {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Create\nNew Profile"
-                        color: Theme.primaryDark
-                        font.pixelSize: Theme.fontSizeBody
+                        text: "Add Learner"
+                        color: Theme.deepInk
+                        font.pixelSize: Typography.body
                         font.bold: true
-                        font.family: Theme.fontFamily
-                        horizontalAlignment: Text.AlignHCenter
+                        font.family: Typography.family
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: (3 - profileController.profileCount) + " slot(s) free"
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeCaption
+                        text: "Create profile"
+                        color: Theme.mutedInk
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.family
                     }
                 }
+
+                MouseArea {
+                    id: addMouse
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: appController.navigate("create_profile")
+                }
+            }
+        }
+
+        // Quick Start banner for testing mode
+        Row {
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Spacing.xs
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Spacing.md
+            visible: !profileController.switchMode
+
+            SecondaryButton {
+                preferredHeight: 36
+                text: "Quick Start (Testing Mode)"
+                onClicked: profileController.startTestingMode()
             }
         }
     }
 
-    // PIN unlock modal overlay
+    // Modal: PIN Entry
     PinModal {
+        id: pinModal
         visible: profileController.pinLocked
         profileName: profileController.pinProfileName
         errorMessage: profileController.pinError
-        onPinSubmitted: function(enteredPin) {
-            profileController.submitPin(enteredPin);
+        onPinSubmitted: function(pin) {
+            profileController.submitPin(pin);
         }
-        onCancelled: profileController.cancelPin()
+        onCancelled: {
+            profileController.cancelPin();
+        }
     }
 }

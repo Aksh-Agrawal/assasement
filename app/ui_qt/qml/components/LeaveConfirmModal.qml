@@ -8,7 +8,7 @@ Rectangle {
     signal continueClicked()
 
     anchors.fill: parent
-    color: "#802E2E2E"
+    color: "#6623302D"
 
     MouseArea {
         anchors.fill: parent
@@ -18,7 +18,7 @@ Rectangle {
     AppCard {
         anchors.centerIn: parent
         width: 480
-        implicitHeight: contentCol.implicitHeight + 44
+        implicitHeight: contentCol.implicitHeight + Spacing.xl * 2
 
         MouseArea {
             anchors.fill: parent
@@ -27,45 +27,46 @@ Rectangle {
         Column {
             id: contentCol
             anchors.centerIn: parent
-            width: parent.width - 44
-            spacing: 14
+            width: parent.width - Spacing.xl * 2
+            spacing: Spacing.md
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Pause Assessment?"
                 color: Theme.textPrimary
-                font.pixelSize: Theme.fontSizeTitle
+                font.pixelSize: Typography.heroTitle
+                font.family: Typography.fontSerif
                 font.bold: true
-                font.family: Theme.fontFamily
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Your answers are saved. You can continue anytime from the Home screen."
+                text: "All your answered questions are safely recorded. You can resume anytime from the Home screen."
                 color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeBody
-                font.family: Theme.fontFamily
+                font.pixelSize: Typography.body
+                font.family: Typography.fontFamily
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 width: parent.width
+                lineHeight: 1.3
             }
 
-            Item { width: 1; height: 6 }
+            Item { width: 1; height: Spacing.xs }
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 16
+                spacing: Spacing.md
 
                 SecondaryButton {
                     text: "Keep Practising"
-                    preferredHeight: Theme.touchNormal
+                    preferredHeight: Metrics.touchNormal
                     onClicked: root.continueClicked()
                 }
 
                 PrimaryButton {
                     text: "Pause & Exit"
-                    buttonColor: Theme.primary
-                    preferredHeight: Theme.touchNormal
+                    buttonColor: Theme.forest
+                    preferredHeight: Metrics.touchNormal
                     onClicked: root.pauseClicked()
                 }
             }

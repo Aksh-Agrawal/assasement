@@ -5,14 +5,14 @@ import "../components" 1.0
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
     AppHeader {
         id: header
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: "Sync Management"
+        title: "Sync"
         networkText: appController.networkLabel
         syncText: appController.syncLabel
         isOnline: appController.isOnline
@@ -25,117 +25,111 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 16
+        anchors.margins: Spacing.lg
 
         AppCard {
             anchors.centerIn: parent
-            width: 580
-            implicitHeight: contentCol.implicitHeight + 40
+            width: 520
+            implicitHeight: contentCol.implicitHeight + 48
 
             Column {
                 id: contentCol
                 anchors.centerIn: parent
                 width: parent.width - 48
-                spacing: 10
+                spacing: Spacing.md
 
-                // Status Icon & Title
-                Row {
-                    spacing: 14
+                // Sync Emblem
+                Rectangle {
+                    width: 60
+                    height: 60
+                    radius: 30
+                    color: settingsController.isSyncing ? Theme.primaryLight : Theme.surfaceSelected
+                    border.color: Theme.sage
+                    border.width: 1
                     anchors.horizontalCenter: parent.horizontalCenter
+
+                    Image {
+                        anchors.centerIn: parent
+                        width: 30
+                        height: 30
+                        source: Assets.sync
+                        fillMode: Image.PreserveAspectFit
+                    }
+                }
+
+                // Student-Facing Status & Headline
+                Column {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 4
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: settingsController.syncStatusSummary
+                        color: Theme.deepInk
+                        font.pixelSize: Typography.pageTitle
+                        font.bold: true
+                        font.family: Typography.familyEditorial
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "Last synchronized: " + (settingsController.lastSyncTime || "Just now")
+                        color: Theme.mutedInk
+                        font.pixelSize: Typography.body
+                        font.family: Typography.family
+                    }
+                }
+
+                Rectangle { width: parent.width; height: 1; color: Theme.borderLight }
+
+                // Automatic Sync Toggle Row
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: Spacing.lg
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Automatic Cloud Sync"
+                        color: Theme.deepInk
+                        font.pixelSize: Typography.body
+                        font.bold: true
+                        font.family: Typography.family
+                    }
 
                     Rectangle {
-                        width: 50
-                        height: 50
-                        radius: 25
-                        color: settingsController.pendingAttemptsCount > 0 ? "#FFF3E0" : "#E8F5E9"
-
-                        Image {
-                            anchors.centerIn: parent
-                            width: 26
-                            height: 26
-                            source: Assets.sync
-                            fillMode: Image.PreserveAspectFit
-                        }
-                    }
-
-                    Column {
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 2
+                        width: 76
+                        height: 34
+                        radius: 17
+                        color: settingsController.automaticSync ? Theme.forest : Theme.surfaceActive
+                        border.color: settingsController.automaticSync ? Theme.primaryDark : Theme.border
+                        border.width: 1
 
                         Text {
-                            text: settingsController.syncStatusSummary
-                            color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeHeading
+                            anchors.centerIn: parent
+                            text: settingsController.automaticSync ? "ON ✓" : "OFF"
+                            color: settingsController.automaticSync ? Theme.textOnPrimary : Theme.mutedInk
+                            font.pixelSize: Typography.caption
                             font.bold: true
-                            font.family: Theme.fontFamily
+                            font.family: Typography.family
                         }
 
-                        Text {
-                            text: "Your learning data is safely stored locally on this Raspberry Pi."
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeCaption
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: settingsController.setAutomaticSync(!settingsController.automaticSync)
                         }
                     }
                 }
 
-                Rectangle { width: parent.width; height: 1; color: Theme.divider }
+                Item { width: 1; height: Spacing.xs }
 
-                // Sync details grid
-                Grid {
-                    width: parent.width
-                    columns: 2
-                    rowSpacing: 12
-                    columnSpacing: 20
-
-                    Column {
-                        spacing: 2
-                        Text { text: "Cloud Status"; color: Theme.textSecondary; font.pixelSize: 13 }
-                        StatusBadge {
-                            text: settingsController.cloudStatus
-                            statusType: settingsController.cloudStatus === "Online" ? "success" : "neutral"
-                        }
-                    }
-
-                    Column {
-                        spacing: 2
-                        Text { text: "Last Synchronized"; color: Theme.textSecondary; font.pixelSize: 13 }
-                        Text { text: settingsController.lastSyncTime; color: Theme.textPrimary; font.bold: true; font.pixelSize: 15 }
-                    }
-
-                    Column {
-                        spacing: 2
-                        Text { text: "Pending Completed Attempts"; color: Theme.textSecondary; font.pixelSize: 13 }
-                        Text { text: settingsController.pendingAttemptsCount + " attempt(s)"; color: Theme.textPrimary; font.bold: true; font.pixelSize: 15 }
-                    }
-
-                    Column {
-                        spacing: 2
-                        Text { text: "Next automatic sync"; color: Theme.textSecondary; font.pixelSize: 13 }
-                        Text { text: settingsController.nextAutomaticSync; color: Theme.textPrimary; font.bold: true; font.pixelSize: 15 }
-                    }
-                }
-
-                Row {
-                    spacing: 12
-                    SecondaryButton {
-                        text: "Automatic Sync: " + (settingsController.automaticSync ? "ON" : "OFF")
-                        preferredHeight: 48
-                        onClicked: settingsController.setAutomaticSync(!settingsController.automaticSync)
-                    }
-                    Text {
-                        width: 270
-                        wrapMode: Text.WordWrap
-                        text: "Automatically keep profiles, practice sets and results up to date."
-                        font.pixelSize: Theme.fontSizeCaption
-                        color: Theme.textSecondary
-                    }
-                }
-
-
+                // Primary Sync Now Action
                 PrimaryButton {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: 240
-                    preferredHeight: Theme.touchNormal
+                    width: 220
+                    preferredHeight: Metrics.touchNormal
+                    buttonColor: Theme.forest
                     text: settingsController.isSyncing ? "Syncing Now…" : "Sync Now"
                     enabled: !settingsController.isSyncing
                     iconSource: Assets.sync

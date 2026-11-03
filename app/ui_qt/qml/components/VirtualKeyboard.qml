@@ -13,57 +13,74 @@ Rectangle {
     signal submitted(string text)
     signal cancelled()
 
-    anchors.fill: parent
-    color: "#802E2E2E"
+    focus: visible
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            root.submitted(root.textValue);
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Escape) {
+            root.cancelled();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Backspace) {
+            root.textValue = root.textValue.slice(0, -1);
+            event.accepted = true;
+        } else if (event.text && event.text.length > 0 && event.text.charCodeAt(0) >= 32) {
+            root.textValue += event.text;
+            event.accepted = true;
+        }
+    }
 
-    AppCard {
+    anchors.fill: parent
+    color: "#6623302D"
+
+    Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         height: 270
-        radius: 0
-        color: Theme.background
-        border.color: Theme.divider
+        color: Theme.paper
+        border.color: Theme.border
+        border.width: 1
 
         Column {
             anchors.fill: parent
-            anchors.margins: 8
+            anchors.margins: Spacing.sm
             spacing: 6
 
             // Header with title and entered text
             Row {
                 width: parent.width
                 height: 44
-                spacing: 8
+                spacing: Spacing.sm
 
                 // Text Display Input Box
                 Rectangle {
-                    width: parent.width - 160
+                    width: parent.width - 170
                     height: 42
-                    radius: 8
-                    color: Theme.surface
-                    border.color: Theme.borderFocus
+                    radius: Metrics.radiusSm
+                    color: Theme.surfaceWarm
+                    border.color: Theme.border
                     border.width: 1
 
                     Row {
                         anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 8
+                        anchors.margins: Spacing.sm
+                        spacing: Spacing.xs
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: root.isPassword ? "•".repeat(root.textValue.length) : root.textValue
                             color: Theme.textPrimary
-                            font.pixelSize: Theme.fontSizeBody
+                            font.pixelSize: Typography.body
                             font.bold: true
-                            font.family: Theme.fontFamily
+                            font.family: Typography.fontFamily
                         }
 
                         // Blinking cursor
                         Rectangle {
                             width: 2
                             height: 20
-                            color: Theme.primary
+                            color: Theme.forest
                             anchors.verticalCenter: parent.verticalCenter
                             SequentialAnimation on opacity {
                                 loops: Animation.Infinite
@@ -75,14 +92,14 @@ Rectangle {
                 }
 
                 SecondaryButton {
-                    width: 72
+                    width: 76
                     preferredHeight: 42
                     text: "Cancel"
                     onClicked: root.cancelled()
                 }
 
                 PrimaryButton {
-                    width: 72
+                    width: 76
                     preferredHeight: 42
                     text: "Done"
                     onClicked: root.submitted(root.textValue)
@@ -105,19 +122,22 @@ Rectangle {
                         delegate: Rectangle {
                             width: root.isSymbols ? 60 : 72
                             height: 44
-                            radius: 8
-                            color: kMouse.containsPress ? Theme.surfaceActive : Theme.surface
-                            border.color: Theme.border
+                            radius: Metrics.radiusSm
+                            color: kMouse.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
+                            border.color: kMouse.containsPress ? Theme.forest : Theme.border
+                            border.width: 1
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData
                                 font.pixelSize: 18
                                 font.bold: true
+                                font.family: Typography.fontFamily
                                 color: Theme.textPrimary
                             }
                             MouseArea {
                                 id: kMouse
                                 anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: root.textValue += modelData
                             }
                         }
@@ -135,19 +155,22 @@ Rectangle {
                         delegate: Rectangle {
                             width: 72
                             height: 44
-                            radius: 8
-                            color: kMouse2.containsPress ? Theme.surfaceActive : Theme.surface
-                            border.color: Theme.border
+                            radius: Metrics.radiusSm
+                            color: kMouse2.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
+                            border.color: kMouse2.containsPress ? Theme.forest : Theme.border
+                            border.width: 1
                             Text {
                                 anchors.centerIn: parent
                                 text: root.isShift && !root.isSymbols ? modelData.toUpperCase() : modelData
                                 font.pixelSize: 18
                                 font.bold: true
+                                font.family: Typography.fontFamily
                                 color: Theme.textPrimary
                             }
                             MouseArea {
                                 id: kMouse2
                                 anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     var ch = root.isShift && !root.isSymbols ? modelData.toUpperCase() : modelData;
                                     root.textValue += ch;
@@ -168,19 +191,22 @@ Rectangle {
                         delegate: Rectangle {
                             width: 78
                             height: 44
-                            radius: 8
-                            color: kMouse3.containsPress ? Theme.surfaceActive : Theme.surface
-                            border.color: Theme.border
+                            radius: Metrics.radiusSm
+                            color: kMouse3.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
+                            border.color: kMouse3.containsPress ? Theme.forest : Theme.border
+                            border.width: 1
                             Text {
                                 anchors.centerIn: parent
                                 text: root.isShift && !root.isSymbols ? modelData.toUpperCase() : modelData
                                 font.pixelSize: 18
                                 font.bold: true
+                                font.family: Typography.fontFamily
                                 color: Theme.textPrimary
                             }
                             MouseArea {
                                 id: kMouse3
                                 anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     var ch = root.isShift && !root.isSymbols ? modelData.toUpperCase() : modelData;
                                     root.textValue += ch;
@@ -199,17 +225,19 @@ Rectangle {
                     Rectangle {
                         width: 72
                         height: 44
-                        radius: 8
-                        color: root.isShift ? Theme.primary : Theme.surfaceActive
+                        radius: Metrics.radiusSm
+                        color: root.isShift ? Theme.forest : Theme.surfaceActive
                         border.color: Theme.border
+                        border.width: 1
                         Text {
                             anchors.centerIn: parent
                             text: "⇧"
                             font.pixelSize: 20
-                            color: root.isShift ? Theme.textOnPrimary : Theme.textPrimary
+                            color: root.isShift ? Theme.paper : Theme.textPrimary
                         }
                         MouseArea {
                             anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: root.isShift = !root.isShift
                         }
                     }
@@ -218,18 +246,21 @@ Rectangle {
                     Rectangle {
                         width: 72
                         height: 44
-                        radius: 8
-                        color: root.isSymbols ? Theme.primary : Theme.surfaceActive
+                        radius: Metrics.radiusSm
+                        color: root.isSymbols ? Theme.forest : Theme.surfaceActive
                         border.color: Theme.border
+                        border.width: 1
                         Text {
                             anchors.centerIn: parent
                             text: root.isSymbols ? "ABC" : "?123"
                             font.pixelSize: 15
                             font.bold: true
-                            color: root.isSymbols ? Theme.textOnPrimary : Theme.textPrimary
+                            font.family: Typography.fontFamily
+                            color: root.isSymbols ? Theme.paper : Theme.textPrimary
                         }
                         MouseArea {
                             anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: root.isSymbols = !root.isSymbols
                         }
                     }
@@ -242,19 +273,22 @@ Rectangle {
                         delegate: Rectangle {
                             width: 64
                             height: 44
-                            radius: 8
-                            color: kMouse4.containsPress ? Theme.surfaceActive : Theme.surface
-                            border.color: Theme.border
+                            radius: Metrics.radiusSm
+                            color: kMouse4.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
+                            border.color: kMouse4.containsPress ? Theme.forest : Theme.border
+                            border.width: 1
                             Text {
                                 anchors.centerIn: parent
                                 text: root.isShift && !root.isSymbols ? modelData.toUpperCase() : modelData
                                 font.pixelSize: 18
                                 font.bold: true
+                                font.family: Typography.fontFamily
                                 color: Theme.textPrimary
                             }
                             MouseArea {
                                 id: kMouse4
                                 anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     var ch = root.isShift && !root.isSymbols ? modelData.toUpperCase() : modelData;
                                     root.textValue += ch;
@@ -267,18 +301,21 @@ Rectangle {
                     Rectangle {
                         width: 140
                         height: 44
-                        radius: 8
-                        color: sMouse.containsPress ? Theme.surfaceActive : Theme.surface
-                        border.color: Theme.border
+                        radius: Metrics.radiusSm
+                        color: sMouse.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
+                        border.color: sMouse.containsPress ? Theme.forest : Theme.border
+                        border.width: 1
                         Text {
                             anchors.centerIn: parent
                             text: "Space"
                             font.pixelSize: 15
+                            font.family: Typography.fontFamily
                             color: Theme.textSecondary
                         }
                         MouseArea {
                             id: sMouse
                             anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: root.textValue += " "
                         }
                     }
@@ -287,9 +324,10 @@ Rectangle {
                     Rectangle {
                         width: 72
                         height: 44
-                        radius: 8
-                        color: bMouse.containsPress ? Theme.surfaceActive : Theme.surfaceActive
-                        border.color: Theme.border
+                        radius: Metrics.radiusSm
+                        color: bMouse.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
+                        border.color: bMouse.containsPress ? Theme.forest : Theme.border
+                        border.width: 1
                         Text {
                             anchors.centerIn: parent
                             text: "⌫"
@@ -299,6 +337,7 @@ Rectangle {
                         MouseArea {
                             id: bMouse
                             anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: root.textValue = root.textValue.slice(0, -1)
                         }
                     }

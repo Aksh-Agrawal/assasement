@@ -4,44 +4,112 @@ import QtQuick 2.15
 QtObject {
     id: theme
 
-    // Palette
-    readonly property color background: "#F8F4EA"
-    readonly property color surface: "#FFF9F0"
-    readonly property color surfaceSelected: "#EDF4EB"
-    readonly property color surfaceActive: "#F3EDE2"
-    readonly property color primary: "#2E7D73"
-    readonly property color primaryDark: "#1E554E"
-    readonly property color primaryLight: "#E0ECE8"
-    readonly property color secondary: "#A7C4A0"
-    readonly property color highlight: "#F4B183"
-    readonly property color warning: "#D46B5B"
-    readonly property color error: "#D46B5B"
-    readonly property color textPrimary: "#2E2E2E"
-    readonly property color textSecondary: "#5F6368"
-    readonly property color textOnPrimary: "#FFFFFF"
-    readonly property color success: "#3B8246"
-    readonly property color divider: "#E2DCD0"
-    readonly property color border: "#E2DCD0"
-    readonly property color borderFocus: "#2E7D73"
+    // -------------------------------------------------------------------------
+    // Primary Editorial Palette (Paper / Ink / Nature)
+    // -------------------------------------------------------------------------
+    readonly property color canvas: "#F5EFE3"          // Paper / Canvas base
+    readonly property color background: "#F5EFE3"      // Primary app background
+    readonly property color surface: "#FBF7EF"         // Warm Surface for cards / sheets
+    readonly property color surfaceElevated: "#FFFFFF" // Crisp white highlights
+    readonly property color surfaceActive: "#EFE8D8"   // Pressed / active tactile paper
+    readonly property color surfaceSelected: "#EEF5F0" // Soft sage selected tint
 
-    // Typography (pt sizes for clean rendering at 800x480)
-    readonly property int fontSizeTitle: 26
-    readonly property int fontSizeHeading: 22
-    readonly property int fontSizeBody: 18
-    readonly property int fontSizeSecondary: 15
-    readonly property int fontSizeCaption: 14
-    readonly property string fontFamily: "system-ui"
+    // Deep Ink & Text Hierarchy
+    readonly property color deepInk: "#23302D"         // Deep Ink for headlines and primary text
+    readonly property color textPrimary: "#23302D"
+    readonly property color mutedInk: "#68716B"        // Muted Ink for subtext / metadata
+    readonly property color textSecondary: "#68716B"
+    readonly property color textMuted: "#8C9690"
+    readonly property color textOnPrimary: "#FBF7EF"
+
+    // Subject & Educational Accents
+    readonly property color forest: "#27685E"          // Forest / Teal primary action & Biology
+    readonly property color primary: "#27685E"
+    readonly property color primaryDark: "#1B4B43"     // Deep forest pressed
+    readonly property color primaryLight: "#E2EFEA"    // Pale sage wash
+    readonly property color sage: "#A9C4B1"            // Soft Sage botanical accent
+    readonly property color secondary: "#A9C4B1"
+    readonly property color terracotta: "#C76848"      // Terracotta - Chemistry / critical alerts
+    readonly property color terracottaLight: "#FDF3EE"
+    readonly property color gold: "#D5A64A"            // Warm Gold - Mathematics / badges / review
+    readonly property color goldLight: "#FAF5E9"
+    readonly property color sky: "#A9C7CF"             // Soft Sky - General science / atmosphere
+    readonly property color skyLight: "#EFF6F8"
+
+    // Borders & Dividers
+    readonly property color border: "#D8D0C1"          // Warm paper border
+    readonly property color borderLight: "#EAE4D7"
+    readonly property color divider: "#D8D0C1"
+    readonly property color borderFocus: "#27685E"     // High-visibility focus ring
+
+    // Semantic States
+    readonly property color success: "#2E7D4E"
+    readonly property color warning: "#C76848"
+    readonly property color error: "#B83A32"
+    readonly property color highlight: "#D5A64A"
+
+    // Typography references (for backwards compatibility)
+    readonly property int fontSizeHero: 28
+    readonly property int fontSizeTitle: 24
+    readonly property int fontSizeHeading: 20
+    readonly property int fontSizeBody: 16
+    readonly property int fontSizeSecondary: 14
+    readonly property int fontSizeCaption: 12
+    readonly property string fontFamily: "Segoe UI, Noto Sans, Roboto, DejaVu Sans, sans-serif"
+    readonly property string fontFamilySerif: "Georgia, DejaVu Serif, Noto Serif, serif"
 
     // Dimensions & Touch Targets
     readonly property int touchMin: 48
     readonly property int touchNormal: 54
     readonly property int touchLarge: 60
-    readonly property int navRailWidth: 110
-    readonly property int headerHeight: 52
-    readonly property int cardRadius: 14
-    readonly property int buttonRadius: 12
+    readonly property int navRailWidth: 96
+    readonly property int headerHeight: 46
+    readonly property int cardRadius: 12
+    readonly property int buttonRadius: 10
     readonly property int pillRadius: 20
 
     // Animation
     readonly property int animDuration: 150
+
+    // Dynamic Subject Resolvers
+    function subjectIcon(subjectName) {
+        if (!subjectName) return Assets.general;
+        var s = (subjectName + "").toLowerCase();
+        if (s.indexOf("bio") !== -1 || s.indexOf("life") !== -1 || s.indexOf("botany") !== -1 || s.indexOf("zoology") !== -1) {
+            return Assets.biology;
+        }
+        if (s.indexOf("chem") !== -1 || s.indexOf("reaction") !== -1 || s.indexOf("element") !== -1) {
+            return Assets.chemistry;
+        }
+        if (s.indexOf("math") !== -1 || s.indexOf("algebra") !== -1 || s.indexOf("geometry") !== -1 || s.indexOf("fraction") !== -1) {
+            return Assets.mathematics;
+        }
+        if (s.indexOf("sci") !== -1 || s.indexOf("physic") !== -1 || s.indexOf("astronomy") !== -1) {
+            return Assets.science;
+        }
+        if (s.indexOf("eng") !== -1 || s.indexOf("lit") !== -1 || s.indexOf("grammar") !== -1) {
+            return Assets.english;
+        }
+        return Assets.general;
+    }
+
+    function subjectAccent(subjectName) {
+        if (!subjectName) return forest;
+        var s = (subjectName + "").toLowerCase();
+        if (s.indexOf("bio") !== -1) return forest;
+        if (s.indexOf("chem") !== -1) return terracotta;
+        if (s.indexOf("math") !== -1) return gold;
+        if (s.indexOf("sci") !== -1) return sky;
+        return forest;
+    }
+
+    function subjectLightAccent(subjectName) {
+        if (!subjectName) return primaryLight;
+        var s = (subjectName + "").toLowerCase();
+        if (s.indexOf("bio") !== -1) return primaryLight;
+        if (s.indexOf("chem") !== -1) return terracottaLight;
+        if (s.indexOf("math") !== -1) return goldLight;
+        if (s.indexOf("sci") !== -1) return skyLight;
+        return primaryLight;
+    }
 }
