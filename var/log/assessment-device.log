@@ -317,3 +317,238 @@
 2026-11-03 14:44:29,014 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
 2026-11-03 14:44:29,275 level=INFO component=httpx event=HTTP Request: GET https://dns.google "HTTP/1.1 200 OK"
 2026-11-03 14:47:58,680 level=INFO component=__main__ event=Application startup: ASSESS_API_URL configured: YES, API host: startup-cloud.onrender.com, DISPLAY: unset, network backend selected: Mock / Offline
+2026-11-03 14:54:20,728 level=INFO component=__main__ event=Application startup: ASSESS_API_URL configured: YES, API host: startup-cloud.onrender.com, DISPLAY: unset, network backend selected: Mock / Offline
+2026-11-03 14:54:25,205 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:54:25,423 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:54:26,056 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:54:26,062 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:54:26,321 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:54:27,140 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:54:27,686 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-account "HTTP/1.1 403 Forbidden"
+2026-11-03 14:54:28,063 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:54:28,066 level=INFO component=app.update.client event=update check started
+2026-11-03 14:54:28,901 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 14:54:28,959 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:54:28,960 level=INFO component=app.update.client event=No update available
+2026-11-03 14:54:29,342 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 14:54:30,045 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:54:30,821 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:54:31,306 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:54:31,313 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:54:32,310 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:54:33,232 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:54:33,239 level=INFO component=app.update.client event=update check started
+2026-11-03 14:54:34,170 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:54:34,171 level=INFO component=app.update.client event=No update available
+2026-11-03 14:55:00,927 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:55:00,932 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:55:16,554 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 14:55:17,005 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 14:55:17,779 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:55:18,687 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:55:19,559 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:55:19,563 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:55:20,815 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:55:21,843 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:55:21,845 level=INFO component=app.update.client event=update check started
+2026-11-03 14:55:22,799 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:55:22,800 level=INFO component=app.update.client event=No update available
+2026-11-03 14:55:49,508 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:55:49,522 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:56:04,856 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 14:56:05,416 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 14:56:06,135 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:56:07,154 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:56:08,414 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:56:08,423 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:56:09,452 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:56:10,619 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:56:10,621 level=INFO component=app.update.client event=update check started
+2026-11-03 14:56:11,531 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:56:11,532 level=INFO component=app.update.client event=No update available
+2026-11-03 14:56:38,387 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:56:38,392 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:56:53,326 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 14:56:53,757 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 14:56:54,455 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:56:55,327 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:56:57,324 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:56:57,329 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:56:58,648 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:56:59,702 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:56:59,705 level=INFO component=app.update.client event=update check started
+2026-11-03 14:57:00,743 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:57:00,744 level=INFO component=app.update.client event=No update available
+2026-11-03 14:57:27,850 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:57:27,856 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:57:41,917 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 14:57:42,467 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 14:57:43,363 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:57:44,402 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:57:47,204 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:57:47,220 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:57:48,543 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:57:49,450 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:57:49,453 level=INFO component=app.update.client event=update check started
+2026-11-03 14:57:50,423 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:57:50,426 level=INFO component=app.update.client event=No update available
+2026-11-03 14:58:17,428 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:58:17,437 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:58:30,882 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 14:58:31,374 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 14:58:32,246 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:58:33,018 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:58:34,247 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:58:34,253 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:58:35,561 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:58:36,589 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:58:36,591 level=INFO component=app.update.client event=update check started
+2026-11-03 14:58:37,686 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:58:37,688 level=INFO component=app.update.client event=No update available
+2026-11-03 14:59:04,814 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:59:04,829 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:59:19,990 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 14:59:20,584 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 14:59:21,446 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:59:22,347 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:59:23,858 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:59:23,873 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 14:59:25,258 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 14:59:26,502 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 14:59:26,505 level=INFO component=app.update.client event=update check started
+2026-11-03 14:59:27,608 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 14:59:27,612 level=INFO component=app.update.client event=No update available
+2026-11-03 14:59:54,808 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 14:59:54,858 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:00:08,337 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:00:08,912 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:00:09,615 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:00:10,572 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:00:11,309 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:00:11,314 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:00:12,345 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:00:13,355 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:00:13,383 level=INFO component=app.update.client event=update check started
+2026-11-03 15:00:14,335 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:00:14,336 level=INFO component=app.update.client event=No update available
+2026-11-03 15:00:27,499 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/mobile-upload-sessions "HTTP/1.1 403 Forbidden"
+2026-11-03 15:00:27,501 level=WARNING component=app.ui_qt.controllers.quick_add_controller event=Quick add auth failure: HTTP 403: authentication rejected
+2026-11-03 15:00:40,860 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:00:40,869 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:00:57,154 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:00:57,599 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:00:58,310 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:00:59,202 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:01:00,237 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:01:00,244 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:01:01,599 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:01:02,661 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:01:02,665 level=INFO component=app.update.client event=update check started
+2026-11-03 15:01:03,818 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:01:03,821 level=INFO component=app.update.client event=No update available
+2026-11-03 15:01:30,565 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:01:30,570 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:01:45,821 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:01:46,392 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:01:47,104 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:01:47,994 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:01:49,698 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:01:49,719 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:01:51,016 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:01:51,987 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:01:51,990 level=INFO component=app.update.client event=update check started
+2026-11-03 15:01:53,008 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:01:53,013 level=INFO component=app.update.client event=No update available
+2026-11-03 15:02:22,382 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:02:22,387 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:02:34,500 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:02:34,953 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:02:35,797 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:02:36,572 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:02:39,335 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:02:39,341 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:02:40,707 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:02:41,545 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:02:41,548 level=INFO component=app.update.client event=update check started
+2026-11-03 15:02:42,630 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:02:42,636 level=INFO component=app.update.client event=No update available
+2026-11-03 15:03:12,029 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:03:12,041 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:03:23,233 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:03:23,713 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:03:24,490 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:03:25,276 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:03:27,347 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:03:27,354 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:03:28,692 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:03:29,845 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:03:29,847 level=INFO component=app.update.client event=update check started
+2026-11-03 15:03:31,048 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:03:31,052 level=INFO component=app.update.client event=No update available
+2026-11-03 15:03:58,173 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:03:58,179 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:04:11,447 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:04:11,903 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:04:12,762 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:04:13,649 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:04:15,257 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:04:15,264 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:04:16,574 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:04:17,527 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:04:17,530 level=INFO component=app.update.client event=update check started
+2026-11-03 15:04:18,686 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:04:18,690 level=INFO component=app.update.client event=No update available
+2026-11-03 15:04:45,774 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:04:45,783 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:05:00,459 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:05:00,913 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:05:01,663 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:05:02,564 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:05:05,048 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:05:05,061 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:05:06,378 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:05:07,415 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:05:07,418 level=INFO component=app.update.client event=update check started
+2026-11-03 15:05:08,606 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:05:08,609 level=INFO component=app.update.client event=No update available
+2026-11-03 15:05:35,525 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:05:35,531 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:05:49,104 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:05:49,566 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:05:50,309 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:05:51,185 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:05:52,437 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:05:52,442 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:05:53,607 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:05:54,664 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:05:54,667 level=INFO component=app.update.client event=update check started
+2026-11-03 15:05:55,730 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:05:55,731 level=INFO component=app.update.client event=No update available
+2026-11-03 15:06:24,748 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:06:24,758 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:06:37,164 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:06:37,621 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:06:38,457 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:06:39,339 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:06:41,681 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:06:41,687 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:06:42,964 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:06:44,037 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:06:44,040 level=INFO component=app.update.client event=update check started
+2026-11-03 15:06:45,080 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:06:45,082 level=INFO component=app.update.client event=No update available
+2026-11-03 15:07:11,947 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:07:11,953 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:07:25,591 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/health "HTTP/1.1 200 OK"
+2026-11-03 15:07:26,045 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/ready "HTTP/1.1 200 OK"
+2026-11-03 15:07:26,760 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:07:27,534 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:07:28,762 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:07:28,767 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0
+2026-11-03 15:07:29,899 level=INFO component=httpx event=HTTP Request: POST https://startup-cloud.onrender.com/api/v1/devices/heartbeat "HTTP/1.1 200 OK"
+2026-11-03 15:07:30,798 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/content/catalog "HTTP/1.1 200 OK"
+2026-11-03 15:07:30,801 level=INFO component=app.update.client event=update check started
+2026-11-03 15:07:31,719 level=INFO component=httpx event=HTTP Request: GET https://startup-cloud.onrender.com/api/v1/device-updates/latest "HTTP/1.1 404 Not Found"
+2026-11-03 15:07:31,720 level=INFO component=app.update.client event=No update available
+2026-11-03 15:08:00,527 level=INFO component=app.data.repo event=local database opened path=var\assessment-device.db schema_version=7
+2026-11-03 15:08:00,532 level=INFO component=app.sync.worker event=attempt upload cycle started pending_attempts_selected=0 recovered_stale=0

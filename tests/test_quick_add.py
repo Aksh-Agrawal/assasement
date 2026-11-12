@@ -233,6 +233,21 @@ class TestQuickAddController:
         assert controller.status == "FAILED"
         assert "Scanned PDF" in controller.errorMessage
 
+    def test_controller_uses_backend_provided_url_and_entry_url(self, qapp, tmp_path, mock_config, mock_credentials):
+        mock_app = Mock(spec=AppController)
+        mock_app.database_path = tmp_path / "app.db"
+        mock_app.config = mock_config
+        mock_app.credentials = mock_credentials
+
+        controller = QuickAddController(mock_app)
+        expires = datetime.now(UTC) + timedelta(minutes=10)
+        prod_url = "https://startup-cloud-1.onrender.com/quick-add/demo-token-xyz"
+
+        controller._on_session_created("sess-1", "demo-token-xyz", prod_url, "TEST-CODE", expires, "Alex")
+
+        assert controller.uploadUrl == prod_url
+        assert controller.entryUrl == "startup-cloud-1.onrender.com/quick-add"
+
     def test_sync_finished_ready_state(self, qapp, tmp_path, mock_config, mock_credentials):
         mock_app = Mock(spec=AppController)
         mock_app.database_path = tmp_path / "app.db"

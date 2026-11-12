@@ -240,6 +240,18 @@ class AppController(QObject):
         if target_screen != self._screen:
             self._screen_history.append(self._screen)
             self._screen = target_screen
+            if self.ui_controller:
+                from app.ui.controller import UIScreen
+                screen_map = {
+                    "home": UIScreen.HOME,
+                    "profile_picker": UIScreen.PROFILE,
+                    "pairing": UIScreen.PAIRING,
+                    "settings": UIScreen.SETTINGS,
+                    "wifi": UIScreen.WIFI,
+                    "diagnostics": UIScreen.DIAGNOSTICS,
+                }
+                if target_screen in screen_map:
+                    self.ui_controller.route(screen_map[target_screen])
             self.screenChanged.emit()
 
     @Slot()

@@ -133,7 +133,7 @@ Rectangle {
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             Text {
-                                text: "Device not linked or cloud offline"
+                                text: quickAddController.statusText ? quickAddController.statusText : "Device not linked or cloud offline"
                                 color: Theme.textSecondary
                                 font.pixelSize: 11
                                 font.family: Typography.fontFamily
@@ -176,7 +176,7 @@ Rectangle {
                             }
 
                             Text {
-                                text: "at web/quick-add"
+                                text: quickAddController.entryUrl ? ("at " + quickAddController.entryUrl) : "at web/quick-add"
                                 color: Theme.textMuted
                                 font.pixelSize: 11
                                 font.family: Typography.fontFamily
@@ -225,13 +225,11 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: Spacing.lg
 
-                // Bounded Vertical Column (anchored top and above buttonRow)
+                // Vertical Column stacking header, status, and dynamic action panels
                 Column {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.bottom: buttonRow.top
-                    anchors.bottomMargin: Spacing.md
                     spacing: Spacing.md
 
                     // 1. Heading
@@ -487,8 +485,8 @@ Rectangle {
 
                     // Unlinked device CTA
                     SecondaryButton {
-                        visible: quickAddController.status === "FAILED" && (quickAddController.statusText.indexOf("not linked") !== -1 || quickAddController.errorMessage.indexOf("Settings") !== -1)
-                        text: "Link Device"
+                        visible: quickAddController.status === "FAILED" && (quickAddController.statusText.indexOf("not linked") !== -1 || quickAddController.errorMessage.indexOf("account") !== -1 || quickAddController.errorMessage.indexOf("Settings") !== -1)
+                        text: "Pair Device"
                         iconSource: Assets.device_pairing
                         onClicked: appController.navigate("pairing")
                     }

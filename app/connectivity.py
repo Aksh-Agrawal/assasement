@@ -257,7 +257,7 @@ class ObservedTransport(httpx.BaseTransport):
             if 200 <= code < 300:
                 record_cloud(self.database_path, "Online")
             elif code == 401 or (code == 403 and not request.url.path.startswith(
-                    ("/api/v1/profile-content/", "/api/v1/institute-content/"))):
+                    ("/api/v1/profile-content/", "/api/v1/institute-content/", "/api/v1/mobile-upload"))):
                 record_cloud(self.database_path, "Authentication required")
             elif code >= 500:
                 record_cloud(self.database_path, "Server unavailable")

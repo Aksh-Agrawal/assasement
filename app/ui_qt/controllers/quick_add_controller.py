@@ -12,7 +12,12 @@ from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 from app.api.client import DeviceApi
 from app.config import AppConfig
 from app.data.repo import Repository
-from app.sync.mobile_upload import MobileUploadAuthError, MobileUploadClientError
+from app.sync.mobile_upload import (
+    MobileUploadAuthError,
+    MobileUploadClientError,
+    MobileUploadProfileError,
+    MobileUploadStorageError,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +95,14 @@ class QuickAddController(QObject):
     @Property(str, notify=qrChanged)
     def uploadUrl(self) -> str:
         return self._upload_url
+
+    @Property(str, notify=qrChanged)
+    def entryUrl(self) -> str:
+        if not self._upload_url:
+            return ""
+        from urllib.parse import urlsplit
+        parsed = urlsplit(self._upload_url)
+        return f"{parsed.netloc}/quick-add" if parsed.netloc else "" 
 
     @Property(str, notify=qrChanged)
     def shortCode(self) -> str:
@@ -192,16 +205,40 @@ class QuickAddController(QObject):
                 info.profile_name,
             )
         except MobileUploadAuthError as err:
-            LOGGER.warning("Quick add auth failure: %s", err)
+            LOGGER.warning("Quick add auth failure: %s (code=%s)", err, getattr(err, "code", ""))
             self._sessionFailedSignal.emit(
-                "Device not linked or authenticated.",
-                "Connect this device to your student account first in Settings > Account.",
+                "Device account not linked",
+                "Connect this Raspberry Pi to your student account in Account & Devices.",
             )
+        except MobileUploadProfileError as err:
+            LOGGER.warning("Quick add profile failure: %s (code=%s)", err, getattr(err, "code", ""))
+            self._sessionFailedSignal.emit(
+                "Current profile not linked",
+                "Link this study profile to your device in Account & Devices.",
+            )
+        except MobileUploadStorageError as err:
+            LOGGER.warning("Quick add storage failure: %s (code=%s)", err, getattr(err, "code", ""))
+            self._sessionFailedSignal.emit(
+                "QR service unavailable",
+                "QR session storage is temporarily unavailable. Please try again later.",
+            )
+        except MobileUploadClientError as err:
+            LOGGER.warning("Quick add client failure: %s (code=%s)", err, getattr(err, "code", ""))
+            if getattr(err, "code", "") == "CLOUD_UNAVAILABLE":
+                self._sessionFailedSignal.emit(
+                    "Cloud unavailable",
+                    "Cannot reach cloud service. Check your internet connection.",
+                )
+            else:
+                self._sessionFailedSignal.emit(
+                    "Unexpected server error",
+                    str(err) or "An error occurred on the server while creating the session.",
+                )
         except Exception as err:
             LOGGER.error("Quick add session creation failed: %s", err)
             self._sessionFailedSignal.emit(
-                "Could not connect to cloud service.",
-                "Check Wi-Fi connection and ensure cloud service is online.",
+                "Unexpected server error",
+                "Could not generate QR session. Please check connection and try again.",
             )
 
     def _on_session_created(self, session_id: str, token: str, upload_url: str, short_code: str, expires_at, profile_name: str):

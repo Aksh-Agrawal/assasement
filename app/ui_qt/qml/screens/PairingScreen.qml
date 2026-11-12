@@ -7,6 +7,14 @@ Rectangle {
     anchors.fill: parent
     color: Theme.background
 
+    Component.onCompleted: {
+        if (typeof settingsController !== "undefined" && settingsController) {
+            if (!settingsController.isPaired && (!settingsController.pairingCode || settingsController.pairingCode === "")) {
+                settingsController.requestPairingCode();
+            }
+        }
+    }
+
     AppHeader {
         id: header
         anchors.top: parent.top
@@ -91,7 +99,17 @@ Rectangle {
 
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                text: (typeof settingsController !== "undefined" && settingsController && settingsController.pairingCode) ? (settingsController.pairingCode + "").split("").join(" ") : "K 7 M 2 P 9"
+                                text: {
+                                    if (typeof settingsController !== "undefined" && settingsController) {
+                                        if (settingsController.pairingStatus === "generating" || settingsController.pairingStatus === "Generating…") {
+                                            return "G E N . . ."
+                                        }
+                                        if (settingsController.pairingCode && settingsController.pairingCode.length > 0) {
+                                            return (settingsController.pairingCode + "").split("").join(" ")
+                                        }
+                                    }
+                                    return "- - - - - -"
+                                }
                                 color: Theme.forest
                                 font.pixelSize: 32
                                 font.bold: true
@@ -103,7 +121,7 @@ Rectangle {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 spacing: 4
                                 Text {
-                                    text: "Valid for 10 minutes"
+                                    text: "Valid for 10 minutes • Generated on Pi"
                                     color: Theme.textSecondary
                                     font.pixelSize: Typography.caption
                                     font.family: Typography.fontFamily

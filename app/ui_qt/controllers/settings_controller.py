@@ -207,8 +207,8 @@ class SettingsController(QObject):
     @Property(str, notify=accountChanged)
     def pairingCode(self) -> str:
         if self.app.device and self.app.device.pairing:
-            return getattr(self.app.device.pairing, "code", "A7K392")
-        return self._pairing_code or "A7K392"
+            return getattr(self.app.device.pairing, "code", "")
+        return self._pairing_code or ""
 
     @Property(str, notify=accountChanged)
     def pairingStatus(self) -> str:
