@@ -149,7 +149,7 @@ Rectangle {
                         width: parent.width
                         height: 70
                         radius: Metrics.radiusSm
-                        color: Theme.surfaceWarm
+                        color: Theme.surfaceActive
                         border.color: Theme.border
                         border.width: 1
 
@@ -240,7 +240,7 @@ Rectangle {
                         Text {
                             text: "Add Questions From Your Phone"
                             color: Theme.textPrimary
-                            font.pixelSize: Typography.title
+                            font.pixelSize: Typography.pageTitle
                             font.family: Typography.fontSerif
                             font.bold: true
                             width: parent.width

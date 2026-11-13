@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15
 import ".." 1.0
 import "../components" 1.0
 
@@ -9,6 +10,8 @@ Rectangle {
 
     property int timerMinutes: 0
     property string selectedMode: "practice" // "practice", "test", "challenge"
+    function difficultyValue(label) { return label === "Any difficulty" ? "" : label.toLowerCase(); }
+    function topicValue() { return topicPicker.currentIndex === 0 ? "" : topicPicker.currentText; }
 
     AppHeader {
         id: header
@@ -146,6 +149,118 @@ Rectangle {
                         }
                     }
 
+                    // Pack-backed practice filters. The selected order is saved with the attempt.
+                    Column {
+                        width: parent.width
+                        spacing: Spacing.xs
+                        Text { text: "Practice Questions"; color: Theme.deepInk; font.pixelSize: Typography.body; font.bold: true }
+                        Row {
+                            width: parent.width
+                            spacing: 8
+                            Column {
+                                width: (parent.width - 16) / 3
+                                spacing: 3
+                                Text { text: "Topic"; color: Theme.mutedInk; font.pixelSize: 11 }
+                                ComboBox {
+                                    id: topicPicker
+                                    width: parent.width
+                                    height: 40
+                                    model: libraryController.practiceTopics
+                                    onActivated: {
+                                        countPresetPicker.currentIndex = 0
+                                        customCountLabel.visible = false
+                                        countPicker.value = countPicker.to
+                                    }
+                                    contentItem: Text {
+                                        text: topicPicker.displayText
+                                        leftPadding: 10
+                                        rightPadding: 22
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                        color: Theme.deepInk
+                                        font.pixelSize: Typography.caption
+                                        font.family: Typography.family
+                                    }
+                                    background: Rectangle {
+                                        radius: 7
+                                        color: Theme.surfaceActive
+                                        border.color: topicPicker.activeFocus ? Theme.forest : Theme.border
+                                    }
+                                    indicator: Text {
+                                        text: "▼"
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 9
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        color: Theme.mutedInk
+                                        font.pixelSize: 14
+                                    }
+                                }
+                            }
+                            Column {
+                                width: (parent.width - 16) / 3
+                                spacing: 3
+                                Text { text: "Difficulty"; color: Theme.mutedInk; font.pixelSize: 11 }
+                                ComboBox {
+                                    id: difficultyPicker; width: parent.width; height: 40
+                                    model: ["Any difficulty", "Foundation", "Standard", "Challenge"]
+                                    contentItem: Text { text: difficultyPicker.displayText; leftPadding: 10; rightPadding: 22; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; color: Theme.deepInk; font.pixelSize: Typography.caption; font.family: Typography.family }
+                                    background: Rectangle { radius: 7; color: Theme.surfaceActive; border.color: difficultyPicker.activeFocus ? Theme.forest : Theme.border }
+                                    indicator: Text { text: "▼"; anchors.right: parent.right; anchors.rightMargin: 9; anchors.verticalCenter: parent.verticalCenter; color: Theme.mutedInk; font.pixelSize: 14 }
+                                    onActivated: {
+                                        countPicker.value = Math.min(countPicker.value, countPicker.to)
+                                        countPresetPicker.currentIndex = 0
+                                        customCountLabel.visible = false
+                                    }
+                                }
+                            }
+                            Column {
+                                width: (parent.width - 16) / 3
+                                spacing: 3
+                                Text { text: "Question count"; color: Theme.mutedInk; font.pixelSize: 11 }
+                                ComboBox {
+                                    id: countPresetPicker; width: parent.width; height: 40
+                                    model: libraryController.practiceCountPresets(topicPicker.currentText, difficultyPicker.currentText)
+                                    contentItem: Text { text: countPresetPicker.displayText; leftPadding: 8; rightPadding: 21; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; color: Theme.deepInk; font.pixelSize: 11; font.family: Typography.family }
+                                    background: Rectangle { radius: 7; color: Theme.surfaceActive; border.color: countPresetPicker.activeFocus ? Theme.forest : Theme.border }
+                                    indicator: Text { text: "▼"; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; color: Theme.mutedInk; font.pixelSize: 14 }
+                                    onActivated: {
+                                        customCountLabel.visible = currentText === "Custom"
+                                        if (currentText === "All questions")
+                                            countPicker.value = countPicker.to
+                                        else if (currentText !== "Custom")
+                                            countPicker.value = parseInt(currentText, 10)
+                                    }
+                                }
+                                SpinBox {
+                                    id: countPicker; width: parent.width; height: 40
+                                    visible: customCountLabel.visible
+                                    from: 1
+                                    to: Math.max(1, libraryController.practiceQuestionCount(topicPicker.currentText, difficultyPicker.currentText))
+                                    value: to
+                                    editable: true
+                                    onToChanged: value = Math.min(value, to)
+                                    onValueModified: countPresetPicker.currentIndex = countPresetPicker.count - 1
+                                }
+                                Text {
+                                    id: customCountLabel
+                                    visible: false
+                                    text: "Custom question count"
+                                    color: Theme.mutedInk
+                                    font.pixelSize: 10
+                                }
+                            }
+                        }
+                        Text {
+                            visible: libraryController.practiceQuestionCount(topicPicker.currentText, difficultyPicker.currentText) === 0
+                            text: "No questions match these filters. Choose another topic or difficulty."
+                            color: Theme.terracotta
+                            font.pixelSize: Typography.caption
+                            wrapMode: Text.Wrap
+                            width: parent.width
+                        }
+                        CheckBox { id: shufflePicker; text: "Shuffle questions"; checked: false; implicitHeight: 36 }
+                    }
+
                     // Mode setting
                     Column {
                         spacing: Spacing.xs
@@ -220,8 +335,9 @@ Rectangle {
                             text: "Begin Assessment →"
                             preferredHeight: Metrics.touchNormal
                             buttonColor: Theme.forest
+                            enabled: libraryController.practiceQuestionCount(topicPicker.currentText, difficultyPicker.currentText) > 0
                             onClicked: {
-                                assessmentController.startTest(root.selectedMode, root.timerMinutes);
+                                assessmentController.startTest(root.selectedMode, root.timerMinutes, countPicker.value, root.difficultyValue(difficultyPicker.currentText), root.topicValue(), shufflePicker.checked);
                             }
                         }
                     }

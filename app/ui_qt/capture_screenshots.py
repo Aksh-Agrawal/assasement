@@ -1,7 +1,8 @@
-"""Capture development and review screenshots of Qt Quick screens at 800x480 (and 800x600 fallback)."""
+"""Capture Qt Quick review screenshots at the target Pi display size (800x480)."""
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -10,11 +11,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QSG_RENDER_LOOP"] = "basic"
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="backslashreplace")
 
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401
+from PySide6.QtTest import QTest
 
 from app.auth.credentials import CredentialStore
 from app.config import AppConfig
@@ -30,6 +35,7 @@ from app.ui_qt.controllers.app_controller import AppController
 from app.ui_qt.controllers.assessment_controller import AssessmentController
 from app.ui_qt.controllers.library_controller import LibraryController
 from app.ui_qt.controllers.profile_controller import ProfileController
+from app.ui_qt.controllers.quick_add_controller import QuickAddController
 from app.ui_qt.controllers.settings_controller import SettingsController
 
 
@@ -44,16 +50,14 @@ def capture_all():
     app.setFont(QFont("Segoe UI", 11))
 
     # Directories for screenshots
-    dirs = [
-        Path("var/screenshots/qt_800x480"),
-        Path("artifacts/pi-ui-review"),
-    ]
+    dirs = [Path("artifacts/pi-ui-verification")]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
 
-    db_path = Path("var/dev_test.db")
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    db_path.touch()
+    capture_data = Path(tempfile.gettempdir()) / "startup-qt-ui-capture"
+    capture_data.mkdir(parents=True, exist_ok=True)
+    db_path = capture_data / "capture.db"
+    db_path.touch(exist_ok=True)
 
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(db_path.parent / "dev_creds.json")
@@ -179,13 +183,27 @@ def capture_all():
     app_ctrl._initialize_runtime()
 
     class MockHist:
-        def __init__(self, title, subject, score, maximum, completed_at, sync_status="synced"):
+        def __init__(self, title, subject, score, maximum, completed_at, sync_status="synced", source="device"):
             self.title = title
             self.subject = subject
             self.score = score
             self.maximum = maximum
             self.completed_at = completed_at
             self.sync_status = Mock(value=sync_status)
+            self.source = source
+            self.correct = int(score)
+            self.wrong = max(0, int(maximum - score))
+            self.skipped = 0
+            self.answered = self.correct + self.wrong
+            self.attempt_id = f"capture-{title.lower().replace(' ', '-')}"
+            self.duration_ms = 180000
+            self.response_time_ms = 45000
+            self.confidence = {
+                "sure": {"correct": 1, "wrong": 0},
+                "not_sure": {"correct": 1, "wrong": 1},
+                "guessing": {"correct": 0, "wrong": 1},
+                "unrated": {"correct": 0, "wrong": 0},
+            }
 
     mock_history = (
         MockHist("Cell Structure & Organelles", "Biology", 8.0, 10.0, "01 Nov 2026"),
@@ -195,6 +213,7 @@ def capture_all():
     type(app_ctrl.ui_controller).history_items = property(lambda self: mock_history)
 
     engine = QQmlApplicationEngine()
+    engine.warnings.connect(lambda warnings: print("QML WARNINGS:", [warning.toString() for warning in warnings]))
     qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
 
@@ -202,6 +221,7 @@ def capture_all():
     lib_ctrl = LibraryController(app_ctrl)
     assess_ctrl = AssessmentController(app_ctrl)
     settings_ctrl = SettingsController(app_ctrl)
+    quick_add_ctrl = QuickAddController(app_ctrl)
     settings_ctrl._pairing_code = "K7M2P9"
 
     ctx = engine.rootContext()
@@ -210,6 +230,7 @@ def capture_all():
     ctx.setContextProperty("libraryController", lib_ctrl)
     ctx.setContextProperty("assessmentController", assess_ctrl)
     ctx.setContextProperty("settingsController", settings_ctrl)
+    ctx.setContextProperty("quickAddController", quick_add_ctrl)
 
     engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
     window = engine.rootObjects()[0]
@@ -218,6 +239,8 @@ def capture_all():
     window.show()
 
     def grab_and_save(filename):
+        app_ctrl.clearMessage()
+        QTest.qWait(60)
         app.processEvents()
         image = window.grabWindow()
         for d in dirs:
@@ -273,6 +296,9 @@ def capture_all():
         maximum=10.0,
         percentage=80.0,
         confidence_breakdown={Confidence.SURE: 6, Confidence.NOT_SURE: 3, Confidence.GUESSING: 1},
+        correct=8,
+        wrong=2,
+        skipped=0,
     )
     assess_ctrl.resultChanged.emit()
     app_ctrl.navigate("result")
@@ -282,73 +308,74 @@ def capture_all():
     app_ctrl.navigate("review")
     grab_and_save("12_review_800x480.png")
 
-    # 13. History Journal
+    # 13. Progress & Analytics
+    app_ctrl.navigate("progress")
+    grab_and_save("13_progress_analytics_800x480.png")
+
+    # 14. Assessment History
     app_ctrl.navigate("history")
-    grab_and_save("13_history_800x480.png")
+    grab_and_save("14_history_800x480.png")
 
-    # 14. Practice & Downloads (Content)
+    # 15. Practice & Downloads (Content)
     app_ctrl.navigate("content")
-    grab_and_save("14_content_downloads_800x480.png")
+    grab_and_save("15_content_downloads_800x480.png")
 
-    # 15. Settings Overview
+    # 16. Settings Overview
     app_ctrl.navigate("settings")
-    grab_and_save("15_settings_800x480.png")
+    grab_and_save("16_settings_800x480.png")
 
-    # 16. Wi-Fi Appliance Screen
+    # 17. Wi-Fi Appliance Screen
     app_ctrl.navigate("wifi")
-    grab_and_save("16_wifi_800x480.png")
+    grab_and_save("17_wifi_800x480.png")
 
-    # 17. Sync Screen
+    # 18. Sync Screen
     app_ctrl.navigate("sync")
-    grab_and_save("17_sync_800x480.png")
+    grab_and_save("18_sync_800x480.png")
 
-    # 18. Connected Account & Profiles
+    # 19. Connected Account & Profiles
     app_ctrl.navigate("account")
-    grab_and_save("18_account_800x480.png")
+    grab_and_save("19_account_800x480.png")
 
-    # 19. Device Info / Specifications
+    # 20. Device Info / Specifications
     app_ctrl.navigate("device_info")
-    grab_and_save("19_device_info_800x480.png")
+    grab_and_save("20_device_info_800x480.png")
 
-    # 20. Diagnostics & Health
+    # 21. Diagnostics & Health
     app_ctrl.navigate("diagnostics")
-    grab_and_save("20_diagnostics_800x480.png")
+    grab_and_save("21_diagnostics_800x480.png")
+    QTest.qWait(500)
+    app.processEvents()
 
-    # 21. Software Update
+    # 22. Software Update
     app_ctrl.navigate("software_update")
-    grab_and_save("21_software_update_800x480.png")
+    grab_and_save("22_software_update_800x480.png")
 
-    # 22. About Screen
+    # 23. About Screen
     app_ctrl.navigate("about")
-    grab_and_save("22_about_800x480.png")
+    grab_and_save("23_about_800x480.png")
 
-    # 23. Device Pairing Ticket
+    # 24. Device Pairing Ticket
     app_ctrl.navigate("pairing")
-    grab_and_save("23_pairing_800x480.png")
+    grab_and_save("24_pairing_800x480.png")
 
-    # 24. Recovery Mode Screen
+    # 25. Recovery Mode Screen
     app_ctrl.navigate("recovery")
-    grab_and_save("24_recovery_800x480.png")
+    grab_and_save("25_recovery_800x480.png")
 
-    # 25. Create Student Profile
+    # 26. Create Student Profile
     app_ctrl.navigate("create_profile")
-    grab_and_save("25_create_profile_800x480.png")
+    grab_and_save("26_create_profile_800x480.png")
 
-    # 26. Question Detail Passage
+    # 27. Question Detail Passage
     app_ctrl.navigate("question_detail")
-    grab_and_save("26_question_detail_800x480.png")
+    grab_and_save("27_question_detail_800x480.png")
 
-    # Test 800x600 Fallback Resolution
-    window.setWidth(800)
-    window.setHeight(600)
-    app_ctrl.navigate("home")
-    grab_and_save("27_home_800x600_fallback.png")
-
-    assess_ctrl.startTest("practice", 10)
-    grab_and_save("28_question_800x600_fallback.png")
+    # QR Quick Add remains part of the normal Pi content workflow.
+    app_ctrl.navigate("quick_add")
+    grab_and_save("28_quick_add_800x480.png")
 
     app_ctrl.close()
-    print("All 28 review screenshots successfully captured at 800x480 and 800x600 fallback.")
+    print("All 28 Qt review screenshots captured at 800x480 (simulated offscreen rendering).")
 
 
 if __name__ == "__main__":

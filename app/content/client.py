@@ -8,6 +8,7 @@ import httpx
 
 from app.api.transport import FailureState, create_client, json_object, response_failure
 from app.content.catalog import ContentCatalog, RemotePack
+from app.content.validator import SUPPORTED_SCHEMA_VERSION
 
 
 class ContentClientError(RuntimeError):
@@ -92,7 +93,10 @@ class ContentApiClient:
         if self.profile_scoped:
             from urllib.parse import quote
             path = f"/api/v1/profile-content/{self.link_id}/packs/{quote(pack.set_id, safe='')}/{pack.version}"
-            params = {"local_profile_id": self.local_profile_id}
+            params = {
+                "local_profile_id": self.local_profile_id,
+                "pack_schema": SUPPORTED_SCHEMA_VERSION,
+            }
         try:
             with self._client.stream("GET", path, params=params) as response:
                 self._check_response(response)
@@ -102,12 +106,37 @@ class ContentApiClient:
         except httpx.RequestError as error:
             raise ContentNetworkError("Cloud connection unavailable") from error
 
+    def fetch_figure(self, pack: RemotePack, reference: str) -> bytes:
+        """Fetch one content-pinned PNG through the authenticated profile link."""
+        if not self.profile_scoped:
+            raise ContentProtocolError("Figures require a profile-scoped content link")
+        import re
+        match = re.fullmatch(r"media/([0-9a-f]{64})\.png", reference)
+        if not match:
+            raise ContentProtocolError("Invalid figure reference")
+        digest = match.group(1)
+        from urllib.parse import quote
+        path = (f"/api/v1/profile-content/{self.link_id}/packs/"
+                f"{quote(pack.set_id, safe='')}/{pack.version}/figures/{digest}")
+        try:
+            response = self._client.get(path, params={"local_profile_id": self.local_profile_id})
+        except httpx.RequestError as error:
+            raise ContentNetworkError("Cloud connection unavailable") from error
+        self._check_response(response)
+        data = response.content
+        from app.content.hashing import sha256_bytes
+        if (len(data) > 5_000_000 or not data.startswith(b"\x89PNG\r\n\x1a\n")
+                or sha256_bytes(data) != digest):
+            raise ContentProtocolError("Cloud figure failed PNG or SHA-256 verification")
+        return data
+
     def _fetch_profile_catalog(self):
         packs, offset = [], 0
         # Paginate with a bounded cap; an incomplete response never replaces offline grants.
         while True:
             response = self._client.get(f"/api/v1/profile-content/{self.link_id}/catalog",
-                params={"local_profile_id": self.local_profile_id, "offset": offset, "limit": 100})
+                params={"local_profile_id": self.local_profile_id, "offset": offset,
+                        "limit": 100, "pack_schema": SUPPORTED_SCHEMA_VERSION})
             self._check_response(response)
             try:
                 body = json_object(response)
@@ -169,6 +198,29 @@ class ContentApiClient:
             if type(following) is not int or following <= offset or len(items) >= 10000:
                 raise ContentProtocolError("History exceeds bounded snapshot capacity")
             offset = following
+
+    def fetch_completed_result_detail(self, attempt_id: str):
+        """Fetch review evidence through the same linked-device profile contract."""
+        if not self.profile_scoped:
+            raise ContentProtocolError("Attempt review requires a linked profile")
+        try:
+            response = self._client.get(
+                f"/api/v1/profile-content/{self.link_id}/history/{attempt_id}",
+                params={"local_profile_id": self.local_profile_id},
+            )
+        except httpx.RequestError as error:
+            raise ContentNetworkError("Cloud connection unavailable") from error
+        # A cloud deployment may be upgraded before the device-facing API. Keep
+        # summary History compatible until that endpoint is available.
+        if response.status_code in {404, 413}:
+            return None
+        self._check_response(response)
+        if len(response.content) > 2 * 1024 * 1024:
+            raise ContentProtocolError("Completed-attempt review exceeds the device size limit")
+        body = json_object(response)
+        if not isinstance(body, dict):
+            raise ContentProtocolError("Invalid completed-attempt detail")
+        return body
 
     @staticmethod
     def _check_response(response: httpx.Response) -> None:

@@ -11,6 +11,7 @@ QtObject {
     readonly property color background: "transparent"  // Transparent screen background
     readonly property color paper: "#F5EFE3"          // Solid Paper / Canvas base
     readonly property color surface: "#FBF7EF"         // Warm Surface for cards / sheets
+    readonly property color surfaceWarm: surface
     readonly property color surfaceElevated: "#FFFFFF" // Crisp white highlights
     readonly property color surfaceActive: "#EFE8D8"   // Pressed / active tactile paper
     readonly property color surfaceSelected: "#EEF5F0" // Soft sage selected tint
@@ -33,6 +34,7 @@ QtObject {
     readonly property color terracotta: "#C76848"      // Terracotta - Chemistry / critical alerts
     readonly property color terracottaLight: "#FDF3EE"
     readonly property color gold: "#D5A64A"            // Warm Gold - Mathematics / badges / review
+    readonly property color warmGold: gold
     readonly property color goldLight: "#FAF5E9"
     readonly property color sky: "#A9C7CF"             // Soft Sky - General science / atmosphere
     readonly property color skyLight: "#EFF6F8"
@@ -56,8 +58,8 @@ QtObject {
     readonly property int fontSizeBody: 16
     readonly property int fontSizeSecondary: 14
     readonly property int fontSizeCaption: 12
-    readonly property string fontFamily: "Segoe UI, Noto Sans, Roboto, DejaVu Sans, sans-serif"
-    readonly property string fontFamilySerif: "Georgia, DejaVu Serif, Noto Serif, serif"
+    readonly property string fontFamily: "Arial"
+    readonly property string fontFamilySerif: "Georgia"
 
     // Dimensions & Touch Targets
     readonly property int touchMin: 48

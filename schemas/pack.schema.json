@@ -12,7 +12,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "enum": [1, 2]
     },
     "content_status": {
       "type": "string",
@@ -32,10 +32,24 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "$ref": "#/$defs/question"
+        "anyOf": [
+          { "$ref": "#/$defs/question" },
+          { "$ref": "#/$defs/numeric_question" }
+        ]
       }
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": 1 } } },
+      "then": {
+        "properties": { "questions": { "items": {
+          "$ref": "#/$defs/question",
+          "not": { "required": ["solution_ref"] }
+        } } }
+      }
+    }
+  ],
   "$defs": {
     "stable_id": {
       "type": "string",
@@ -185,6 +199,68 @@
         }
       }
     },
+    "solution_ref": {
+      "type": "string",
+      "pattern": "^media/[0-9a-f]{64}[.]png$"
+    },
+    "numeric_question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position",
+        "topic",
+        "difficulty",
+        "question_text",
+        "options",
+        "correct_key",
+        "media_ref"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "difficulty": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "question_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "correct_key": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)$"
+        },
+        "solution_ref": { "$ref": "#/$defs/solution_ref" },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
     "question": {
       "type": "object",
       "additionalProperties": false,
@@ -249,6 +325,7 @@
             "D"
           ]
         },
+        "solution_ref": { "$ref": "#/$defs/solution_ref" },
         "explanation": {
           "type": "string",
           "minLength": 1

@@ -43,7 +43,7 @@ Rectangle {
                 border.color: Theme.border
                 border.width: 1
 
-                Row {
+                Item {
                     anchors.fill: parent
                     anchors.leftMargin: Spacing.lg
                     anchors.rightMargin: Spacing.lg

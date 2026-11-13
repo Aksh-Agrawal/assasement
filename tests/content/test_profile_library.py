@@ -177,8 +177,8 @@ def test_v4_migration_keeps_shared_legacy_profiles_and_content(tmp_path):
     con = connect_database(path)
     assert run_migrations(con, old) == 4
     con.execute("INSERT INTO profiles(id,display_name,created_at) VALUES ('old','Old','2026-10-28T00:00:00Z')")
-    assert run_migrations(con) == 7
-    assert run_migrations(con) == 7
+    assert run_migrations(con) == 8
+    assert run_migrations(con) == 8
     con.close()
     with Repository(path) as repo:
         assert repo.get_profile("old").ownership_state == "legacy_unclaimed"
@@ -394,3 +394,67 @@ def test_failed_snapshot_rolls_back_visibility_and_attempt(tmp_path):
             repo.cache_profile_library("a", link, [])
         assert len(repo.visible_question_sets("a")) == 1
         assert repo.find_in_progress_attempt("a").id == attempt.id
+
+
+def test_attempt_detail_download_and_cached_review_survive_summary_retry(tmp_path):
+    attempt_id = str(uuid4())
+    evidence = {
+        "attempt_id": attempt_id,
+        "study_profile_id": "",
+        "source": "web",
+        "status": "completed",
+        "set_id": "web-pack",
+        "version": 3,
+        "title": "Web assessment",
+        "subject": "Biology",
+        "started_at": "2026-11-12T10:00:00Z",
+        "completed_at": "2026-11-12T10:02:00Z",
+        "result": {"score": 4, "maximum_score": 4, "correct": 1, "wrong": 0,
+                   "skipped": 0, "duration_ms": 120000},
+        "review": [{"question_id": "q1", "question_text": "Question?",
+                    "options": [{"key": "A", "text": "Answer"}],
+                    "correct_key": "A", "selected_key": "A", "confidence": "sure",
+                    "is_correct": True, "explanation": "Because.",
+                    "marked_review": False, "response_time_ms": 800}],
+        "review_available": True,
+    }
+
+    def handler(request):
+        if request.url.path.endswith("/history"):
+            summary = {key: value for key, value in evidence.items()
+                       if key not in {"review", "review_available"}}
+            return httpx.Response(200, json={"items": [summary], "next_offset": None})
+        if request.url.path.endswith("/history/" + attempt_id):
+            return httpx.Response(200, json=evidence)
+        return httpx.Response(404)
+
+    with Repository(tmp_path / "cloud-review.db") as repo:
+        setup(repo)
+        profile = repo.get_profile("a")
+        evidence["study_profile_id"] = profile.cloud_profile_id
+        current_link = repo.get_profile_link_context("a")["link_id"]
+        with ContentApiClient("https://cloud.test", auth_token="device", link_id=current_link,
+                              local_profile_id="a", transport=httpx.MockTransport(handler)) as client:
+            summary = client.fetch_completed_results()
+            detail = client.fetch_completed_result_detail(attempt_id)
+            assert summary[0]["attempt_id"] == attempt_id
+            assert detail["review"][0]["correct_key"] == "A"
+            summary[0].update(review=detail["review"], review_available=True)
+            repo.cache_completed_results("a", current_link, summary)
+            # A later older-cloud/summary-only sync must not erase richer detail.
+            summary_retry = client.fetch_completed_results()
+            repo.cache_completed_results("a", current_link, summary_retry)
+        cached = repo.completed_results("a")
+        assert len(cached) == 1
+        assert cached[0]["attempt_id"] == attempt_id
+        assert cached[0]["review"][0]["explanation"] == "Because."
+        assert cached[0]["review_available"] is True
+
+
+def test_content_client_treats_old_cloud_detail_route_as_summary_only():
+    def handler(_request):
+        return httpx.Response(404)
+
+    with ContentApiClient("https://cloud.test", auth_token="device", link_id=str(uuid4()),
+                          local_profile_id="a", transport=httpx.MockTransport(handler)) as client:
+        assert client.fetch_completed_result_detail(str(uuid4())) is None

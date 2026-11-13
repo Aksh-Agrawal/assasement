@@ -1,5 +1,8 @@
 """Profile-specific eligibility around the existing exact-byte installation pipeline."""
+import hashlib
 import json
+import os
+from pathlib import Path, PurePosixPath
 
 from app.content.catalog import RemotePack
 from app.content.client import ContentAuthError, ContentProtocolError, ProfileUnavailableError
@@ -34,7 +37,7 @@ def refresh_library(repository, client, profile_id, link_id):
 
 
 def download_for_profile(repository, client, profile_id, link_id, pack, *,
-                         temp_directory, max_pack_bytes):
+                         temp_directory, max_pack_bytes, media_directory=Path("media")):
     # Refresh server eligibility before using either shared cached bytes or downloading.
     remote = refresh_library(repository, client, profile_id, link_id)
     approved = next((p for p in remote if (p.set_id, p.version) == (pack.set_id, pack.version)), None)
@@ -55,6 +58,23 @@ def download_for_profile(repository, client, profile_id, link_id, pack, *,
                                   repository, client, profile_id, pack, "downloaded"))
     if result.status is ContentSyncStatus.AUTH_REQUIRED:
         repository.revoke_profile_library(profile_id)
+    if result.status in {ContentSyncStatus.INSTALLED, ContentSyncStatus.ALREADY_PRESENT}:
+        question_set = repository.get_question_set(pack.set_id, pack.version)
+        references = {ref for question in question_set.questions
+                      for ref in (question.media_ref, question.solution_ref) if ref}
+        for reference in references:
+            digest = PurePosixPath(reference).stem
+            target = Path(media_directory) / reference
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file() and hashlib.sha256(target.read_bytes()).hexdigest() == digest:
+                continue
+            image = client.fetch_figure(pack, reference)
+            temporary = target.with_name(target.name + ".tmp")
+            try:
+                temporary.write_bytes(image)
+                os.replace(temporary, target)
+            finally:
+                temporary.unlink(missing_ok=True)
     # Delivery acknowledgement is distinct from the durable installation and local grant.
     try:
         client.acknowledge(pack, "installed" if result.status in {
@@ -147,7 +167,8 @@ def sync_profile_deliveries(repository, api, config):
             with api.content(local_profile_id=profile_id, link_id=link_id) as client:
                 result = download_for_profile(repository, client, profile_id, link_id, pack,
                     temp_directory=config.content_download_directory,
-                    max_pack_bytes=config.content_max_pack_bytes)
+                    max_pack_bytes=config.content_max_pack_bytes,
+                    media_directory=config.media_directory)
                 if result.status not in {ContentSyncStatus.INSTALLED, ContentSyncStatus.ALREADY_PRESENT}:
                     failures += 1
         except ProfileUnavailableError:

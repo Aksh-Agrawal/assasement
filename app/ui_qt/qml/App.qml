@@ -72,6 +72,7 @@ Window {
                 case "question_nav": return "screens/QuestionNavigatorScreen.qml";
                 case "result": return "screens/ResultScreen.qml";
                 case "review": return "screens/ReviewScreen.qml";
+                case "progress": return "screens/ProgressScreen.qml";
                 case "history": return "screens/HistoryScreen.qml";
                 case "settings": return "screens/SettingsScreen.qml";
                 case "wifi": return "screens/WifiScreen.qml";

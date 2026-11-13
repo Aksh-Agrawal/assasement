@@ -84,6 +84,7 @@ class Question:
     correct_key: OptionKey
     explanation: str | None = None
     media_ref: str | None = None
+    solution_ref: str | None = None
 
     def __post_init__(self) -> None:
         _require_text("Question ID", self.id)
@@ -115,6 +116,8 @@ class Question:
             _require_text("Question explanation", self.explanation)
         if self.media_ref is not None:
             _require_text("Question media reference", self.media_ref)
+        if self.solution_ref is not None:
+            _require_text("Question solution reference", self.solution_ref)
 
 
 @dataclass(frozen=True, slots=True)

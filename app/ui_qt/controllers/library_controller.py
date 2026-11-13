@@ -103,6 +103,43 @@ class LibraryController(QObject):
                 return p
         return pk_list[0] if pk_list else {}
 
+    def _practice_set(self):
+        if not self.app.repository:
+            return None
+        return self.app.repository.get_question_set(self._selected_pack_id, self._selected_pack_version)
+
+    @Property(list, notify=selectionChanged)
+    def practiceTopics(self) -> list:
+        question_set = self._practice_set()
+        return ["All topics", *sorted({q.topic for q in question_set.questions})] if question_set else ["All topics"]
+
+    @Property(int, notify=selectionChanged)
+    def practiceQuestionTotal(self) -> int:
+        question_set = self._practice_set()
+        return len(question_set.questions) if question_set else 1
+
+    @Slot(str, str, result=int)
+    def practiceQuestionCount(self, topic_label: str, difficulty_label: str) -> int:
+        question_set = self._practice_set()
+        if not question_set:
+            return 1
+        topic = "" if topic_label == "All topics" else topic_label
+        difficulty = {"Foundation": "foundation", "Standard": "standard", "Challenge": "challenge"}.get(difficulty_label, "")
+        bands = {1: "foundation", 2: "foundation", 3: "standard", 4: "challenge", 5: "challenge"}
+        return sum(1 for q in question_set.questions
+                   if (not topic or q.topic == topic)
+                   and (not difficulty or bands[q.difficulty] == difficulty))
+
+    @Slot(str, str, result=list)
+    def practiceCountPresets(self, topic_label: str, difficulty_label: str) -> list:
+        eligible = self.practiceQuestionCount(topic_label, difficulty_label)
+        if eligible <= 0:
+            return []
+        presets = ["All questions"]
+        presets.extend(f"{count} questions" for count in (5, 10, 20) if count <= eligible)
+        presets.append("Custom")
+        return presets
+
     @Property(bool, notify=catalogChanged)
     def canResume(self) -> bool:
         if self.app.ui_controller:

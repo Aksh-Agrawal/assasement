@@ -5,7 +5,8 @@ Audit recorded before implementation changes (2026-10-27).
 | Major package / files | Classification | Separation action |
 | --- | --- | --- |
 | app/core, app/assessment.py | KEEP_DEVICE | Preserve engine, scoring, timer, resume and models. |
-| app/ui, app/input, app/system | KEEP_DEVICE | Preserve pygame UI, canonical Actions, touch/keyboard/GPIO and Wi-Fi adapters. |
+| app/ui_qt, app/ui_qt/qml | KEEP_DEVICE | Primary Qt/QML device UI; preserve illustrated screens, touch/keyboard routes and existing device services. |
+| app/ui, app/input, app/system | KEEP_DEVICE | Legacy Pygame prototype and shared input adapters, not the production launcher. |
 | app/data and SQL migrations | KEEP_DEVICE | Local SQLite, profiles/PIN, pending attempts and device settings. |
 | app/auth | KEEP_DEVICE | Identity, local credential storage and HTTP pairing; no approval logic. |
 | app/content | KEEP_DEVICE | Catalogue client, bounded download, hashing, validation and atomic local import. |

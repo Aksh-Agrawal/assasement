@@ -13,6 +13,7 @@ PAMName=login
 WorkingDirectory=/opt/assessment-device
 EnvironmentFile=/etc/assessdev/device.env
 Environment=SDL_VIDEODRIVER=x11
+Environment=QT_QPA_PLATFORM=xcb
 StandardInput=tty
 TTYPath=/dev/tty1
 TTYReset=yes

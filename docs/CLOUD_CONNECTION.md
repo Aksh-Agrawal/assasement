@@ -93,10 +93,10 @@ Only source a trusted operator-owned shell environment file.
 ```sh
 cd /home/aksh/assasement
 ./scripts/device-python.sh -m tools.cloud_check
-./scripts/device-python.sh -m app.ui.app --fullscreen
+./scripts/device-python.sh -m app.ui_qt.main --fullscreen
 ```
 
-A plain `python -m app.ui.app` does not load .env automatically. Working ping does not
+A plain `python -m app.ui_qt.main` does not load .env automatically. Working ping does not
 prove the app has an API URL. An empty ASSESS_API_URL disables remote actions; existing
 profile-action copy may call this Network unavailable. Configure the actual backend
 origin, keep the existing SQLite/credential paths, and restart the GUI through the

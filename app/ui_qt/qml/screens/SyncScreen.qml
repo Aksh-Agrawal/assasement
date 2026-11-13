@@ -60,9 +60,12 @@ Rectangle {
                 // Student-Facing Status & Headline
                 Column {
                     anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
                     spacing: 4
 
                     Text {
+                        objectName: "syncStatusSummaryText"
+                        width: parent.width
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: settingsController.syncStatusSummary
                         color: Theme.deepInk
@@ -72,11 +75,23 @@ Rectangle {
                     }
 
                     Text {
+                        width: parent.width
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "Last synchronized: " + (settingsController.lastSyncTime || "Just now")
                         color: Theme.mutedInk
                         font.pixelSize: Typography.body
                         font.family: Typography.family
+                    }
+
+                    Text {
+                        objectName: "syncDetailText"
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        text: settingsController.syncDetail
+                        color: Theme.mutedInk
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.family
+                        wrapMode: Text.WordWrap
                     }
                 }
 

@@ -85,9 +85,9 @@ def test_fresh_database_migrates_and_second_run_is_idempotent(tmp_path: Path) ->
     finally:
         reopened.close()
 
-    assert first_version == 7
-    assert second_version == 7
-    assert recorded_version == 7
+    assert first_version == 8
+    assert second_version == 8
+    assert recorded_version == 8
     assert first_tables == EXPECTED_TABLES
     assert second_tables == first_tables
 
@@ -134,10 +134,47 @@ def test_integrity_check_and_online_backup(tmp_path: Path) -> None:
     try:
         assert result.ok is True
         assert result.messages == ("ok",)
-        assert get_schema_version(backup_connection) == 7
+        assert get_schema_version(backup_connection) == 8
         assert check_integrity(backup_connection).ok is True
     finally:
         backup_connection.close()
+
+
+def test_v7_database_upgrade_adds_solution_reference_without_losing_questions(tmp_path: Path) -> None:
+    prior_migrations = tmp_path / "v7-migrations"
+    prior_migrations.mkdir()
+    for migration in MIGRATIONS_DIRECTORY.glob("*.sql"):
+        if migration.name < "0008":
+            shutil.copyfile(migration, prior_migrations / migration.name)
+
+    database_path = tmp_path / "v7.db"
+    connection = connect_database(database_path)
+    try:
+        assert run_migrations(connection, prior_migrations) == 7
+        connection.execute(
+            "INSERT INTO profiles(id, display_name, created_at) VALUES (?, ?, ?)",
+            ("profile-1", "Student", "2026-10-17T06:00:00.000Z"),
+        )
+        connection.execute(
+            "INSERT INTO question_sets(id, version, title, subject, chapter, marking_json, content_hash, downloaded_at, is_active) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("set-1", 1, "Set", "Biology", "Cells", '{"correct":4,"skip":0,"wrong":-1}', "sha256:fixture", "2026-10-17T06:00:00.000Z", 1),
+        )
+        connection.execute(
+            "INSERT INTO questions(set_id, set_version, id, position, topic, difficulty, question_text, options_json, correct_key) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("set-1", 1, "q1", 1, "Cells", 1, "Question?", '[{"key":"A","text":"A"},{"key":"B","text":"B"},{"key":"C","text":"C"},{"key":"D","text":"D"}]', "A"),
+        )
+    finally:
+        connection.close()
+
+    with Repository(database_path) as repository:
+        assert repository.schema_version == 8
+        question_set = repository.get_question_set("set-1", 1)
+        assert question_set is not None
+        assert question_set.questions[0].id == "q1"
+        assert question_set.questions[0].solution_ref is None
+        assert repository._connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
 def test_repository_context_manager_closes_connection(tmp_path: Path) -> None:
@@ -145,7 +182,7 @@ def test_repository_context_manager_closes_connection(tmp_path: Path) -> None:
     repository = Repository(database_path)
 
     with repository:
-        assert repository.schema_version == 7
+        assert repository.schema_version == 8
 
     with pytest.raises(RepositoryError, match="closed"):
         _ = repository.schema_version
@@ -230,7 +267,7 @@ def test_phase_8_schema_migrates_without_losing_assessment_data(tmp_path: Path) 
         connection.close()
 
     with Repository(database_path) as repository:
-        assert repository.schema_version == 7
+        assert repository.schema_version == 8
         assert repository.get_profile("profile-1") is not None
         assert repository.get_question_set("set-1", 1) is not None
         assert repository.get_attempt("attempt-1") is not None

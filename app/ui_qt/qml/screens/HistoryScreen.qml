@@ -6,6 +6,28 @@ Rectangle {
     id: root
     anchors.fill: parent
     color: Theme.canvas
+    property var progress: assessmentController.historyAnalytics
+
+    function displayDuration(milliseconds) {
+        var totalMinutes = Math.floor(milliseconds / 60000)
+        var hours = Math.floor(totalMinutes / 60)
+        var minutes = totalMinutes % 60
+        if (hours > 0) return hours + "h " + minutes + "m"
+        return minutes + "m"
+    }
+
+    function displayAnswerTime(milliseconds) {
+        if (milliseconds < 0) return "—"
+        if (milliseconds < 60000) return Math.round(milliseconds / 1000) + " sec"
+        return Math.floor(milliseconds / 60000) + "m " + Math.round(milliseconds % 60000 / 1000) + "s"
+    }
+
+    function syncStatusLabel(status) {
+        if (status === "synced") return "Synced"
+        if (status === "failed") return "Sync failed — will retry"
+        if (status === "pending") return "Waiting to sync"
+        return "Stored on this device"
+    }
 
     Row {
         anchors.fill: parent
@@ -18,6 +40,7 @@ Rectangle {
                 if (tab === "home") appController.navigate("home");
                 else if (tab === "library") appController.navigate("subjects");
                 else if (tab === "practice") appController.navigate("content");
+                else if (tab === "progress") appController.navigate("progress");
                 else if (tab === "history") appController.navigate("history");
                 else if (tab === "settings") appController.navigate("settings");
             }
@@ -29,7 +52,7 @@ Rectangle {
 
             AppHeader {
                 width: parent.width
-                title: "Study Journal"
+                title: "Assessment History"
                 profileText: appController.activeProfileName
                 networkText: appController.networkLabel
                 syncText: appController.syncLabel
@@ -57,68 +80,10 @@ Rectangle {
                     spacing: Spacing.sm
                     visible: assessmentController.historyList.length > 0
 
-                    // Top Progress Journal Overview Card (Single, Tasteful)
-                    AppCard {
-                        width: parent.width - Spacing.md
-                        height: 96
-                        anchors.horizontalCenter: parent.horizontalCenter
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: Spacing.md
-                            spacing: Spacing.md
-
-                            Column {
-                                width: parent.width - 120
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 3
-
-                                Text {
-                                    text: "Your Learning Progress"
-                                    color: Theme.deepInk
-                                    font.pixelSize: Typography.sectionTitle
-                                    font.bold: true
-                                    font.family: Typography.familyEditorial
-                                }
-
-                                Text {
-                                    text: assessmentController.historyList.length + " assessment(s) completed offline • High retention streak"
-                                    color: Theme.mutedInk
-                                    font.pixelSize: Typography.caption
-                                    font.family: Typography.family
-                                }
-
-                                Row {
-                                    spacing: Spacing.md
-                                    Text {
-                                        text: "Recent Mastery:"
-                                        color: Theme.deepInk
-                                        font.pixelSize: Typography.caption
-                                        font.bold: true
-                                    }
-                                    Text {
-                                        text: "79% average accuracy"
-                                        color: Theme.forest
-                                        font.pixelSize: Typography.caption
-                                        font.bold: true
-                                    }
-                                }
-                            }
-
-                            Image {
-                                width: 70
-                                height: 70
-                                anchors.verticalCenter: parent.verticalCenter
-                                source: Assets.laurel_achievement
-                                fillMode: Image.PreserveAspectFit
-                            }
-                        }
-                    }
-
-                    // Recent Completed Attempts Ledger
+                    // Local and profile-authorized cloud attempts.
                     ListView {
                         width: parent.width
-                        height: parent.height - 110
+                        height: parent.height
                         clip: true
                         spacing: Spacing.xs
                         topMargin: 2
@@ -130,12 +95,13 @@ Rectangle {
                             height: 60
 
                             AppCard {
+                                objectName: "history-row-" + modelData.attemptId
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 width: parent.width - Spacing.md
                                 height: 56
                                 interactive: true
                                 onClicked: {
-                                    appController.showNotification("Reviewing: " + modelData.title, "info");
+                                    assessmentController.openHistoryReview(modelData.attemptId);
                                 }
 
                                 Item {
@@ -172,10 +138,12 @@ Rectangle {
                                             }
 
                                             Text {
-                                                text: modelData.subject + " • " + modelData.completedAt + (modelData.synced ? " • Synced" : " • Stored locally")
+                                                text: modelData.subject + " · " + (modelData.source === "web" ? "Web" : (modelData.source === "device" ? "Raspberry Pi" : "Source unknown")) + " · " + modelData.completedAt + " · " + root.syncStatusLabel(modelData.syncStatus)
                                                 color: Theme.mutedInk
                                                 font.pixelSize: Typography.caption
                                                 font.family: Typography.fontFamily
+                                                width: parent.width - 110
+                                                elide: Text.ElideRight
                                             }
                                         }
                                     }
@@ -187,14 +155,14 @@ Rectangle {
                                         width: 84
                                         height: 32
                                         radius: 16
-                                        color: modelData.scorePercent >= 80 ? Theme.surfaceWarm : (modelData.scorePercent >= 60 ? "#FBF3DC" : "#FDF3EE")
-                                        border.color: modelData.scorePercent >= 80 ? Theme.forest : (modelData.scorePercent >= 60 ? Theme.warmGold : Theme.terracotta)
+                                        color: modelData.scorePercent < 0 ? Theme.surfaceSelected : (modelData.scorePercent >= 80 ? Theme.primaryLight : (modelData.scorePercent >= 60 ? "#FBF3DC" : "#FDF3EE"))
+                                        border.color: modelData.scorePercent < 0 ? Theme.border : (modelData.scorePercent >= 80 ? Theme.forest : (modelData.scorePercent >= 60 ? Theme.gold : Theme.terracotta))
                                         border.width: 1
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: modelData.scorePercent + "%"
-                                            color: modelData.scorePercent >= 80 ? Theme.forest : (modelData.scorePercent >= 60 ? Theme.deepInk : Theme.terracotta)
+                                            text: modelData.scorePercent < 0 ? "Saved" : modelData.scorePercent + "%"
+                                            color: modelData.scorePercent < 0 ? Theme.mutedInk : (modelData.scorePercent >= 80 ? Theme.forest : (modelData.scorePercent >= 60 ? Theme.deepInk : Theme.terracotta))
                                             font.pixelSize: Typography.caption
                                             font.bold: true
                                             font.family: Typography.fontFamily

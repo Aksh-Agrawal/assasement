@@ -20,6 +20,8 @@ def test_paginated_history_atomic_validation_and_transient_recovery(tmp_path):
     calls = []
     def handler(request):
         assert request.headers["Authorization"] == "Bearer device_test.secret"
+        if request.url.path.endswith("/history/" + result):
+            return httpx.Response(404)  # Older cloud deployment: summary-only fallback.
         offset = int(request.url.params["offset"])
         calls.append(offset)
         if offset == 0:

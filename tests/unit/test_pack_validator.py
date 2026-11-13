@@ -101,3 +101,22 @@ def test_sha256_is_exact_deterministic_and_expected_hash_is_verified(tmp_path: P
     with pytest.raises(PackValidationError) as captured:
         validate_pack_bytes(pack_bytes, expected_sha256="0" * 64)
     assert captured.value.issues[0].code is PackErrorCode.HASH_MISMATCH
+
+
+def test_cloud_schema_v2_memory_mcq_solution_figure_is_accepted() -> None:
+    raw = json.loads((FIXTURES / "valid_20_questions.json").read_text(encoding="utf-8"))
+    raw["schema_version"] = 2
+    reference = "media/" + "a" * 64 + ".png"
+    raw["questions"][0]["solution_ref"] = reference
+    validated = validate_pack_bytes(json.dumps(raw).encode("utf-8"))
+    assert validated.schema_version == 2
+    assert validated.question_set.questions[0].solution_ref == reference
+
+
+def test_numerical_question_packs_remain_deferred() -> None:
+    raw = json.loads((FIXTURES / "valid_20_questions.json").read_text(encoding="utf-8"))
+    raw["schema_version"] = 2
+    raw["questions"][0]["options"] = []
+    raw["questions"][0]["correct_key"] = "2.5"
+    with pytest.raises(PackValidationError):
+        validate_pack_bytes(json.dumps(raw).encode("utf-8"))

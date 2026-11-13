@@ -1,10 +1,9 @@
 """Unit and integration tests for QR Mobile Quick Add on Raspberry Pi."""
 
-import json
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -23,7 +22,6 @@ from app.sync.mobile_upload import (
     MobileSessionStatus,
     MobileUploadAuthError,
     MobileUploadClient,
-    MobileUploadClientError,
 )
 from app.ui_qt.controllers.app_controller import AppController
 from app.ui_qt.controllers.quick_add_controller import QuickAddController
@@ -277,7 +275,7 @@ class TestQuickAddController:
         controller = QuickAddController(mock_app)
         controller._session_id = "sess-123"
 
-        with patch("app.ui_qt.controllers.quick_add_controller.DeviceApi") as mock_api:
+        with patch("app.ui_qt.controllers.quick_add_controller.DeviceApi"):
             controller.cancelQuickAdd()
 
         assert controller.status == "CANCELLED"

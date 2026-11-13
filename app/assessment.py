@@ -49,6 +49,10 @@ class AssessmentApplication:
         version: int,
         *,
         shuffle_seed: int | None = None,
+        question_count: int | None = None,
+        difficulty: str | None = None,
+        topic: str | None = None,
+        shuffle: bool = False,
         institute_assignment_id: str | None = None,
     ) -> Attempt:
         """Create and persist a new attempt with an authoritative fixed order."""
@@ -64,11 +68,23 @@ class AssessmentApplication:
         question_set = self.repository.get_question_set(set_id, version)
         if question_set is None:
             raise ValueError(f"Unknown question set {set_id!r} version {version}")
-        ordered_ids = [question.id for question in question_set.questions]
-        if shuffle_seed is not None:
-            random.Random(shuffle_seed).shuffle(ordered_ids)
+        candidates = [question for question in question_set.questions
+                      if (not topic or question.topic == topic)
+                      and (not difficulty or self._difficulty_band(question.difficulty) == difficulty)]
+        if not candidates:
+            raise ValueError("No questions match the selected topic and difficulty")
+        if question_count is not None and (isinstance(question_count, bool)
+                or not isinstance(question_count, int) or question_count < 1
+                or question_count > len(candidates)):
+            raise ValueError(f"Choose between 1 and {len(candidates)} matching questions")
+        attempt_id = self._id_factory()
+        ordered_ids = [question.id for question in candidates]
+        if shuffle_seed is not None or shuffle:
+            random.Random(shuffle_seed if shuffle_seed is not None else attempt_id).shuffle(ordered_ids)
+        if question_count is not None:
+            ordered_ids = ordered_ids[:question_count]
         attempt = Attempt(
-            id=self._id_factory(),
+            id=attempt_id,
             profile_id=profile_id,
             set_id=set_id,
             set_version=version,
@@ -84,6 +100,14 @@ class AssessmentApplication:
         self._activate_current_question()
         LOGGER.info("attempt resumed attempt_id=%s", attempt.id)
         return attempt
+
+    @staticmethod
+    def _difficulty_band(value: int) -> str:
+        if value <= 2:
+            return "foundation"
+        if value == 3:
+            return "standard"
+        return "challenge"
 
     def resume_attempt(self, profile_id: str) -> Attempt | None:
         """Resume the profile's in-progress attempt from durable state."""
@@ -238,7 +262,9 @@ class AssessmentApplication:
         if attempt is None or question_set is None:
             raise RuntimeError("No active attempt")
         responses = self.repository.get_attempt_responses(attempt.id)
-        questions_by_id = {question.id: question for question in question_set.questions}
+        included_ids = set(self.repository.get_attempt_question_order(attempt.id))
+        questions_by_id = {question.id: question for question in question_set.questions
+                           if question.id in included_ids}
         result = score_attempt(responses, questions_by_id, question_set.marking)
         duration_ms = sum(response.response_time_ms for response in responses)
         self.repository.complete_attempt(

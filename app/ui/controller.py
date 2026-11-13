@@ -27,6 +27,15 @@ class HistoryItem:
     maximum: int | float
     completed_at: object
     sync_status: SyncStatus
+    source: str = "device"
+    correct: int = 0
+    wrong: int = 0
+    skipped: int = 0
+    duration_ms: int = 0
+    response_time_ms: int | None = None
+    confidence: dict[str, dict[str, int]] | None = None
+    answered: int | None = None
+    attempt_id: str | None = None
 
 
 class LegacyController:
@@ -137,14 +146,44 @@ class LegacyController:
             return ()
         items = []
         for attempt in self.repository.list_attempts(
-            profile_id=profile.id, status=AttemptStatus.COMPLETED, limit=20
+            profile_id=profile.id, status=AttemptStatus.COMPLETED, limit=10000
         ):
             question_set = self.repository.get_question_set(attempt.set_id, attempt.set_version)
             if question_set is None:
                 title, subject, maximum = "Assessment", "", 0
+                question_count = len(self.repository.get_attempt_question_order(attempt.id))
             else:
                 title, subject = question_set.title, question_set.subject
                 maximum = len(question_set.questions) * question_set.marking.correct
+                # Attempts can be configured subsets of a larger pack. Skipped
+                # counts must use the persisted attempt question order.
+                question_count = len(self.repository.get_attempt_question_order(attempt.id))
+            responses = self.repository.get_attempt_responses(attempt.id)
+            correct = wrong = response_time_ms = 0
+            answered = 0
+            confidence = {
+                level: {"correct": 0, "wrong": 0}
+                for level in ("sure", "not_sure", "guessing", "unrated")
+            }
+            for response in responses:
+                if response.selected_key is None:
+                    continue
+                answered += 1
+                response_time_ms += response.response_time_ms
+                persisted = self.repository.get_response_persistence(
+                    attempt.id, response.question_id
+                )
+                if persisted and persisted.is_correct is True:
+                    correct += 1
+                    outcome = "correct"
+                elif persisted and persisted.is_correct is False:
+                    wrong += 1
+                    outcome = "wrong"
+                else:
+                    continue
+                level = response.confidence.value if response.confidence else "unrated"
+                if level in confidence:
+                    confidence[level][outcome] += 1
             items.append(
                 HistoryItem(
                     title,
@@ -153,6 +192,15 @@ class LegacyController:
                     maximum,
                     attempt.completed_at,
                     self.repository.get_attempt_sync_state(attempt.id).status,
+                    "device",
+                    correct,
+                    wrong,
+                    max(0, question_count - answered),
+                    attempt.duration_ms,
+                    response_time_ms,
+                    confidence,
+                    answered,
+                    attempt.id,
                 )
             )
         for result in self.repository.completed_results(profile.id):
@@ -163,8 +211,25 @@ class LegacyController:
                 result["title"], result.get("subject") or "", result["result"]["score"],
                 result["result"].get("maximum_score") or 0,
                 datetime.fromisoformat(result["completed_at"].replace("Z", "+00:00")),
-                SyncStatus.SYNCED))
-        return tuple(sorted(items, key=lambda item: item.completed_at, reverse=True)[:20])
+                SyncStatus.SYNCED, result.get("source", "unknown"),
+                int(result["result"].get("correct", 0)),
+                int(result["result"].get("wrong", 0)),
+                int(result["result"].get("skipped", 0)),
+                int(result["result"].get("duration_ms", 0)),
+                (int(result["result"]["response_time_ms"])
+                 if result["result"].get("response_time_ms") is not None else None),
+                {
+                    level: {
+                        "correct": int((result["result"].get("confidence") or {}).get(level, {}).get("correct", 0)),
+                        "wrong": int((result["result"].get("confidence") or {}).get(level, {}).get("wrong", 0)),
+                    }
+                    for level in ("sure", "not_sure", "guessing", "unrated")
+                },
+                int(result["result"].get("answered", int(result["result"].get("correct", 0))
+                    + int(result["result"].get("wrong", 0)))),
+                result["attempt_id"],
+            ))
+        return tuple(sorted(items, key=lambda item: item.completed_at, reverse=True))
 
     @property
     def software_version(self) -> str:

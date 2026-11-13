@@ -65,7 +65,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install .
-python -m app.main
+python -m app.ui_qt.main --fullscreen
 python -m tools.hardware.monitor_pi
 ```
 
@@ -77,7 +77,7 @@ ruff check .
 pytest
 ```
 
-Do not install Kivy, pygame, LVGL, or another GUI framework in Phase 6A. `gpiozero` is intentionally not a project dependency; install/configure it on the Pi only when physical-button testing begins.
+The normal kiosk UI is Qt/QML through the [gui] install extra. Keep the older Pygame prototype out of the kiosk launch path; it remains an optional development UI. `gpiozero` is intentionally not a project dependency; install/configure it on the Pi only when physical-button testing begins.
 
 ## Display verification
 
@@ -135,7 +135,7 @@ Put measured values in `docs/measurements.md` and check `docs/HARDWARE_ACCEPTANC
 
 ## Independent device installation and configuration
 
-Install `python -m pip install -e ".[gui]"` for pygame-ce. No cloud extra or Node
+Install `python -m pip install -e ".[gui]"` for the Qt/QML device UI. No cloud extra or Node
 installation is required. The rsync deployment script excludes backend source,
 cloud admin commands, generated runtime files and local secrets. It does not delete
 files from an older Pi deployment; use a fresh destination for a device-only rollout.
@@ -146,7 +146,7 @@ launches must export these variables; Python does not automatically read `.env`.
 Import initial packs with `python -m tools.import_pack` (see `--help`) before using
 them offline. Assessment reads SQLite rather than scanning the configured pack folder.
 
-Run `python -m app.ui.app --fullscreen` from `/opt/assessment-device` under the Pi
+Run `python -m app.ui_qt.main --fullscreen` from `/opt/assessment-device` under the Pi
 user's graphical session. The existing UI needs the session's display/input access.
 For background upload and heartbeat, install the example
 `scripts/systemd/assessdev-sync.service` under `/etc/systemd/system`, then run
@@ -158,12 +158,24 @@ new endpoint described in DEVICE_CLOUD_CONTRACT.md to exist on the cloud.
 
 ## Phase 8 boot-to-app kiosk (prepared; physical verification pending)
 
-Use the existing installed package and shared environment file described above. On the
-Pi OS Lite X11 path, install display dependencies once as the operator:
+The existing `assessdev-ui.service` is a system unit under `multi-user.target`; it does
+not require an interactive Linux login or a manually typed `startx`. It starts Xorg via
+`xinit` on tty1, starts Openbox, then launches the fullscreen PySide6/QML app. SSH stays
+available for maintenance because only tty1 is assigned to the kiosk. The unit reads
+`/etc/assessdev/device.env`; an empty `ASSESS_API_URL` keeps the app offline at boot.
+
+Use the installed package and configured `assess` account. On Raspberry Pi OS Lite with
+X11, install the runtime components once as the operator. Do this from SSH or a local
+maintenance console, not from the student UI:
 
 ```sh
 sudo apt-get update
-sudo apt-get install --no-install-recommends xserver-xorg xinit xserver-xorg-legacy
+sudo apt-get install --no-install-recommends xserver-xorg xinit openbox xserver-xorg-legacy libxcb-cursor0 libxkbcommon-x11-0 libxcb-xinerama0
+id assess
+sudo install -d -o root -g assess -m 0750 /etc/assessdev
+sudo install -o root -g assess -m 0640 /dev/null /etc/assessdev/device.env
+# Edit the environment file before enabling the service. Example offline value:
+# ASSESS_API_URL=
 sudo chmod 755 /opt/assessment-device/scripts/kiosk-session.sh
 sudo install -m 644 /opt/assessment-device/scripts/systemd/assessdev-ui.service /etc/systemd/system/assessdev-ui.service
 sudo install -m 644 /opt/assessment-device/scripts/systemd/assessdev-sync.service /etc/systemd/system/assessdev-sync.service
@@ -172,19 +184,22 @@ sudo systemctl enable assessdev-ui assessdev-sync
 sudo systemctl start assessdev-ui assessdev-sync
 ```
 
-Confirm the assess account has local console/display/input access and a valid PAM/logind
-session. The unit takes tty1 and conflicts with getty@tty1; Xorg uses vt1, no TCP listener,
-and xinit execs pygame directly without a desktop menu. Do not loosen Xorg.wrap to
-arbitrary users to work around a failed console session. Inspect the actual Pi's display
-stack and adjust the reviewed unit if using Wayland instead; this unit is specifically
-for X11 Pi OS Lite. Failure to start is an acceptance failure, not proof of compatibility.
-No runtime network target is required: startup must work offline.
+The `assess` account must be an existing local user with console/display/input permissions
+and a valid PAM/logind session. The unit takes tty1 and conflicts with `getty@tty1`; Xorg
+uses vt1 with TCP listening disabled. `QT_QPA_PLATFORM=xcb` explicitly selects the X11
+Qt plugin. Keep the environment file private and do not place Wi-Fi credentials or device
+tokens in shell arguments. Do not loosen Xorg.wrap to arbitrary users to work around a
+failed console session. This unit is for X11 Pi OS Lite; do not use it on a Wayland image.
+No runtime network target is required, so the UI should start without internet.
 
-The normal use path after installation is power -> X11 -> app -> local profile/Home.
-Unexpected exit restarts after 10 seconds, bounded to five starts per 120 seconds.
-Operator maintenance exit: `sudo systemctl stop assessdev-ui` over SSH. After repair,
-`sudo systemctl reset-failed assessdev-ui; sudo systemctl start assessdev-ui` recovers a
-rate-limited service. Never make Escape a student shell shortcut. See ROLLBACK.md.
+The normal path is power -> X11/Openbox -> app -> local profile/Home. Unexpected app exit
+restarts after 10 seconds; systemd limits a crash loop to five starts per 120 seconds.
+For maintenance over SSH, use `sudo systemctl stop assessdev-ui`. To disable kiosk startup
+across reboots and restore normal tty1 login, use `sudo systemctl disable --now assessdev-ui`.
+After repair, `sudo systemctl reset-failed assessdev-ui; sudo systemctl start assessdev-ui`
+re-enables the current boot session; use `sudo systemctl enable assessdev-ui` to restore
+automatic startup. Never make Escape a student shell shortcut. See ROLLBACK.md.
 
 Physical boot-to-app, crash/reboot/resume and graphics/input permissions are NOT TESTED
-in this workspace: assessdev-proto1.local did not resolve on 29 October 2026.
+in this workspace. Confirm resolution, boot behavior, offline launch, SSH maintenance,
+crash restart, disable/reenable, display mode and touch behavior on the actual Pi.

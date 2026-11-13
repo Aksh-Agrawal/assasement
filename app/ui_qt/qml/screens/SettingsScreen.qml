@@ -18,6 +18,7 @@ Rectangle {
                 if (tab === "home") appController.navigate("home");
                 else if (tab === "library") appController.navigate("subjects");
                 else if (tab === "practice") appController.navigate("content");
+                else if (tab === "progress") appController.navigate("progress");
                 else if (tab === "history") appController.navigate("history");
                 else if (tab === "settings") appController.navigate("settings");
             }
@@ -113,7 +114,7 @@ Rectangle {
 
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.value
+                                    text: modelData.value !== undefined ? modelData.value : ""
                                     color: Theme.mutedInk
                                     font.pixelSize: Typography.caption
                                     font.family: Typography.fontFamily

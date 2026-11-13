@@ -273,3 +273,44 @@ def test_in_progress_attempt_remains_on_original_set_version(tmp_path: Path) -> 
         assert app.engine.question_set is not None
         assert app.engine.question_set.version == 1
         assert app.engine.ordered_question_ids == order
+
+
+def test_filtered_practice_pins_subset_order_and_resumes_offline(tmp_path: Path) -> None:
+    database_path = tmp_path / "filtered.db"
+    ids = IdFactory()
+    first_clock = FakeClock()
+    with Repository(database_path) as repository:
+        question_set = seed(repository)
+        app = make_app(repository, first_clock, ids)
+        attempt = app.start_test(
+            PROFILE.id, question_set.id, 1,
+            question_count=4, difficulty="foundation", topic="Phase 4", shuffle=True,
+        )
+        pinned_order = repository.get_attempt_question_order(attempt.id)
+        assert len(pinned_order) == 4
+        assert set(pinned_order) <= {
+            question.id for question in question_set.questions if question.difficulty <= 2
+        }
+        current = app.current_question()
+        app.select_answer(current.correct_key)
+        app.set_confidence(Confidence.SURE)
+        app.next_question()
+
+    # A fresh application resumes the same pinned version and selected order offline.
+    with Repository(database_path) as repository:
+        app = make_app(repository, FakeClock(100), ids)
+        resumed = app.resume_attempt(PROFILE.id)
+        assert resumed is not None and resumed.id == attempt.id
+        assert app.engine.ordered_question_ids == pinned_order
+        while app.engine.state is AssessmentState.IN_QUESTION:
+            if app.current_response() is None or app.current_response().selected_key is None:
+                app.select_answer(app.current_question().correct_key)
+                app.set_confidence(Confidence.NOT_SURE)
+            if app.next_question() is None:
+                break
+        result = app.submit()
+        assert result.correct == 4
+        assert result.wrong == 0
+        assert result.skipped == 0
+        assert len(repository.get_attempt_responses(attempt.id)) == 4
+        assert repository.get_attempt(attempt.id).score == result.score

@@ -124,8 +124,8 @@ class AssessmentEngine:
             raise ValueError("Attempt does not reference the selected question-set version")
         if len(ordered_question_ids) != len(set(ordered_question_ids)):
             raise ValueError("Question order contains duplicates")
-        if set(ordered_question_ids) != set(self._questions_by_id):
-            raise ValueError("Question order must contain every selected-set question exactly once")
+        if not ordered_question_ids or not set(ordered_question_ids) <= set(self._questions_by_id):
+            raise ValueError("Question order must contain one or more questions from the selected set")
 
     def _resume_index(self) -> int:
         for index, question_id in enumerate(self.ordered_question_ids):

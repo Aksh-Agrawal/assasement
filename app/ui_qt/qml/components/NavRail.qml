@@ -4,7 +4,7 @@ import ".." 1.0
 Rectangle {
     id: root
 
-    property string currentTab: "home" // "home", "library", "practice", "history", "settings"
+    property string currentTab: "home" // "home", "library", "practice", "progress", "history", "settings"
     signal tabSelected(string tab)
 
     width: Metrics.navRailWidth
@@ -51,7 +51,8 @@ Rectangle {
                 { id: "home", label: "Home", icon: Assets.home },
                 { id: "library", label: "Library", icon: Assets.library },
                 { id: "practice", label: "Practice", icon: Assets.practice },
-                { id: "history", label: "Progress", icon: Assets.history },
+                { id: "progress", label: "Progress", icon: Assets.history },
+                { id: "history", label: "History", icon: Assets.history },
                 { id: "settings", label: "Settings", icon: Assets.settings }
             ]
 

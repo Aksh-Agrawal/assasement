@@ -4,7 +4,6 @@ import logging
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import UUID
 
 import segno
 from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot

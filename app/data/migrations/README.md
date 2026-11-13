@@ -19,3 +19,5 @@ Current migrations:
 - 0006_institute_work.sql: separate per-profile institute grants and atomic creation-time assignment context; existing rows and pending uploads retained.
 
 - 0007_custom_subjects.sql: rebuild question-set metadata to allow any nonblank subject up to 64 characters; preserve child content, grants and history. The runner disables foreign-key enforcement only around the atomic rebuild, validates all foreign keys before commit, and restores enforcement afterward.
+
+- `0008_question_solution_figures.sql`: add an optional solution figure reference to imported questions; no existing question or attempt data is rewritten.

@@ -5,15 +5,16 @@ QtObject {
     id: typography
 
     // Font Families
-    readonly property string family: "Segoe UI, Noto Sans, Roboto, DejaVu Sans, sans-serif"
+    readonly property string family: "Arial"
     readonly property string fontFamily: family
-    readonly property string familyEditorial: "Georgia, DejaVu Serif, Noto Serif, Segoe UI, serif"
+    readonly property string familyEditorial: "Georgia"
     readonly property string fontSerif: familyEditorial
 
     // Type Scale (optimized for 800x480 at ~180 DPI)
     readonly property int hero: 28
     readonly property int heroTitle: hero
     readonly property int pageTitle: 24
+    readonly property int title: pageTitle
     readonly property int question: 21
     readonly property int sectionTitle: 18
     readonly property int body: 16

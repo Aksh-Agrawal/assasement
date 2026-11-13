@@ -66,7 +66,6 @@ Rectangle {
 
                 Row {
                     spacing: 4
-                    anchors.verticalCenter: parent.verticalCenter
 
                     Text {
                         width: Math.min(implicitWidth, root.allowProfileSwitch ? 220 : 320)

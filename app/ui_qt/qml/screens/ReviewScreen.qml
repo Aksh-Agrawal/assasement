@@ -16,7 +16,7 @@ Rectangle {
         anchors.right: parent.right
         title: "Answer Review"
         showBack: true
-        onBackClicked: appController.navigate("result")
+        onBackClicked: assessmentController.closeReview()
     }
 
     Item {
@@ -93,8 +93,8 @@ Rectangle {
                                 Text {
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.isCorrect ? "Correct" : "Incorrect"
-                                    color: modelData.isCorrect ? Theme.forest : Theme.terracotta
+                                    text: modelData.isSkipped ? "Skipped" : (modelData.isCorrect ? "Correct" : "Incorrect")
+                                    color: modelData.isSkipped ? Theme.mutedInk : (modelData.isCorrect ? Theme.forest : Theme.terracotta)
                                     font.pixelSize: Typography.caption
                                     font.bold: true
                                 }
@@ -151,16 +151,16 @@ Rectangle {
                                 height: 24
                                 width: statusBadgeText.implicitWidth + 16
                                 radius: 12
-                                color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.surfaceSelected : Theme.terracottaLight
-                                border.color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                                color: (reviewFlickable.currentItem && (reviewFlickable.currentItem.isCorrect || reviewFlickable.currentItem.isSkipped)) ? Theme.surfaceSelected : Theme.terracottaLight
+                                border.color: (reviewFlickable.currentItem && (reviewFlickable.currentItem.isCorrect || reviewFlickable.currentItem.isSkipped)) ? Theme.forest : Theme.terracotta
                                 border.width: 1
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Text {
                                     id: statusBadgeText
                                     anchors.centerIn: parent
-                                    text: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? "Correct" : "Needs Review"
-                                    color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                                    text: reviewFlickable.currentItem && reviewFlickable.currentItem.isSkipped ? "Skipped" : ((reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? "Correct" : "Needs Review")
+                                    color: reviewFlickable.currentItem && reviewFlickable.currentItem.isSkipped ? Theme.mutedInk : ((reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.forest : Theme.terracotta)
                                     font.pixelSize: Typography.caption
                                     font.bold: true
                                 }
@@ -183,8 +183,8 @@ Rectangle {
                             width: parent.width
                             implicitHeight: studentChoiceCol.implicitHeight + 16
                             radius: Metrics.radiusSmall
-                            color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.surfaceSelected : Theme.terracottaLight
-                            border.color: (reviewFlickable.currentItem && reviewFlickable.currentItem.isCorrect) ? Theme.forest : Theme.terracotta
+                                color: (reviewFlickable.currentItem && (reviewFlickable.currentItem.isCorrect || reviewFlickable.currentItem.isSkipped)) ? Theme.surfaceSelected : Theme.terracottaLight
+                                border.color: (reviewFlickable.currentItem && (reviewFlickable.currentItem.isCorrect || reviewFlickable.currentItem.isSkipped)) ? Theme.forest : Theme.terracotta
                             border.width: 1
 
                             Column {

@@ -13,7 +13,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 from app.content.hashing import sha256_bytes
 from app.core.models import MarkingScheme, Option, OptionKey, Question, QuestionSet
 
-SUPPORTED_SCHEMA_VERSION = 1
+SUPPORTED_SCHEMA_VERSION = 2
 DEFAULT_MAX_PACK_BYTES = 25 * 1024 * 1024
 DEFAULT_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "pack.schema.json"
 OPTION_KEYS = ("A", "B", "C", "D")
@@ -297,6 +297,7 @@ def _to_domain(pack: dict[str, Any]) -> QuestionSet:
             correct_key=cast(OptionKey, item["correct_key"]),
             explanation=item.get("explanation"),
             media_ref=item["media_ref"],
+            solution_ref=item.get("solution_ref"),
         )
         for item in pack["questions"]
     )

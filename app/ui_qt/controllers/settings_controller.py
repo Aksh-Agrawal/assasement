@@ -187,6 +187,34 @@ class SettingsController(QObject):
             return self.app.ui_controller.sync_label
         return "Offline"
 
+    @Property(str, notify=syncChanged)
+    def syncDetail(self) -> str:
+        pending = self.pendingAttemptsCount
+        full = {}
+        if self.app.repository:
+            try:
+                full = json.loads(self.app.repository.get_setting("last_full_sync") or "{}")
+            except (TypeError, ValueError):
+                full = {}
+        result = full.get("result")
+        stages = full.get("stages", {})
+        upload = stages.get("attempt_uploads", {}) if isinstance(stages, dict) else {}
+        if result == "Authentication required":
+            return "Reconnect this device to your account before syncing. Your local assessments are safe."
+        if result in {"Failed", "Partially synced"}:
+            failed = upload.get("failed", 0) if isinstance(upload, dict) else 0
+            history = stages.get("history") if isinstance(stages, dict) else None
+            detail = (f"{failed} assessment upload(s) need a retry." if failed else
+                      "Some cloud updates could not be downloaded.")
+            if history and history not in {"OK", "Not checked"}:
+                detail = f"History download needs a retry. {detail}"
+            return f"Last sync was incomplete. {detail} Local records remain saved."
+        if pending:
+            return f"{pending} completed assessment(s) are saved on this device and waiting to sync."
+        if result == "Up to date":
+            return "Your recent assessments and profile History are up to date."
+        return "Your assessments stay saved offline and sync when the device reconnects."
+
     # -------------------------------------------------------------------------
     # Account & Pairing Properties
     # -------------------------------------------------------------------------
@@ -252,8 +280,10 @@ class SettingsController(QObject):
         for p in self.app.ui_controller.question_sets:
             res.append({
                 "id": p.id,
+                "version": p.version,
                 "title": p.title,
                 "subject": p.subject,
+                "chapter": p.chapter,
                 "questionCount": len(p.questions),
                 "isInstalled": True,
             })

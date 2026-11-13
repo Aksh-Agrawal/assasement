@@ -1,4 +1,4 @@
-# Phase 8 device pilot evidence — 29 October 2026
+# Phase 8 device pilot evidence ï¿½ 29 October 2026
 
 PHYSICAL PI ACCEPTANCE: PENDING. No hardware PASS is claimed.
 
@@ -96,7 +96,7 @@ scripts/device-python.sh launcher to load the environment explicitly; it passes 
 syntax validation. Physical Pi execution through that same launcher reports API configured,
 DNS OK, HTTPS VERIFIED, device PAIRED, catalogue OK and Cloud readiness READY.
 
-Restart GUI through `./scripts/device-python.sh -m app.ui.app --fullscreen` from the
+Restart GUI through `./scripts/device-python.sh -m app.ui_qt.main --fullscreen` from the
 Pi's graphical session. No GUI was force-stopped or rebooted, no Wi-Fi changed and no
 systemd/autostart installation was performed in this fix. The operator must still
 confirm the resulting visible GUI state; CLI readiness alone is not full physical

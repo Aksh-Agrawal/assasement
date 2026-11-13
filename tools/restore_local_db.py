@@ -11,7 +11,10 @@ from app.data.db import check_integrity
 
 def _valid_database(path: Path) -> bool:
     try:
-        with sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True) as connection:
+        # as_uri() safely encodes Windows drive paths and reserved characters
+        # (including spaces and the sandbox temp-directory marker) for SQLite.
+        uri = f"{path.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(uri, uri=True) as connection:
             return check_integrity(connection).ok
     except sqlite3.DatabaseError:
         return False

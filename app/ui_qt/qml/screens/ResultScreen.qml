@@ -105,7 +105,7 @@ Rectangle {
                         Text {
                             id: corrText
                             anchors.centerIn: parent
-                            text: Math.round(assessmentController.score) + " Correct"
+                            text: assessmentController.correctCount + " Correct"
                             color: Theme.forest
                             font.pixelSize: Typography.caption
                             font.bold: true
@@ -125,7 +125,7 @@ Rectangle {
                         Text {
                             id: incorrText
                             anchors.centerIn: parent
-                            text: Math.max(0, Math.round(assessmentController.scoreMax - assessmentController.score)) + " Incorrect"
+                            text: assessmentController.wrongCount + " Incorrect"
                             color: Theme.terracotta
                             font.pixelSize: Typography.caption
                             font.bold: true

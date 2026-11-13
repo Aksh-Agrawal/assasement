@@ -121,6 +121,25 @@ Connection loss after cloud commit leaves a retryable local attempt; retry uses 
 same UUID and cloud deduplication. Stale syncing rows recover after 300 seconds.
 Result screens read committed local results and never wait for network.
 
+## Profile-scoped History and review evidence
+
+`GET /api/v1/profile-content/{link_id}/history?local_profile_id=...` returns paginated
+completed summaries using the authenticated device credential and exact active
+ProfileDeviceLink. `GET /api/v1/profile-content/{link_id}/history/{attempt_uuid}?local_profile_id=...`
+returns one completed attempt's review evidence (question/options, selected and correct
+answer, correctness, confidence, explanation, response time, set ID/version and stable
+UUID) under the same authorization. Unfinished PracticeSession drafts have no completed
+Attempt row and are never returned. Foreign profile IDs use a not-found response; revoked
+links, archived profiles, inactive accounts, and unrelated devices are rejected.
+
+The Pi validates ownership, identity, timestamps, result shape and optional review data,
+then atomically stores the summary snapshot in SQLite. Richer previously cached review
+data survives a summary-only retry. Native Pi attempts remain the source of truth for
+their own local answer evidence and are not replaced by an echoed cloud record. Figure
+URLs tied to student web sessions are omitted from device detail; a future device figure
+transfer must use its own device-authorized contract. Detail responses are capped at 2 MiB;
+oversized review keeps summary History available without caching partial detail.
+
 ## Software update metadata
 
 `GET /api/v1/device-updates/latest`, authenticated, returns
@@ -150,7 +169,7 @@ background checks; failed downloads do not replace installed content.
 `python -m app.sync.service` runs bounded attempt cycles on a separate SQLite
 connection/process and emits safe heartbeat metadata. Each client is closed after
 use. With no API URL or credential it performs no network work. Systemd example:
-`scripts/systemd/assessdev-sync.service`. It runs independently of the pygame process;
+`scripts/systemd/assessdev-sync.service`. It runs independently of the Qt/QML application;
 assessment, scoring, resume, profiles and PINs need neither cloud nor this service.
 
 ## Cloud handoff acceptance
@@ -171,3 +190,8 @@ verified student/profile ownership is separate from device credentials.
 
 See [student library contract](STUDENT_LIBRARY_CONTRACT.md). Existing assignment endpoints retain
 their behavior; the new profile-content namespace validates an explicit ProfileDeviceLink.
+The Pi requests `pack_schema=2` on profile catalog and exact-version download calls so schema-2
+MCQ packs with figures are not hidden by the cloud routes' schema-1 default. Figure bytes are
+fetched only through the authenticated profile-content figure route and verified against the
+content-pinned SHA-256 digest before caching. Cloud recovery-to-Pi remains a cloud-owned action;
+its queued one-question pack arrives through this same catalogue/download/import path.

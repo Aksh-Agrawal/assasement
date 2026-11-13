@@ -323,12 +323,19 @@ class Repository:
         LOGGER.info("profile relationship retired profile_id=%s reason=%s", profile_id, reason)
 
     def cache_completed_results(self, profile_id: str, link_id: str, items: list[dict]) -> None:
-        """Atomic read-only history snapshot, separate from native assessment attempts."""
+        """Atomically cache cloud History, retaining richer detail across retries."""
         profile = self.get_profile(profile_id)
         context = self.get_profile_link_context(profile_id)
         if not profile or profile.link_state != "linked" or not context or context["link_id"] != link_id:
             raise ValueError("Profile link changed")
+        previous_data = json.loads(self.get_setting("completed_results:" + profile_id) or "{}")
+        previous = {
+            item.get("attempt_id"): item
+            for item in previous_data.get("items", [])
+            if isinstance(item, dict) and item.get("attempt_id")
+        }
         seen = set()
+        cached = []
         for item in items:
             identifier = str(uuid.UUID(item["attempt_id"]))
             if (item["study_profile_id"] != profile.cloud_profile_id or identifier in seen
@@ -345,8 +352,54 @@ class Repository:
                 value = item["result"][field]
                 if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
                     raise ValueError("Invalid completed result score")
+            detail = item.get("review")
+            if detail is not None:
+                if not isinstance(detail, list) or len(detail) > 10000:
+                    raise ValueError("Invalid completed-attempt review")
+                question_ids = set()
+                for answer in detail:
+                    if not isinstance(answer, dict):
+                        raise ValueError("Invalid completed-attempt review item")
+                    question_id = answer.get("question_id")
+                    if (not isinstance(question_id, str) or not question_id
+                            or len(question_id) > 255 or question_id in question_ids):
+                        raise ValueError("Invalid completed-attempt review identity")
+                    question_ids.add(question_id)
+                    if not isinstance(answer.get("question_text"), (str, type(None))):
+                        raise ValueError("Invalid review question text")
+                    options = answer.get("options", [])
+                    if not isinstance(options, list) or len(options) > 4:
+                        raise ValueError("Invalid review options")
+                    for option in options:
+                        if (not isinstance(option, dict)
+                                or not isinstance(option.get("key"), str)
+                                or not isinstance(option.get("text"), str)):
+                            raise ValueError("Invalid review option")
+                    for field in ("correct_key", "selected_key", "explanation"):
+                        if not isinstance(answer.get(field), (str, type(None))):
+                            raise ValueError("Invalid review answer evidence")
+                    if answer.get("confidence") not in {None, "sure", "not_sure", "guessing", "unrated"}:
+                        raise ValueError("Invalid review confidence")
+                    if answer.get("is_correct") not in {None, True, False}:
+                        raise ValueError("Invalid review correctness")
+                    if not isinstance(answer.get("marked_review", False), bool):
+                        raise ValueError("Invalid review flag")
+                    response_time = answer.get("response_time_ms", 0)
+                    if (isinstance(response_time, bool) or not isinstance(response_time, int)
+                            or response_time < 0):
+                        raise ValueError("Invalid review response time")
+            old = previous.get(identifier)
+            same_attempt = bool(old and all(old.get(field) == item.get(field) for field in (
+                "study_profile_id", "source", "set_id", "version", "completed_at"
+            )))
+            if same_attempt and not detail and old.get("review"):
+                item = {**item, "review": old["review"],
+                        "review_available": old.get("review_available", True)}
+            if item.get("review") and item.get("review_available") is False:
+                raise ValueError("Review data cannot be marked unavailable")
+            cached.append(item)
         self.set_setting("completed_results:" + profile_id, json.dumps(
-            {"study_profile_id": profile.cloud_profile_id, "items": items}, allow_nan=False))
+            {"study_profile_id": profile.cloud_profile_id, "items": cached}, allow_nan=False))
 
     def completed_results(self, profile_id: str) -> list[dict]:
         profile = self.get_profile(profile_id)
@@ -742,13 +795,14 @@ class Repository:
                     question.correct_key,
                     question.explanation,
                     question.media_ref,
+                    question.solution_ref,
                 )
             )
         connection.executemany(
             "INSERT INTO questions("
             "set_id, set_version, id, position, topic, difficulty, question_text, "
-            "options_json, correct_key, explanation, media_ref"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "options_json, correct_key, explanation, media_ref, solution_ref"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
 
@@ -783,6 +837,7 @@ class Repository:
             correct_key=row["correct_key"],
             explanation=row["explanation"],
             media_ref=row["media_ref"],
+            solution_ref=row["solution_ref"],
         )
 
     def get_question_set(self, set_id: str, version: int) -> QuestionSet | None:

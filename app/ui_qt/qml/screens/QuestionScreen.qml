@@ -185,6 +185,16 @@ Rectangle {
                 }
             }
 
+            Image {
+                visible: source !== ""
+                source: assessmentController.questionFigureSource
+                width: parent.width
+                height: visible ? 96 : 0
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                cache: true
+            }
+
             // 2-Column Responsive MCQ Option Cards Grid
             Grid {
                 width: parent.width

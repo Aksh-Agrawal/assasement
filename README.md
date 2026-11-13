@@ -4,10 +4,10 @@ This repository runs the offline-first Raspberry Pi assessment device. Cloud sou
 in `backend/` is **TEMPORARY — being migrated to assasement-cloud repository**.
 It is excluded from Pi deployment and is not a device runtime dependency.
 
-Install the device with `python -m pip install -e ".[gui]"` (add `dev` for tests).
+Install the device with `python -m pip install -e ".[gui]"` for the Qt/QML UI (add `dev` for tests).
 Configure `ASSESS_API_URL` and device paths through the environment; see
 [.env.example](.env.example). With no API URL, local assessment remains available.
-Run `python -m app.ui.app --fullscreen` and optionally run
+Run `python -m app.ui_qt.main --fullscreen` and optionally run
 `python -m app.sync.service` in a separate process for periodic uploads/heartbeat.
 
 The [migration map](docs/DEVICE_MIGRATION_MAP.md) records ownership and temporary
@@ -32,8 +32,8 @@ Current status:
 
 - Keyboard input simulation: implemented and laptop-tested.
 - Mouse input: implemented as a future-touch surrogate through the same Action/controller path.
-- Current GUI framework: pygame API via the `pygame-ce` package — Phase 7A prototype only.
-- Production GUI framework: **PENDING PHASE 7B RASPBERRY PI BENCHMARK**.
+- Primary GUI framework: PySide6 / Qt Quick (QML); Raspberry Pi Zero 2 W benchmarking remains pending.
+- Legacy Pygame UI remains available for development comparison, not as the device launch path.
 - Phase 6B Raspberry Pi hardware verification: pending.
 - Phase 7B Raspberry Pi GUI benchmarking: pending.
 - Physical GPIO verification: pending.
@@ -221,7 +221,7 @@ python -m tools.import_pack content/sample_biology.json --db var/assessment-devi
 Launch the separately packaged GUI entry point:
 
 ```bash
-python -m app.ui.app
+python -m app.ui_qt.main --fullscreen
 ```
 
 Use `--db PATH` for another SQLite database. Startup checks lead to the local profile picker,
@@ -230,17 +230,12 @@ Practice follows Subject → Chapter → Question Set → Test Setup. Home offer
 attempt with its original pack version and saved answers. Settings opens the device console.
 See [the device UI flow](docs/UI_FLOW.md) for routes, input mappings and integration limits.
 
-Answer with A–D, select confidence with S/N/G (or Enter for Unrated), navigate with the arrow
-keys, toggle review with R, request submission with T, and use Escape for Back. Enter confirms
-selection and opens the full-content view on question/review screens. At submission confirmation,
-Enter continues the test; T or the labelled touch target submits. F12 saves a development
-screenshot under ignored `var/screenshots/`.
+The Qt/QML interface targets an 800×480 display and supports touch and keyboard input. Use the
+visible controls to select answers, confidence, navigation, review marks, and submission.
+`--base-url URL` configures network services; `--fullscreen` selects fullscreen launch. Local
+assessment remains available without a server. The Pygame prototype remains available with
+`python -m app.ui.app` when installed using the `pygame-ui` extra.
 
-The window renders one 800×480 logical surface and scales it to the resizable desktop window.
-This target is an unverified prototype resolution, not a statement about final display hardware.
-`--base-url URL` configures network services; `--fullscreen` and `--gpio` enable optional device
-integration. Local assessment does not require a server. To render previews without touching
-student data, run `python -m tools.ui_smoke`; previews use a temporary real database and sample pack.
 
 ## Offline CLI assessment
 
