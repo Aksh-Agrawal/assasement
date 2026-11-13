@@ -85,9 +85,9 @@ def test_fresh_database_migrates_and_second_run_is_idempotent(tmp_path: Path) ->
     finally:
         reopened.close()
 
-    assert first_version == 8
-    assert second_version == 8
-    assert recorded_version == 8
+    assert first_version == 9
+    assert second_version == 9
+    assert recorded_version == 9
     assert first_tables == EXPECTED_TABLES
     assert second_tables == first_tables
 
@@ -134,7 +134,7 @@ def test_integrity_check_and_online_backup(tmp_path: Path) -> None:
     try:
         assert result.ok is True
         assert result.messages == ("ok",)
-        assert get_schema_version(backup_connection) == 8
+        assert get_schema_version(backup_connection) == 9
         assert check_integrity(backup_connection).ok is True
     finally:
         backup_connection.close()
@@ -169,7 +169,7 @@ def test_v7_database_upgrade_adds_solution_reference_without_losing_questions(tm
         connection.close()
 
     with Repository(database_path) as repository:
-        assert repository.schema_version == 8
+        assert repository.schema_version == 9
         question_set = repository.get_question_set("set-1", 1)
         assert question_set is not None
         assert question_set.questions[0].id == "q1"
@@ -182,7 +182,7 @@ def test_repository_context_manager_closes_connection(tmp_path: Path) -> None:
     repository = Repository(database_path)
 
     with repository:
-        assert repository.schema_version == 8
+        assert repository.schema_version == 9
 
     with pytest.raises(RepositoryError, match="closed"):
         _ = repository.schema_version
@@ -267,7 +267,7 @@ def test_phase_8_schema_migrates_without_losing_assessment_data(tmp_path: Path) 
         connection.close()
 
     with Repository(database_path) as repository:
-        assert repository.schema_version == 8
+        assert repository.schema_version == 9
         assert repository.get_profile("profile-1") is not None
         assert repository.get_question_set("set-1", 1) is not None
         assert repository.get_attempt("attempt-1") is not None

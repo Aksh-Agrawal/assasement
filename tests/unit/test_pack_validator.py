@@ -113,10 +113,13 @@ def test_cloud_schema_v2_memory_mcq_solution_figure_is_accepted() -> None:
     assert validated.question_set.questions[0].solution_ref == reference
 
 
-def test_numerical_question_packs_remain_deferred() -> None:
+def test_numerical_questions_require_schema_v2() -> None:
     raw = json.loads((FIXTURES / "valid_20_questions.json").read_text(encoding="utf-8"))
     raw["schema_version"] = 2
     raw["questions"][0]["options"] = []
     raw["questions"][0]["correct_key"] = "2.5"
+    valid = validate_pack_bytes(json.dumps(raw).encode("utf-8"))
+    assert valid.question_set.questions[0].is_correct("2.50")
+    raw["schema_version"] = 1
     with pytest.raises(PackValidationError):
         validate_pack_bytes(json.dumps(raw).encode("utf-8"))

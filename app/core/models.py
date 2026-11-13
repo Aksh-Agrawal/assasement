@@ -1,8 +1,10 @@
 """Immutable, platform-independent assessment domain models."""
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from math import isfinite
 from types import MappingProxyType
@@ -12,6 +14,11 @@ OptionKey: TypeAlias = Literal["A", "B", "C", "D"]
 Mark: TypeAlias = int | float
 
 _OPTION_KEYS = ("A", "B", "C", "D")
+DECIMAL_PATTERN = r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)"
+
+
+def is_numeric_answer(value: str) -> bool:
+    return isinstance(value, str) and len(value) <= 64 and bool(re.fullmatch(DECIMAL_PATTERN, value))
 
 
 def _require_text(name: str, value: str) -> None:
@@ -81,7 +88,7 @@ class Question:
     difficulty: int
     question_text: str
     options: tuple[Option, ...]
-    correct_key: OptionKey
+    correct_key: str
     explanation: str | None = None
     media_ref: str | None = None
     solution_ref: str | None = None
@@ -108,16 +115,27 @@ class Question:
         if any(not isinstance(option, Option) for option in options):
             raise ValueError("Question options must be Option values")
         keys = tuple(option.key for option in options)
-        if keys != _OPTION_KEYS:
-            raise ValueError("Question options must be ordered A, B, C, D")
-        if self.correct_key not in keys:
-            raise ValueError(f"Correct key {self.correct_key!r} is not an option")
+        if options:
+            if keys != _OPTION_KEYS:
+                raise ValueError("Question options must be ordered A, B, C, D")
+            if self.correct_key not in keys:
+                raise ValueError(f"Correct key {self.correct_key!r} is not an option")
+        elif not is_numeric_answer(self.correct_key):
+            raise ValueError("Numerical questions require a decimal answer")
         if self.explanation is not None:
             _require_text("Question explanation", self.explanation)
         if self.media_ref is not None:
             _require_text("Question media reference", self.media_ref)
         if self.solution_ref is not None:
             _require_text("Question solution reference", self.solution_ref)
+
+    def accepts_answer(self, answer: str) -> bool:
+        return answer in _OPTION_KEYS if self.options else is_numeric_answer(answer)
+
+    def is_correct(self, answer: str | None) -> bool:
+        if answer is None or not self.accepts_answer(answer):
+            return False
+        return answer == self.correct_key if self.options else Decimal(answer) == Decimal(self.correct_key)
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,7 +255,7 @@ class Response:
     id: str
     attempt_id: str
     question_id: str
-    selected_key: OptionKey | None = None
+    selected_key: str | None = None
     confidence: Confidence | None = None
     response_time_ms: int = 0
     marked_review: bool = False
@@ -246,7 +264,8 @@ class Response:
         _require_text("Response ID", self.id)
         _require_text("Response attempt ID", self.attempt_id)
         _require_text("Response question ID", self.question_id)
-        if self.selected_key is not None and self.selected_key not in _OPTION_KEYS:
+        if (self.selected_key is not None and self.selected_key not in _OPTION_KEYS
+                and not is_numeric_answer(self.selected_key)):
             raise ValueError(f"Invalid selected key {self.selected_key!r}")
         if self.confidence is not None and not isinstance(self.confidence, Confidence):
             raise ValueError("Response confidence must be a Confidence value")

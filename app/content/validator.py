@@ -230,7 +230,7 @@ def _semantic_issues(pack: dict[str, Any]) -> list[ValidationIssue]:
 
         options = question["options"]
         keys = tuple(option["key"] for option in options)
-        if keys != OPTION_KEYS:
+        if keys and keys != OPTION_KEYS:
             issues.append(
                 ValidationIssue(
                     PackErrorCode.INVALID_OPTION_KEYS,
@@ -247,7 +247,7 @@ def _semantic_issues(pack: dict[str, Any]) -> list[ValidationIssue]:
                         "Option text must not be blank",
                     )
                 )
-        if question["correct_key"] not in keys:
+        if keys and question["correct_key"] not in keys:
             issues.append(
                 ValidationIssue(
                     PackErrorCode.INVALID_CORRECT_KEY,
@@ -294,7 +294,7 @@ def _to_domain(pack: dict[str, Any]) -> QuestionSet:
                 Option(key=cast(OptionKey, option["key"]), text=option["text"])
                 for option in item["options"]
             ),
-            correct_key=cast(OptionKey, item["correct_key"]),
+            correct_key=item["correct_key"],
             explanation=item.get("explanation"),
             media_ref=item["media_ref"],
             solution_ref=item.get("solution_ref"),

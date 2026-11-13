@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15 as Controls
 import ".." 1.0
 import "../components" 1.0
 
@@ -195,9 +196,55 @@ Rectangle {
                 cache: true
             }
 
+            Column {
+                width: parent.width
+                spacing: Spacing.sm
+                visible: assessmentController.numericalQuestion
+
+                Controls.TextField {
+                    id: numericalAnswer
+                    width: parent.width
+                    placeholderText: "Enter a number"
+                    Accessible.name: "Numerical answer"
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly
+                    maximumLength: 64
+                    onAccepted: if (submitNumber.enabled)
+                        assessmentController.selectAnswer(text.trim())
+                }
+
+                Connections {
+                    target: assessmentController
+                    function onQuestionChanged() {
+                        numericalAnswer.text = assessmentController.selectedKey
+                    }
+                }
+                Connections {
+                    target: appController
+                    function onKeyboardSubmitted(text) {
+                        if (appController.keyboardTarget === "numerical_answer")
+                            numericalAnswer.text = text.trim()
+                    }
+                }
+                Component.onCompleted: numericalAnswer.text = assessmentController.selectedKey
+
+                Controls.Button {
+                    text: "Open keyboard"
+                    onClicked: appController.openKeyboard("numerical_answer",
+                        numericalAnswer.text, false, "Enter numerical answer")
+                }
+                Controls.Button {
+                    id: submitNumber
+                    text: "Confirm answer"
+                    enabled: assessmentController.numericalQuestion
+                        && assessmentController.validNumericalAnswer(numericalAnswer.text)
+                    onClicked: assessmentController.selectAnswer(numericalAnswer.text.trim())
+                }
+            }
+
             // 2-Column Responsive MCQ Option Cards Grid
             Grid {
                 width: parent.width
+                visible: !assessmentController.numericalQuestion
                 columns: 2
                 spacing: Spacing.md
 

@@ -12,7 +12,6 @@ from app.core.models import (
     Attempt,
     AttemptStatus,
     Confidence,
-    OptionKey,
     Question,
     Response,
     ScoreResult,
@@ -159,8 +158,11 @@ class AssessmentApplication:
             return response.response_time_ms if response else 0
         return self._timer.elapsed_ms
 
-    def select_answer(self, key: OptionKey) -> Response:
+    def select_answer(self, key: str) -> Response:
         """Persist an answer immediately, then await explicit confidence."""
+        question = self.engine.current_question()
+        if not question.accepts_answer(key):
+            raise ValueError("Enter a valid answer for this question")
         existing = self.engine.current_response()
         previous_key = existing.selected_key if existing else None
         elapsed = self._pause_timer()
@@ -169,10 +171,9 @@ class AssessmentApplication:
             response_time_ms=elapsed,
             response_id=self._id_factory(),
         )
-        question = self.engine.current_question()
         stored = self.repository.save_response(
             response,
-            is_correct=key == question.correct_key,
+            is_correct=question.is_correct(key),
             answered_at=self._now(),
         )
         self.engine.update_current_response(stored)
@@ -190,7 +191,7 @@ class AssessmentApplication:
         question = self.engine.current_question()
         stored = self.repository.save_response(
             response,
-            is_correct=response.selected_key == question.correct_key,
+            is_correct=question.is_correct(response.selected_key),
         )
         self.engine.update_current_response(stored)
         self._append_event("confidence_set", confidence.value, elapsed)
@@ -205,7 +206,7 @@ class AssessmentApplication:
         question = self.engine.current_question()
         stored = self.repository.save_response(
             response,
-            is_correct=response.selected_key == question.correct_key,
+            is_correct=question.is_correct(response.selected_key),
         )
         self.engine.update_current_response(stored)
         self._append_event("confidence_set", Confidence.UNRATED.value, elapsed)
@@ -342,7 +343,7 @@ class AssessmentApplication:
     def _correctness(self, response: Response) -> bool | None:
         if response.selected_key is None:
             return None
-        return response.selected_key == self.engine.current_question().correct_key
+        return self.engine.current_question().is_correct(response.selected_key)
 
     def _append_event(
         self, event_type: str, value: str | None, at_ms: int

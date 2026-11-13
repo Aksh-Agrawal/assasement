@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from app.core.models import AttemptStatus
+from app.core.models import AttemptStatus, is_numeric_answer
 from app.data.db import datetime_to_text
 from app.data.repo import Repository, UnknownAttempt
 
@@ -50,7 +50,10 @@ def build_upload_payload(repository: Repository, attempt_id: str) -> dict[str, A
     metadata = repository.get_schema_meta()
     device_id = metadata.get("device_id") or None
     payload = {
-        "payload_version": PAYLOAD_VERSION,
+        "payload_version": 2 if any(
+            item["selected_key"] is not None and is_numeric_answer(item["selected_key"])
+            for item in response_items
+        ) else PAYLOAD_VERSION,
         "attempt_id": attempt.id,
         "device_id": device_id,
         "profile": {

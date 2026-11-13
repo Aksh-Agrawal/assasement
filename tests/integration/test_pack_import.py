@@ -12,6 +12,7 @@ from app.content.importer import PackImportError, import_pack
 from app.content.validator import PackValidationError
 from app.core.models import Confidence, Profile
 from app.data.repo import Repository
+from app.sync.payloads import build_upload_payload
 
 VALID_PACK = Path("tests/fixtures/packs/valid_20_questions.json")
 INVALID_PACK = Path("tests/fixtures/packs/duplicate_question_id.json")
@@ -27,6 +28,33 @@ def make_version_2(tmp_path: Path) -> Path:
     path = tmp_path / "version-2.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     return path
+
+
+def test_schema_v2_numerical_question_installs_scores_and_syncs(tmp_path: Path) -> None:
+    path = make_version_2(tmp_path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["schema_version"] = 2
+    question = data["questions"][0]
+    question.update(options=[], correct_key="2.50")
+    data["questions"] = [question]
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    with Repository(tmp_path / "numerical.db") as repository:
+        pack = import_pack(path, repository).pack
+        repository.create_profile(PROFILE, created_at=IMPORTED_AT)
+        app = AssessmentApplication(repository)
+        attempt = app.start_test(PROFILE.id, pack.summary.set_id, pack.summary.version)
+        with pytest.raises(ValueError):
+            app.select_answer("A")
+        app.select_answer("+2.500")
+        app.set_confidence(Confidence.NOT_SURE)
+        app.request_submit()
+        assert app.submit().correct == 1
+        payload = build_upload_payload(repository, attempt.id)
+        assert payload["payload_version"] == 2
+        assert payload["responses"][0]["selected_key"] == "+2.500"
+        assert payload["responses"][0]["confidence"] == "not_sure"
+        assert payload["responses"][0]["is_correct"] is True
 
 
 def test_import_persists_hash_timestamp_and_rejects_duplicate_version(tmp_path: Path) -> None:

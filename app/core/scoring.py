@@ -58,7 +58,7 @@ def score_attempt(
             )
 
         confidence_totals[confidence] += 1
-        if response.selected_key == question.correct_key:
+        if question.is_correct(response.selected_key):
             correct += 1
             confidence_correct[confidence] += 1
             if confidence is Confidence.GUESSING:

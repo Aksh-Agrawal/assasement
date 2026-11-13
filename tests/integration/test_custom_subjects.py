@@ -62,7 +62,7 @@ def test_current_schema_preserves_content_history_links_and_foreign_keys(tmp_pat
             before = {table: [tuple(row) for row in repo._connection.execute("SELECT * FROM " + table)]
                       for table in tables}
     with Repository(path) as repo:
-        assert repo.schema_version == 8
+        assert repo.schema_version == 9
         for table in tables:
             assert [tuple(row) for row in repo._connection.execute("SELECT * FROM " + table)] == before[table]
         assert repo._connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
@@ -70,21 +70,21 @@ def test_current_schema_preserves_content_history_links_and_foreign_keys(tmp_pat
         assert repo.quick_check().ok
         assert repo.get_attempt(completed.id).status.value == "completed"
         assert repo.find_in_progress_attempt("a").id == partial.id
-        assert db.run_migrations(repo._connection) == 8
+        assert db.run_migrations(repo._connection) == 9
         assert repo._connection.execute("SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name='question_sets_immutable_content'").fetchone()[0] == 1
 
 
 def test_failed_table_rebuild_rolls_back_and_restores_fk_enforcement(tmp_path):
     migrations = tmp_path / "migrations"
     shutil.copytree(db.MIGRATIONS_DIRECTORY, migrations)
-    (migrations / "0009_failure.sql").write_text(
+    (migrations / "0010_failure.sql").write_text(
         "-- requires_foreign_keys_off\nDROP TABLE question_sets;\nSELECT * FROM nonexistent_table;",
         encoding="utf-8")
     with Repository(tmp_path / "failure.db") as repo:
         pack = import_pack(Path("content/sample_biology.json"), repo).pack.question_set
         with pytest.raises(sqlite3.OperationalError):
             db.run_migrations(repo._connection, migrations)
-        assert repo.schema_version == 8
+        assert repo.schema_version == 9
         assert repo.get_question_set(pack.id, 1) == pack
         assert repo._connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         assert repo._connection.execute("PRAGMA foreign_key_check").fetchall() == []

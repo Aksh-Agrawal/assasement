@@ -54,7 +54,7 @@ class AttemptResult(TypedDict):
 class AttemptResponse(TypedDict):
     response_id: str
     question_id: str
-    selected_key: Literal["A", "B", "C", "D"] | None
+    selected_key: str | None
     confidence: Literal["sure", "not_sure", "guessing", "unrated"] | None
     is_correct: bool | None
     response_time_ms: int
@@ -71,7 +71,7 @@ class AttemptOwnership(TypedDict):
 class AttemptUpload(TypedDict):
     institute_assignment_id: NotRequired[str]
     ownership: NotRequired[AttemptOwnership]
-    payload_version: Literal[1]
+    payload_version: Literal[1, 2]
     attempt_id: str
     device_id: str | None
     profile: AttemptProfile

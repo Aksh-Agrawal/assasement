@@ -546,6 +546,17 @@ class AssessmentController(QObject):
         except Exception as err:
             LOGGER.error("Error selecting answer: %s", err)
 
+    @Property(bool, notify=questionChanged)
+    def numericalQuestion(self) -> bool:
+        return bool(self._app_service and self.isActive
+                    and not self._app_service.current_question().options)
+
+    @Slot(str, result=bool)
+    def validNumericalAnswer(self, value: str) -> bool:
+        return self.numericalQuestion and self._app_service.current_question().accepts_answer(
+            value.strip(),
+        )
+
     @Slot(str)
     def setConfidence(self, level: str):
         if not self._app_service:

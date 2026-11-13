@@ -7,7 +7,6 @@ from uuid import uuid4
 from app.core.models import (
     Attempt,
     Confidence,
-    OptionKey,
     Question,
     QuestionSet,
     Response,
@@ -48,7 +47,7 @@ class ReviewItem:
     def outcome(self) -> str:
         if self.response is None or self.response.selected_key is None:
             return "skipped"
-        if self.response.selected_key == self.question.correct_key:
+        if self.question.is_correct(self.response.selected_key):
             return "correct"
         return "wrong"
 
@@ -176,13 +175,15 @@ class AssessmentEngine:
 
     def select_answer(
         self,
-        key: OptionKey,
+        key: str,
         *,
         response_time_ms: int,
         response_id: str | None = None,
     ) -> Response:
         """Select/change an answer and represent pending confidence as unrated."""
         self._require_state(AssessmentState.IN_QUESTION)
+        if not self.current_question().accepts_answer(key):
+            raise ValueError("Enter a valid answer for this question")
         existing = self.current_response()
         if self.attempt is None:
             raise InvalidTransition("No active attempt")
