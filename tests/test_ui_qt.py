@@ -490,6 +490,42 @@ def test_settings_controller_operations(qapp, tmp_path, mock_repo):
     app_ctrl.close()
 
 
+def test_update_controller_binds_signed_release_and_actions(qapp, tmp_path, mock_repo):
+    from types import SimpleNamespace
+
+    from packaging.version import Version
+
+    db_path = tmp_path / "update-controller.db"
+    db_path.touch()
+    app_ctrl = AppController(db_path, AppConfig(database_path=db_path), CredentialStore(tmp_path / "creds.json"))
+    app_ctrl.startup_session.repository = mock_repo
+    app_ctrl.startup_session.complete = True
+    app_ctrl._initialize_runtime()
+    mock_repo.schema_version = 8
+    manifest = SimpleNamespace(
+        version=Version("0.2.0"),
+        data={
+            "compatibility": {"platform": "linux", "architecture": "aarch64"},
+            "release": {"required_db_schema": 8, "notes": "Stability improvements"},
+        },
+    )
+    release = SimpleNamespace(manifest=manifest)
+    app_ctrl.device.available_update = release
+    calls = []
+    app_ctrl.device.start = lambda operation, **kwargs: calls.append((operation, kwargs))
+    settings = SettingsController(app_ctrl)
+
+    assert settings.hasUpdate
+    assert settings.updateCompatible
+    assert settings.availableVersion == "0.2.0"
+    assert settings.updateNotes == "Stability improvements"
+    settings.checkUpdate()
+    settings.downloadUpdate()
+    assert [operation for operation, _kwargs in calls] == ["update_check", "update_download"]
+    assert calls[-1][1]["update"] is release
+    app_ctrl.close()
+
+
 def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
     """Verify QML layout responsiveness at 800x480 and 800x600."""
     db_path = tmp_path / "test.db"

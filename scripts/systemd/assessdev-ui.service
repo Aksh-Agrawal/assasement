@@ -1,18 +1,21 @@
 [Unit]
 Description=Assessment device graphical kiosk
 After=systemd-user-sessions.service
+Requires=assessdev-recover.service
+After=assessdev-recover.service
 Conflicts=getty@tty1.service
 StartLimitIntervalSec=120
 StartLimitBurst=5
 
 [Service]
 Type=simple
-User=assess
-Group=assess
+User=@SERVICE_USER@
+Group=@SERVICE_GROUP@
 PAMName=login
-WorkingDirectory=/opt/assessment-device
+WorkingDirectory=/
 EnvironmentFile=/etc/assessdev/device.env
 Environment=SDL_VIDEODRIVER=x11
+Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=QT_QPA_PLATFORM=xcb
 StandardInput=tty
 TTYPath=/dev/tty1
@@ -20,7 +23,7 @@ TTYReset=yes
 TTYVHangup=yes
 TTYVTDisallocate=yes
 UtmpIdentifier=tty1
-ExecStart=/usr/bin/xinit /opt/assessment-device/scripts/kiosk-session.sh -- /usr/bin/Xorg :0 vt1 -keeptty -nolisten tcp
+ExecStart=/usr/local/libexec/assessdev-launch-ui
 Restart=always
 RestartSec=10
 UMask=0077

@@ -64,6 +64,8 @@ class DeviceConsole:
         self.pairing = None
         self.available_update = None
         self.staged = None
+        self.update_progress = 0.0
+        self.update_phase = "idle"
         self.download_state = {}
         self.generation = 0
         self.pairing_lock = threading.Lock()
@@ -108,7 +110,12 @@ class DeviceConsole:
             return
         self.link_error = None
         self.account_message = None
+        self.failure = None
         self.operation = operation
+        if operation == "update_download":
+            self.update_phase = "downloading"
+        elif operation == "update_install":
+            self.update_phase = "installing"
         self.message = {
             "profile_claim": "Submitting link...",
             "profile_unlink": "Unlinking profile...",
@@ -403,6 +410,28 @@ class DeviceConsole:
                     update_manager=ActivationManager(config.update_root),
                     trusted_signing_key_id=config.trusted_update_key_id,
                 )
+            if operation == "update_install":
+                staged = Path(args["staged"]).resolve()
+                inbox = config.update_inbox
+                inbox.mkdir(parents=True, exist_ok=True)
+                request = inbox / "request.json"
+                temporary = inbox / "request.tmp"
+                temporary.write_text(
+                    __import__("json").dumps({"version": staged.name}), encoding="utf-8"
+                )
+                temporary.replace(request)
+                import subprocess
+
+                result = subprocess.run(
+                    ["sudo", "-n", "/usr/bin/systemctl", "--no-block", "start", "assessdev-update.service"],
+                    check=False, capture_output=True, text=True, timeout=20,
+                )
+                if result.returncode:
+                    request.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        "Device updater is not installed or could not start. Contact your operator."
+                    )
+                return "installing"
             if not config.api_base_url:
                 raise RuntimeError("API not configured")
             if operation == "sync":
@@ -461,8 +490,12 @@ class DeviceConsole:
                     if Path(filename).name != filename or "/" in filename or "\\" in filename:
                         raise ValueError("Unsafe artifact filename")
                     artifact = client.download_update(
-                        update, config.update_root / "downloads" / filename
+                        update, config.update_root / "downloads" / filename,
+                        progress=lambda done, total: setattr(
+                            self, "update_progress", done / total if total else 0.0
+                        ),
                     )
+                    self.update_phase = "verifying"
                     key = load_pem_public_key(config.trusted_update_public_key_path.read_bytes())
                     verified = verify_update(
                         update.manifest_bytes,

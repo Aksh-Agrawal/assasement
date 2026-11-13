@@ -118,6 +118,11 @@ def run_migrations(
     migrations = _migration_files(migrations_directory)
     current_version = get_schema_version(connection)
     available_versions = {version for version, _ in migrations}
+    if current_version and current_version > max(available_versions, default=0):
+        # A release rollback can run code one version behind a forward-only,
+        # additive migration. Keep the database intact and let the older code
+        # use the tables and columns it knows; never downgrade or reset data.
+        return current_version
     if current_version and current_version not in available_versions:
         raise MigrationError(
             f"Database schema version {current_version} has no matching migration file"

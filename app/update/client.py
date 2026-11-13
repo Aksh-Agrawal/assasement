@@ -2,6 +2,7 @@
 
 import base64
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -69,6 +70,7 @@ class UpdateClient:
         destination: Path,
         *,
         hard_max_bytes: int = 100_000_000,
+        progress: Callable[[int, int], None] | None = None,
     ) -> Path:
         expected = update.manifest.data["artifact"]["size_bytes"]
         if expected > hard_max_bytes:
@@ -92,6 +94,8 @@ class UpdateClient:
                         if total > expected or total > hard_max_bytes:
                             raise IntegrityError("Downloaded artifact exceeded declared size")
                         output.write(chunk)
+                        if progress:
+                            progress(total, expected)
             if total != expected:
                 raise IntegrityError("Downloaded artifact is truncated")
             temporary.replace(destination)

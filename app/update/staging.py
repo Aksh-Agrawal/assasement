@@ -61,6 +61,9 @@ def stage_update(update: VerifiedUpdate, root: Path) -> Path:
         release = json.loads(required[2].read_text(encoding="utf-8"))
         if release.get("version") != str(update.manifest.version):
             raise StagingError("Release version does not match manifest")
+        (temporary / "update-manifest.json").write_bytes(update.manifest.canonical_bytes)
+        # The staged copy lets the independent system service verify the signature again.
+        (temporary / "update-manifest.sig").write_bytes(update.signature)
         temporary.replace(target)
         LOGGER.info("update staging completed: version=%s", update.manifest.version)
         return target

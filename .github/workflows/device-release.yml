@@ -1,0 +1,108 @@
+name: Publish signed Raspberry Pi release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install Qt runtime and project dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-xinerama0
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev,gui]'
+      - name: Validate device release source
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          ruff check .
+          pytest -q -m 'not cloud_integration'
+          python -m tools.release_check --offline
+      - name: Build and verify signed ARM64 artifact
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY_B64: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_B64 }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p "$RUNNER_TEMP/update-key"
+          echo "$UPDATE_SIGNING_PRIVATE_KEY_B64" | base64 --decode > "$RUNNER_TEMP/update-key/signing.pem"
+          chmod 600 "$RUNNER_TEMP/update-key/signing.pem"
+          python -m tools.build_release \
+            --version "$VERSION" \
+            --private-key "$RUNNER_TEMP/update-key/signing.pem" \
+            --output dist/update \
+            --key-id questraa-stable-1 \
+            --platform linux \
+            --architecture aarch64 \
+            --min-supported-version 0.1.0 \
+            --required-db-schema 8 \
+            --notes "Questraa device software ${VERSION}"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from cryptography.hazmat.primitives import serialization
+          key_dir = Path(os.environ["RUNNER_TEMP"]) / "update-key"
+          private = serialization.load_pem_private_key((key_dir / "signing.pem").read_bytes(), password=None)
+          (key_dir / "public.pem").write_bytes(private.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo))
+          PY
+          python -m tools.verify_release \
+            dist/update/update-manifest.json \
+            dist/update/update-manifest.sig \
+            "dist/update/assessment-device-${VERSION}.tar.gz" \
+            --public-key "$RUNNER_TEMP/update-key/public.pem" \
+            --current-version 0.1.0 \
+            --platform linux \
+            --architecture aarch64 \
+            --db-schema 8
+      - name: Publish versioned GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Questraa device ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/update/update-manifest.json
+            dist/update/update-manifest.sig
+            dist/update/assessment-device-*.tar.gz
+      - name: Publish signed release to authenticated device catalog
+        env:
+          UPDATE_CLOUD_URL: ${{ secrets.UPDATE_CLOUD_URL }}
+          UPDATE_ADMIN_EMAIL: ${{ secrets.UPDATE_ADMIN_EMAIL }}
+          UPDATE_ADMIN_PASSWORD: ${{ secrets.UPDATE_ADMIN_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import base64, http.cookiejar, json, os, pathlib, urllib.request
+          base = os.environ["UPDATE_CLOUD_URL"].rstrip("/")
+          version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+          def post(url, body):
+              data = json.dumps(body).encode()
+              request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+              with opener.open(request, timeout=90) as response:
+                  return json.load(response)
+          post(base + "/api/v1/admin/auth/login", {
+              "email": os.environ["UPDATE_ADMIN_EMAIL"],
+              "password": os.environ["UPDATE_ADMIN_PASSWORD"],
+          })
+          root = pathlib.Path("dist/update")
+          manifest = json.loads((root / "update-manifest.json").read_text())
+          artifact = root / manifest["artifact"]["filename"]
+          result = post(base + "/api/v1/admin/releases", {
+              "manifest": manifest,
+              "signature": base64.b64encode((root / "update-manifest.sig").read_bytes()).decode(),
+              "artifact_base64": base64.b64encode(artifact.read_bytes()).decode(),
+          })
+          if result.get("status") != "published" or result.get("version") != version:
+              raise SystemExit(f"Cloud release publication failed: {result}")
+          print(f"Published Questraa {version} to the authenticated device catalog")
+          PY

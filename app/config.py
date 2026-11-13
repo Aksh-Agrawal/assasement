@@ -51,7 +51,7 @@ class AppConfig:
     packs_directory: Path = field(
         default_factory=lambda: Path(os.getenv("ASSESS_PACK_DIR", "content"))
     )
-    media_directory: Path = Path("media")
+    media_directory: Path = field(default_factory=lambda: Path(os.getenv("ASSESS_MEDIA_DIR", "media")))
     log_directory: Path = field(
         default_factory=lambda: Path(
             os.getenv("ASSESS_LOG_DIR", str(Path(os.getenv("ASSESS_DATA_DIR", "var")) / "log"))
@@ -80,10 +80,15 @@ class AppConfig:
     update_root: Path = field(
         default_factory=lambda: Path(os.getenv("ASSESS_UPDATE_DIR", "runtime/updates"))
     )
-    update_platform: str = "development"
-    update_architecture: str = "any"
-    trusted_update_key_id: str = "development-1"
-    trusted_update_public_key_path: Path = Path("config/update-public.pem")
+    update_platform: str = field(default_factory=lambda: os.getenv("ASSESS_UPDATE_PLATFORM", "linux"))
+    update_architecture: str = field(default_factory=lambda: os.getenv("ASSESS_UPDATE_ARCH", "aarch64"))
+    trusted_update_key_id: str = field(default_factory=lambda: os.getenv("ASSESS_UPDATE_KEY_ID", "questraa-stable-1"))
+    trusted_update_public_key_path: Path = field(
+        default_factory=lambda: Path(os.getenv("ASSESS_UPDATE_PUBLIC_KEY", "/etc/assessdev/update-public.pem"))
+    )
+    update_inbox: Path = field(
+        default_factory=lambda: Path(os.getenv("ASSESS_UPDATE_INBOX", "/var/lib/assessdev/update/inbox"))
+    )
     content_download_directory: Path = field(
         default_factory=lambda: Path(
             os.getenv("ASSESS_DOWNLOAD_DIR", "runtime/content-downloads/tmp")

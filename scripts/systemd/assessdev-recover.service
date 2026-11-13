@@ -1,0 +1,25 @@
+[Unit]
+Description=Recover an interrupted Questraa software update
+Before=assessdev-ui.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/
+EnvironmentFile=/etc/assessdev/device.env
+EnvironmentFile=/etc/assessdev/updater.env
+ExecStart=/usr/local/libexec/assessdev-run-updater --recover
+TimeoutStartSec=120
+UMask=0077
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=@APP_ROOT@ @DATA_ROOT@ /usr/local/libexec
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

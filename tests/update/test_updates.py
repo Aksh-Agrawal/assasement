@@ -2,6 +2,7 @@
 
 import base64
 import json
+import sqlite3
 import tarfile
 from io import BytesIO
 from pathlib import Path
@@ -10,6 +11,9 @@ import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from app.config import AppConfig
+from app.data.db import run_migrations
+from app.data.repo import Repository
 from app.update.activation import ActivationManager
 from app.update.client import AvailableUpdate, UpdateClient
 from app.update.errors import (
@@ -20,9 +24,15 @@ from app.update.errors import (
     StagingError,
     UpdateError,
 )
+from app.update.layout import (
+    configured_installation_paths,
+    migrate_existing_state,
+    validate_trusted_app_root,
+)
 from app.update.manifest import UpdateManifest, canonical_manifest_bytes
 from app.update.staging import stage_update
 from app.update.verifier import verify_update
+from tools import updater_service
 from tools.build_release import build_artifact
 
 pytestmark = pytest.mark.update
@@ -44,7 +54,7 @@ def _bundle(tmp_path: Path, *, version="0.2.0", platform="development", maliciou
     manifest = {
         "schema_version": 1,
         "signing_key_id": "test-key",
-        "release": {"version": version, "channel": "stable", "created_at": "2026-10-19T00:00:00Z", "min_supported_version": "0.1.0", "required_db_schema": 2},
+        "release": {"version": version, "channel": "stable", "created_at": "2026-10-19T00:00:00Z", "min_supported_version": "0.1.0", "required_db_schema": 2, "notes": "Test release"},
         "artifact": {"filename": artifact.name, "size_bytes": artifact.stat().st_size, "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()},
         "compatibility": {"platform": platform, "architecture": "any"},
     }
@@ -194,3 +204,166 @@ def test_no_published_update_is_benign_without_warning(caplog):
     assert client.check_for_update() is None
     client.close()
     assert not [record for record in caplog.records if record.levelno >= 30]
+
+
+def test_database_backup_preserves_profiles_attempts_outbox_and_credentials(tmp_path, monkeypatch):
+    data = tmp_path / "data"
+    data.mkdir()
+    database = data / "assessment.db"
+    connection = sqlite3.connect(database)
+    connection.executescript(
+        "CREATE TABLE profiles(id TEXT PRIMARY KEY, name TEXT);"
+        "CREATE TABLE attempts(id TEXT PRIMARY KEY, state TEXT);"
+        "CREATE TABLE sync_outbox(id TEXT PRIMARY KEY, payload TEXT);"
+        "INSERT INTO profiles VALUES('student-1','Learner');"
+        "INSERT INTO attempts VALUES('attempt-1','completed');"
+        "INSERT INTO sync_outbox VALUES('attempt-1','pending payload');"
+    )
+    connection.close()
+    (data / "device_credentials.json").write_text('{"token":"preserved"}', encoding="utf-8")
+    monkeypatch.setattr(updater_service, "DATA_ROOT", data)
+
+    backup = updater_service._backup_database(database, tmp_path / "backups")
+
+    assert backup is not None and backup.exists()
+    connection = sqlite3.connect(backup)
+    assert connection.execute("SELECT * FROM profiles").fetchall() == [("student-1", "Learner")]
+    assert connection.execute("SELECT * FROM attempts").fetchall() == [("attempt-1", "completed")]
+    assert connection.execute("SELECT * FROM sync_outbox").fetchall() == [
+        ("attempt-1", "pending payload")
+    ]
+    connection.close()
+    assert (backup.parent / "device_credentials.json").read_text(encoding="utf-8") == '{"token":"preserved"}'
+    connection = sqlite3.connect(database)
+    connection.execute("UPDATE profiles SET name='Learner after activation'")
+    connection.execute("INSERT INTO attempts VALUES('attempt-2','completed')")
+    connection.execute("INSERT INTO sync_outbox VALUES('attempt-2','pending after activation')")
+    connection.commit()
+    connection.close()
+    (data / "device_credentials.json").write_text('{"token":"rotated after activation"}', encoding="utf-8")
+    updater_service._restore_data_backup(database, backup, data / "device_credentials.json")
+    connection = sqlite3.connect(database)
+    assert connection.execute("SELECT name FROM profiles").fetchone() == ("Learner after activation",)
+    assert connection.execute("SELECT * FROM attempts ORDER BY id").fetchall() == [
+        ("attempt-1", "completed"), ("attempt-2", "completed")
+    ]
+    assert connection.execute("SELECT * FROM sync_outbox ORDER BY id").fetchall() == [
+        ("attempt-1", "pending payload"), ("attempt-2", "pending after activation")
+    ]
+    connection.close()
+    assert (data / "device_credentials.json").read_text(encoding="utf-8") == '{"token":"rotated after activation"}'
+
+
+def test_first_time_state_migration_is_verified_and_never_overwrites(tmp_path):
+    source = tmp_path / "legacy" / "var" / "assessment-device.db"
+    source.parent.mkdir(parents=True)
+    connection = sqlite3.connect(source)
+    connection.executescript(
+        "CREATE TABLE profiles(id TEXT PRIMARY KEY, name TEXT);"
+        "CREATE TABLE attempts(id TEXT PRIMARY KEY, state TEXT);"
+        "CREATE TABLE sync_outbox(id TEXT PRIMARY KEY, payload TEXT);"
+        "INSERT INTO profiles VALUES('p1','Student');"
+        "INSERT INTO attempts VALUES('a1','completed');"
+        "INSERT INTO sync_outbox VALUES('a1','still pending');"
+    )
+    connection.close()
+    source_credentials = source.parent / "device_credentials.json"
+    source_credentials.write_text('{"device_id":"pi-1","token":"pairing"}', encoding="utf-8")
+    target = tmp_path / "persistent-data" / "assessment-device.db"
+    target_credentials = target.parent / "device_credentials.json"
+
+    migrated_db, migrated_credentials = migrate_existing_state(
+        source, target, source_credentials, target_credentials
+    )
+
+    assert migrated_db == target and migrated_credentials == target_credentials
+    assert source.exists() and source_credentials.exists()
+    connection = sqlite3.connect(target)
+    assert connection.execute("SELECT * FROM profiles").fetchall() == [("p1", "Student")]
+    assert connection.execute("SELECT * FROM attempts").fetchall() == [("a1", "completed")]
+    assert connection.execute("SELECT * FROM sync_outbox").fetchall() == [("a1", "still pending")]
+    connection.close()
+    assert target_credentials.read_text(encoding="utf-8") == source_credentials.read_text(encoding="utf-8")
+
+    target.write_bytes(b"existing database must not be replaced")
+    target_credentials.unlink()
+    with pytest.raises(FileExistsError, match="Refusing to overwrite existing database"):
+        migrate_existing_state(source, target, source_credentials, target_credentials)
+    assert target.read_bytes() == b"existing database must not be replaced"
+
+
+def test_install_path_configuration_and_bad_database_locations(tmp_path):
+    root = tmp_path / "aksh" / "assasement"
+    data = tmp_path / "var-lib" / "questraa"
+    configured = configured_installation_paths({
+        "ASSESS_APP_ROOT": str(root),
+        "ASSESS_DATA_DIR": str(data),
+        "ASSESS_SQLITE_PATH": str(data / "device.sqlite"),
+        "ASSESS_CREDENTIAL_PATH": str(data / "credentials.json"),
+        "ASSESS_SERVICE_USER": "aksh",
+        "ASSESS_SERVICE_GROUP": "aksh",
+    })
+    assert configured.app_root == root.resolve()
+    assert configured.database_path == (data / "device.sqlite").resolve()
+    assert configured.service_user == "aksh"
+    assert configured.service_group == "aksh"
+
+    with pytest.raises(ValueError, match="absolute"):
+        configured_installation_paths({"ASSESS_SQLITE_PATH": "var/assessment.db"})
+    with pytest.raises(ValueError, match="outside versioned release"):
+        configured_installation_paths({
+            "ASSESS_APP_ROOT": str(root),
+            "ASSESS_DATA_DIR": str(data),
+            "ASSESS_SQLITE_PATH": str(root / "releases" / "0.2.0" / "var" / "assessment.db"),
+        })
+
+
+def test_privileged_release_root_cannot_be_in_service_writable_home(tmp_path):
+    current = tmp_path.stat()
+    with pytest.raises(ValueError, match="service-writable ancestor"):
+        validate_trusted_app_root(tmp_path / "managed-releases", current.st_uid, {current.st_gid})
+
+
+def test_privileged_updater_copies_untrusted_artifact_before_verifying(tmp_path):
+    source = tmp_path / "download.tar.gz"
+    private_copy = tmp_path / "root-copy.tar.gz"
+    source.write_bytes(b"signed bytes")
+    assert updater_service._copy_untrusted_regular_file(source, private_copy, 1024) == 12
+    source.write_bytes(b"changed by user after copy")
+    assert private_copy.read_bytes() == b"signed bytes"
+
+
+def test_persistent_sqlite_credentials_and_content_paths_are_configurable(monkeypatch, tmp_path):
+    values = {
+        "ASSESS_DATA_DIR": str(tmp_path / "persistent"),
+        "ASSESS_SQLITE_PATH": str(tmp_path / "persistent" / "existing.db"),
+        "ASSESS_CREDENTIAL_PATH": str(tmp_path / "persistent" / "pairing.json"),
+        "ASSESS_PACK_DIR": str(tmp_path / "legacy" / "content"),
+        "ASSESS_MEDIA_DIR": str(tmp_path / "legacy" / "media"),
+        "ASSESS_DOWNLOAD_DIR": str(tmp_path / "legacy" / "recovery"),
+    }
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+    config = AppConfig()
+    assert config.database_path == Path(values["ASSESS_SQLITE_PATH"])
+    assert config.credential_path == Path(values["ASSESS_CREDENTIAL_PATH"])
+    assert config.packs_directory == Path(values["ASSESS_PACK_DIR"])
+    assert config.media_directory == Path(values["ASSESS_MEDIA_DIR"])
+    assert config.content_download_directory == Path(values["ASSESS_DOWNLOAD_DIR"])
+
+
+def test_recovery_keeps_forward_migrated_database_for_previous_code(tmp_path):
+    database = tmp_path / "device.db"
+    with Repository(database) as initial:
+        future_version = initial.schema_version + 1
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    connection.execute(
+        "UPDATE schema_meta SET value=? WHERE key='schema_version'", (str(future_version),)
+    )
+    connection.commit()
+    assert run_migrations(connection) == future_version
+    assert connection.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0] == str(future_version)
+    connection.close()
+    with Repository(database) as repository:
+        assert repository.schema_version == future_version

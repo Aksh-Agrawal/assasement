@@ -19,6 +19,7 @@ LOGGER = logging.getLogger(__name__)
 class VerifiedUpdate:
     manifest: UpdateManifest
     artifact: Path
+    signature: bytes
 
 
 def verify_update(
@@ -68,4 +69,4 @@ def verify_update(
     if manifest.data["release"]["required_db_schema"] > db_schema:
         raise CompatibilityError("Required database schema is not installed")
     LOGGER.info("update verification succeeded version=%s key_id=%s", manifest.version, key_id)
-    return VerifiedUpdate(manifest, artifact)
+    return VerifiedUpdate(manifest, artifact, signature)

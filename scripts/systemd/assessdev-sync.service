@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=assess
-Group=assess
-WorkingDirectory=/opt/assessment-device
+User=@SERVICE_USER@
+Group=@SERVICE_GROUP@
+WorkingDirectory=/
 EnvironmentFile=/etc/assessdev/device.env
-ExecStart=/opt/assessment-device/.venv/bin/python -m app.sync.service
+ExecStart=/usr/local/libexec/assessdev-run-sync
 Restart=on-failure
 RestartSec=10
 NoNewPrivileges=true

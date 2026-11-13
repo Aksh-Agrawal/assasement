@@ -64,18 +64,63 @@ Rectangle {
                     spacing: 4
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Installed Application Version: v" + settingsController.appVersion
+                        text: "Current version  ·  v" + settingsController.appVersion
                         color: Theme.textSecondary
                         font.pixelSize: Typography.body
                         font.family: Typography.fontFamily
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Platform: Raspberry Pi OS (Linux 64-bit Appliance)"
+                        text: settingsController.hasUpdate
+                              ? "Available version  ·  v" + settingsController.availableVersion
+                              : "Raspberry Pi OS  ·  64-bit"
                         color: Theme.textSecondary
                         font.pixelSize: Typography.caption
                         font.family: Typography.fontFamily
                     }
+                }
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    visible: settingsController.updateNotes.length > 0
+                    text: settingsController.updateNotes
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.caption
+                    font.family: Typography.fontFamily
+                }
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    visible: settingsController.hasUpdate && !settingsController.updateCompatible
+                    text: "This release is not compatible with this device or its saved assessment data."
+                    color: Theme.error
+                    font.pixelSize: Typography.caption
+                    font.family: Typography.fontFamily
+                }
+
+                ProgressBar {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.min(360, parent.width)
+                    visible: settingsController.updateBusy && settingsController.updateProgress > 0
+                    progress: settingsController.updateProgress
+                }
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    visible: settingsController.updateError.length > 0
+                    text: settingsController.updateError
+                    color: Theme.error
+                    font.pixelSize: Typography.caption
+                    font.family: Typography.fontFamily
                 }
 
                 Item { width: 1; height: Spacing.xs }
@@ -88,14 +133,21 @@ Rectangle {
                         text: "Check for Updates"
                         iconSource: Assets.refresh
                         preferredHeight: Metrics.touchNormal
+                        enabled: !settingsController.updateBusy
                         onClicked: settingsController.checkUpdate()
                     }
 
                     PrimaryButton {
-                        visible: settingsController.hasUpdate
-                        text: "Download & Install"
+                        visible: settingsController.hasUpdate && !settingsController.updatePendingInstall
+                        text: settingsController.updateBusy
+                              ? (settingsController.updateStatus === "Restarting to install update"
+                                 ? "Restarting..."
+                                 : settingsController.updateStatus === "Verifying update" ? "Verifying..."
+                                 : settingsController.updateProgress > 0 ? "Downloading..." : "Preparing...")
+                              : "Download & Install"
                         buttonColor: Theme.forest
                         preferredHeight: Metrics.touchNormal
+                        enabled: !settingsController.updateBusy && settingsController.updateCompatible
                         onClicked: settingsController.downloadUpdate()
                     }
                 }

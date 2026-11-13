@@ -50,10 +50,11 @@ def main() -> int:
     parser.add_argument("--private-key", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=Path("dist/update"))
     parser.add_argument("--key-id", default="development-1")
-    parser.add_argument("--platform", default="development")
-    parser.add_argument("--architecture", default="any")
+    parser.add_argument("--platform", default="linux")
+    parser.add_argument("--architecture", default="aarch64")
     parser.add_argument("--min-supported-version", default=__version__)
-    parser.add_argument("--required-db-schema", type=int, default=2)
+    parser.add_argument("--required-db-schema", type=int, default=8)
+    parser.add_argument("--notes", default="Questraa device software update")
     args = parser.parse_args()
     Version(args.version)
     args.output.mkdir(parents=True, exist_ok=True)
@@ -63,7 +64,7 @@ def main() -> int:
     manifest = {
         "schema_version": 1,
         "signing_key_id": args.key_id,
-        "release": {"version": args.version, "channel": "stable", "created_at": datetime.now(UTC).isoformat(), "min_supported_version": args.min_supported_version, "required_db_schema": args.required_db_schema},
+        "release": {"version": args.version, "channel": "stable", "created_at": datetime.now(UTC).isoformat(), "min_supported_version": args.min_supported_version, "required_db_schema": args.required_db_schema, "notes": args.notes},
         "artifact": {"filename": filename, "size_bytes": artifact.stat().st_size, "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()},
         "compatibility": {"platform": args.platform, "architecture": args.architecture},
     }

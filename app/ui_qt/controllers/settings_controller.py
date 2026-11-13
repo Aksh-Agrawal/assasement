@@ -41,6 +41,16 @@ class SettingsController(QObject):
         self._diagnostics_data = None
         self._pairing_code = ""
         self._pairing_status = "idle"
+        self._update_error = ""
+        self._ignore_release_status = False
+        self._update_idle_status = "Check for a software update"
+        self._update_was_rolled_back = False
+        self._install_deferred = False
+        self._update_timer = QTimer(self)
+        self._update_timer.setInterval(250)
+        self._update_timer.timeout.connect(self._refreshUpdateState)
+        self._update_timer.start()
+        self._release_status_path = self.app.config.update_root / "status.json"
 
     # -------------------------------------------------------------------------
     # Wi-Fi & Network Properties
@@ -299,22 +309,122 @@ class SettingsController(QObject):
     @Property(bool, notify=updateChanged)
     def hasUpdate(self) -> bool:
         if self.app.device:
-            return self.app.device.available_update is not None
+            update = self.app.device.available_update
+            if update is not None:
+                from packaging.version import Version
+                try:
+                    return Version(str(update.manifest.version)) > Version(__version__)
+                except Exception:
+                    return False
         return False
 
     @Property(str, notify=updateChanged)
     def updateVersion(self) -> str:
         if self.app.device and self.app.device.available_update:
-            return getattr(self.app.device.available_update, "target_version", "1.2.1")
+            return str(self.app.device.available_update.manifest.version)
         return "Up to date"
 
     @Property(str, notify=updateChanged)
+    def availableVersion(self) -> str:
+        return self.updateVersion if self.hasUpdate else ""
+
+    @Property(str, notify=updateChanged)
+    def updateNotes(self) -> str:
+        update = getattr(self.app.device, "available_update", None)
+        return update.manifest.data["release"].get("notes", "") if update else ""
+
+    @Property(str, notify=updateChanged)
+    def updateError(self) -> str:
+        return self._update_error
+
+    @Property(float, notify=updateChanged)
+    def updateProgress(self) -> float:
+        return max(0.0, min(1.0, float(getattr(self.app.device, "update_progress", 0.0))))
+
+    @Property(bool, notify=updateChanged)
+    def updateBusy(self) -> bool:
+        return bool(self.app.device and self.app.device.busy and self.app.device.operation in {
+            "update_check", "update_download", "update_install"
+        })
+
+    @Property(bool, notify=updateChanged)
+    def updateCompatible(self) -> bool:
+        update = getattr(self.app.device, "available_update", None)
+        if not update or not self.app.repository or not self.app.config:
+            return False
+        try:
+            return (
+                update.manifest.data["compatibility"] == {
+                    "platform": self.app.config.update_platform,
+                    "architecture": self.app.config.update_architecture,
+                }
+                and update.manifest.data["release"]["required_db_schema"] <= self.app.repository.schema_version
+                and update.manifest.version > __import__("packaging.version", fromlist=["Version"]).Version(__version__)
+            )
+        except (KeyError, ValueError):
+            return False
+
+    @Property(bool, notify=updateChanged)
+    def updatePendingInstall(self) -> bool:
+        return bool(self.app.device and self.app.device.staged)
+
+    @Property(str, notify=updateChanged)
     def updateStatus(self) -> str:
+        device = self.app.device
+        if device and device.busy and device.operation in {"update_check", "update_download", "update_install"}:
+            if device.operation == "update_download" and getattr(device, "update_phase", "") == "verifying":
+                return "Verifying update"
+            return {"update_check": "Checking for updates", "update_download": "Downloading update",
+                    "update_install": "Restarting to install update"}[device.operation]
+        if self._update_error:
+            return self._update_error
+        state = None if self._ignore_release_status else self._readReleaseStatus()
+        if state and state.get("version") == __version__ and state.get("state") == "successful":
+            return "Update successful"
+        if state and state.get("state") == "installing":
+            return "Installing update"
+        if state and state.get("state") == "failed":
+            return "Update failed. Try again"
+        if self._update_was_rolled_back:
+            return "Update failed. Previous version restored"
+        if state and state.get("state") == "rolled_back":
+            return "Update failed. Previous version restored"
         if self.app.device and self.app.device.staged:
-            return "Update verified and staged"
+            if self.app.isAssessmentActive:
+                return "Ready to install after this assessment"
+            return "Preparing installation"
         if self.hasUpdate:
             return "New version available"
-        return "Your software is up to date"
+        return self._update_idle_status
+
+    @Slot()
+    def _refreshUpdateState(self):
+        device = self.app.device
+        if not device:
+            return
+        if device.failure and device.operation in {"update_check", "update_download", "update_install"}:
+            self._update_error = "Internet unavailable. Your saved work is safe" if not self.app.isOnline else "Update failed. Try again"
+            device.failure = None
+            self._install_deferred = False
+        elif device.operation == "update_check" and not device.busy:
+            self._update_idle_status = "Your software is up to date" if not device.available_update else "New version available"
+        elif device.operation == "update_download" and not device.busy and device.staged:
+            self._update_error = ""
+            self._update_was_rolled_back = False
+            if self.app.isAssessmentActive:
+                self._install_deferred = True
+            else:
+                self._startInstall()
+        elif self._install_deferred and not self.app.isAssessmentActive and not device.busy:
+            self._install_deferred = False
+            self._startInstall()
+        self.updateChanged.emit()
+
+    def _readReleaseStatus(self):
+        try:
+            return json.loads(self._release_status_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
 
     # -------------------------------------------------------------------------
     # Diagnostics Properties
@@ -465,16 +575,28 @@ class SettingsController(QObject):
 
     @Slot()
     def checkUpdate(self):
+        self._update_error = ""
+        self._ignore_release_status = True
+        self._update_idle_status = "Checking for updates"
         if self.app.device:
             self.app.device.start("update_check")
-            self.app.showNotification("Checking for updates…", "info")
+            self.app.showNotification("Checking for updates...", "info")
+            if not self.app.device.busy and not self.app.device.available_update:
+                self._update_error = self.app.device.message or "Internet unavailable. Your saved work is safe"
             self.updateChanged.emit()
 
     @Slot()
     def downloadUpdate(self):
-        if self.app.device:
+        if self.app.device and self.app.device.available_update and not self.app.device.busy:
+            self._update_error = ""
+            self.app.device.update_progress = 0.0
             self.app.device.start("update_download", update=self.app.device.available_update)
-            self.app.showNotification("Downloading update…", "info")
+            self.updateChanged.emit()
+
+    def _startInstall(self):
+        device = self.app.device
+        if device and device.staged and not device.busy:
+            device.start("update_install", staged=str(device.staged))
             self.updateChanged.emit()
 
     @Slot()

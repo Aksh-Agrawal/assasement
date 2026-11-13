@@ -1,0 +1,24 @@
+[Unit]
+Description=Install a verified Questraa device application release
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/
+EnvironmentFile=/etc/assessdev/device.env
+EnvironmentFile=/etc/assessdev/updater.env
+ExecStart=/usr/local/libexec/assessdev-run-updater
+TimeoutStartSec=1800
+UMask=0077
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=@APP_ROOT@ @DATA_ROOT@ /usr/local/libexec
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
