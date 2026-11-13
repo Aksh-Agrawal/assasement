@@ -1117,7 +1117,7 @@ class UIController(LegacyController):
             self.message = "Update verified and staged. Automatic restart requires the device release launcher."
         elif command == "licences":
             self.message = (
-                "Application licence not yet selected. See LICENSE; pygame-ce uses LGPL 2.1."
+                "See LICENSE for the application licensing information."
             )
         elif command == "recovery_options":
             self.message = "Keep existing data. Ask support to restore a verified backup using the recovery guide."
@@ -1325,10 +1325,6 @@ class UIController(LegacyController):
             self.keyboard_index = 0
         elif command == "show":
             self.show_password = not self.show_password
-        elif command == "more_keys":
-            self.keyboard_index = (
-                40 if self.keyboard_index < 40 and len(self.keyboard_characters) > 40 else 0
-            )
         elif command == "text_submit":
             self._submit_text()
         elif command == "forgot":

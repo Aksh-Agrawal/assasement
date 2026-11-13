@@ -77,7 +77,7 @@ ruff check .
 pytest
 ```
 
-The normal kiosk UI is Qt/QML through the [gui] install extra. Keep the older Pygame prototype out of the kiosk launch path; it remains an optional development UI. `gpiozero` is intentionally not a project dependency; install/configure it on the Pi only when physical-button testing begins.
+The kiosk UI is Qt/QML through the `[gui]` install extra. The former Pygame presentation has been removed. `gpiozero` is intentionally not a project dependency; install/configure it on the Pi only when physical-button testing begins.
 
 ## Display verification
 

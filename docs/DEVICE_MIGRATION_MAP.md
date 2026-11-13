@@ -2,11 +2,15 @@
 
 Audit recorded before implementation changes (2026-10-27).
 
+Historical migration map. Its later audit notes describe proposed transitional work; the cleanup classifications below and the release-check dependency recorded in the current cleanup audit supersede any earlier removal recommendation.
+
 | Major package / files | Classification | Separation action |
 | --- | --- | --- |
 | app/core, app/assessment.py | KEEP_DEVICE | Preserve engine, scoring, timer, resume and models. |
 | app/ui_qt, app/ui_qt/qml | KEEP_DEVICE | Primary Qt/QML device UI; preserve illustrated screens, touch/keyboard routes and existing device services. |
-| app/ui, app/input, app/system | KEEP_DEVICE | Legacy Pygame prototype and shared input adapters, not the production launcher. |
+| app/ui/app.py, app/ui/components.py, app/ui/layout.py, app/ui/theme.py, app/ui/screens | REMOVE_PRESENTATION | Retired Pygame-only presentation; no longer an installed or supported UI. |
+| app/ui/controller.py, app/ui/router.py, app/ui/device.py, app/ui/startup.py | KEEP_DEVICE | Framework-neutral state, routing, device operations, and local startup services required by the authoritative Qt UI. |
+| app/input, app/system | KEEP_DEVICE | Canonical actions, keyboard/button adapters, and Wi-Fi/device services; used outside the retired presentation. |
 | app/data and SQL migrations | KEEP_DEVICE | Local SQLite, profiles/PIN, pending attempts and device settings. |
 | app/auth | KEEP_DEVICE | Identity, local credential storage and HTTP pairing; no approval logic. |
 | app/content | KEEP_DEVICE | Catalogue client, bounded download, hashing, validation and atomic local import. |
@@ -15,7 +19,8 @@ Audit recorded before implementation changes (2026-10-27).
 | app/config.py, app/diagnostics.py, app/main.py, app/version.py, app/faults.py | KEEP_DEVICE | Central configuration, local diagnostics and application entry points. |
 | schemas, content, tests/fixtures/packs | SHARED_CONTRACT | Device owns validation copies of pack/update schemas and local content; copy versioned formats to cloud, never import cloud code. |
 | HTTP request/response concepts in app/auth/pairing.py, app/content/catalog.py, app/sync/payloads.py, app/update/manifest.py | SHARED_CONTRACT | Retain existing wire formats; document and expose device contracts. |
-| backend/app, backend/alembic, backend/tools, backend/tests, backend/pyproject.toml | TEMPORARILY_KEEP | MOVE_CLOUD destination: assasement-cloud. Retain source until cloud validation; exclude from Pi deployment. |
+| backend/app, backend/alembic, backend/tools, backend/tests | TEMPORARILY_KEEP | Transitional server modules and integration tests remain until migration validation is complete; excluded from Pi deployment. |
+| backend/pyproject.toml | LEGACY_REQUIRED | Retained migration provenance; the device release checker reads its version, so preserve until that contract is retired deliberately. |
 | tools/approve_pairing.py, tools/revoke_device.py | TEMPORARILY_KEEP | MOVE_CLOUD admin tools; currently import backend directly. Exclude from device distributions/deployment. |
 | tools/release_check.py full mode | TEMPORARILY_KEEP | Cloud integration checks; offline mode must also work without backend files. |
 | tools other than cloud admin helpers | KEEP_DEVICE | Local import, diagnosis, pairing, sync, update, release and support tooling. |
@@ -42,9 +47,10 @@ No Next.js portal, Supabase implementation, Vercel or Render configuration exist
 - Result persistence and background console work are local-first. Preserve upload UUIDs,
   acknowledgement policy, retries, validated content import and signed updates.
 - Heartbeat is a new device-only contract; the separate cloud must implement its endpoint.
-- Offline release reporting unconditionally read backend/pyproject.toml. Remove that
-  filesystem requirement. Full checks remain explicitly transitional.
-- Existing uncommitted UI/SQLite work is preserved; this task does not redesign it.
+- Current release checker reads `backend/pyproject.toml` for compatibility metadata; keep the file until that read and the transitional migration contract are removed together.
+- The Pygame renderer and its screens were removed after confirming Qt is the only supported
+  device presentation. `app/ui/controller.py`, `router.py`, `device.py`, and `startup.py`
+  remain because the active Qt controllers consume them.
 
 - tests/faults/test_reliability.py has one mixed cloud crash-recovery test. Keep its
   server imports local to that test and skip it when cloud dependencies are absent.

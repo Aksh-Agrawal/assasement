@@ -33,11 +33,7 @@ class NoCloud(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, NoCloud())
 import app
 for item in pkgutil.walk_packages(app.__path__, 'app.'):
-    try:
-        __import__(item.name)
-    except ModuleNotFoundError as error:
-        if error.name != "pygame":
-            raise
+    __import__(item.name)
 from tools.pilot_check import smoke_assessment
 assert smoke_assessment()
 """

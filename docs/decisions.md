@@ -231,11 +231,22 @@ reference. Standard-library logging uses centralized redaction. A persistent aud
 deferred until retention and access-control policy exists; a minimal safe audit event vocabulary is
 logged instead.
 
+## ADR-018 - Retire the Pygame presentation
+
+**Status:** Accepted, November 2026
+
+The device supports PySide6 / Qt Quick as its presentation layer. The Pygame renderer, screen
+components, and Pygame-only utilities are removed. The framework-neutral controller, route enum,
+device adapter, startup checks, canonical input actions, and physical input services remain because
+the active Qt UI and device services use them. The `pygame-ce` dependency and `pygame-ui` extra are
+removed. ADR-015 through ADR-017 remain historical evidence of the prototype and its then-current
+UI state; they are superseded for current runtime support.
+
 ## OPEN DECISIONS
 
-The following are explicitly unresolved and must not be inferred from Phase 0:
+The supported UI decision is settled by ADR-018; outstanding hardware questions remain:
 
-- Production GUI framework (Phase 7A uses pygame-compatible APIs for prototyping only).
+- Physical Raspberry Pi GUI startup, performance, and touch behavior.
 - Raspberry Pi OS 32-bit versus 64-bit.
 - Exact touchscreen model.
 - Final touchscreen resolution.

@@ -1,7 +1,6 @@
 # Qt/QML UI Migration Map
 
-This document catalogs every user-facing screen in the offline-first assessment appliance, mapping each existing Pygame implementation to its corresponding PySide6 / Qt Quick (QML) screen, underlying Python services, and migration status.
-
+Historical migration record. The table below describes former Pygame screen prototypes and the Qt Quick screens that replaced them. The Pygame presentation was retired in November 2026; only framework-neutral services under `app/ui/` remain shared with the active device UI. Original route names and statuses are historical.
 ---
 
 ## 1. Migration Inventory
@@ -46,5 +45,5 @@ This document catalogs every user-facing screen in the offline-first assessment 
 ## 2. Architecture Principles Retained
 1. **Zero Database or HTTP Logic in QML**: All business rules, SQLite persistence, and HTTP calls are handled by Python controllers wrapping existing application services.
 2. **Preserved Working Engine**: SQLite migrations, `AssessmentApplication`, `Repository`, `DeviceConsole`, `ActivationManager`, and `WifiService` are unchanged.
-3. **Dual Execution Support**: Pygame UI remains completely intact in `app/ui/` while Qt Quick is built in `app/ui_qt/`.
+3. **Historical migration state**: the original plan retained both presentations during Qt migration. Cleanup later removed the Pygame rendering layer after the device Qt UI became authoritative.
 4. **Touch-First 800×480 Landscape**: Designed specifically for the 5-inch 800×480 screen geometry with left navigation rail on primary screens and full-screen immersion during assessments.

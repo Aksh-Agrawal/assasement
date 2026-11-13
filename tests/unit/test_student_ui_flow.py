@@ -4,7 +4,6 @@ import hashlib
 from dataclasses import replace
 from pathlib import Path
 
-import pygame
 import pytest
 
 from app.auth.credentials import CredentialStore
@@ -15,14 +14,9 @@ from app.core.engine import AssessmentState
 from app.core.models import Confidence, Profile
 from app.data.repo import Repository
 from app.input.actions import Action
-from app.ui.app import run
-from app.ui.components import detail_pages, full_content
 from app.ui.controller import UIController
 from app.ui.device import DeviceConsole
-from app.ui.layout import LOGICAL_HEIGHT, LOGICAL_WIDTH
 from app.ui.router import SETTINGS_ROUTES, UIScreen
-from app.ui.screens import console, recovery, startup
-from app.ui.screens.common import make_fonts
 from app.ui.startup import StartupSession
 
 
@@ -65,14 +59,6 @@ def begin(controller):
     assert controller.screen is UIScreen.TEST_SETUP
     choose(controller, "start")
     assert controller.screen is UIScreen.QUESTION
-
-
-def assert_fit(controls):
-    for control in controls:
-        rect = control.rect
-        assert min(rect.width, rect.height) >= 48, control
-        assert 0 <= rect.x <= LOGICAL_WIDTH - rect.width, control
-        assert 0 <= rect.y <= LOGICAL_HEIGHT - rect.height, control
 
 
 def test_student_flow_real_engine_result_review_and_offline_history(tmp_path):
@@ -152,9 +138,7 @@ def test_restart_retains_answer_confidence_flag_order_and_original_version(tmp_p
         assert any(r.selected_key == "D" for r in repo.get_attempt_responses(attempt_id))
 
 
-def test_pause_menu_home_confirmation_and_navigator_touch(tmp_path):
-    pygame.font.init()
-    surface, fonts = pygame.Surface((800, 480)), make_fonts()
+def test_pause_menu_home_confirmation_and_question_navigator(tmp_path):
     with Repository(tmp_path / "menu.db") as repo:
         seed(repo)
         c = student(repo)
@@ -162,10 +146,7 @@ def test_pause_menu_home_confirmation_and_navigator_touch(tmp_path):
         c.handle(Action.MENU)
         assert c.screen is UIScreen.ASSESSMENT_MENU
         choose(c, "navigator")
-        controls = console.render(surface, c, fonts)
-        assert_fit(controls)
-        control = next(control for control in controls if control.payload == ("question", 12))
-        c.handle(control.action, control.payload)
+        c.handle(Action.CONFIRM, ("question", 12))
         assert c.application.engine.current_index == 12
         c.handle(Action.PREV)
         assert c.application.engine.current_index == 11
@@ -227,9 +208,7 @@ def test_unknown_pin_format_never_bypasses_protection(tmp_path):
 
 
 @pytest.mark.parametrize("route", SETTINGS_ROUTES)
-def test_every_settings_route_renders_offline_and_returns(tmp_path, route):
-    pygame.font.init()
-    fonts, surface = make_fonts(), pygame.Surface((800, 480))
+def test_every_settings_route_is_available_offline_and_returns(tmp_path, route):
     path = tmp_path / "settings.db"
     with Repository(path) as repo:
         seed(repo)
@@ -238,20 +217,16 @@ def test_every_settings_route_renders_offline_and_returns(tmp_path, route):
         choose(c, "route", UIScreen.SETTINGS)
         choose(c, "route", route)
         assert c.screen is route
-        assert_fit(console.render(surface, c, fonts))
         c.handle(Action.BACK)
         assert c.screen is UIScreen.SETTINGS
 
 
 def test_real_startup_and_corrupt_database_recovery(tmp_path):
-    pygame.font.init()
-    fonts, surface = make_fonts(), pygame.Surface((800, 480))
     path = tmp_path / "startup.db"
     session = StartupSession(
         path, AppConfig(database_path=path), CredentialStore(tmp_path / "credential.json")
     )
     while not session.complete and not session.failed:
-        startup.render(surface, session, fonts)
         session.advance()
     assert session.complete and not session.failed
     assert len(session.rows) == 9
@@ -267,69 +242,7 @@ def test_real_startup_and_corrupt_database_recovery(tmp_path):
         session.advance()
     assert session.failed
     assert bad.read_bytes() == original
-    for mode in ("recovery", "diagnostics", "options"):
-        assert_fit(recovery.render(surface, session, fonts, mode=mode))
     session.close()
-
-
-def test_long_question_options_and_explanation_have_unbounded_pages(tmp_path):
-    pygame.font.init()
-    surface, fonts = pygame.Surface((800, 480)), make_fonts()
-    with Repository(tmp_path / "long.db") as repo:
-        seed(repo)
-        original = repo.list_question_sets()[0]
-        q = replace(
-            original.questions[0],
-            question_text="Long question content. " * 120,
-            options=tuple(
-                replace(o, text=f"{o.key} long answer. " * 90)
-                for o in original.questions[0].options
-            ),
-            explanation="Detailed explanation. " * 180,
-        )
-        repo.import_question_set(
-            replace(original, version=2, questions=(q,)), content_hash="long", is_active=True
-        )
-        c = student(repo)
-        begin(c)
-        # Choose the long immutable version explicitly.
-        c.application.abandon()
-        c.application = c._application_factory(repo)
-        c.application.start_test(c.selected_profile.id, original.id, 2)
-        c.route(UIScreen.QUESTION)
-        assert_fit(console.render(surface, c, fonts))
-        c.handle(Action.CONFIRM)
-        assert c.screen is UIScreen.QUESTION_DETAIL
-        rendered_lines = []
-        rendered_lines.extend(detail_pages(c, fonts))
-        count = c.page_count
-        assert count > 3
-        for _ in range(count - 1):
-            c.handle(Action.NEXT)
-            rendered_lines.extend(detail_pages(c, fonts))
-            assert_fit(console.render(surface, c, fonts))
-        assert " ".join(full_content(c).split()) == " ".join(" ".join(rendered_lines).split())
-        c.handle(Action.BACK)
-        c.handle(Action.SELECT_A)
-        c.handle(Action.SURE)
-        c.handle(Action.SUBMIT)
-        c.handle(Action.SUBMIT)
-        choose(c, "review", "all")
-        assert_fit(console.render(surface, c, fonts))
-        c.handle(Action.CONFIRM)
-        detail_pages(c, fonts)
-        assert c.page_count > count
-
-
-def test_entry_point_real_boot_headless_and_recovery(tmp_path, monkeypatch):
-    monkeypatch.setenv("SDL_VIDEODRIVER", "dummy")
-    monkeypatch.setenv("SDL_AUDIODRIVER", "dummy")
-    path = tmp_path / "app.db"
-    config = AppConfig(database_path=path, log_directory=tmp_path / "logs")
-    assert run(path, config=config, max_frames=16) == 0
-    bad = tmp_path / "bad.db"
-    bad.write_bytes(b"bad database")
-    assert run(bad, config=replace(config, database_path=bad), max_frames=8) == 1
 
 
 def test_background_failure_never_blocks_assessment_or_exposes_exception(tmp_path, monkeypatch):
@@ -434,8 +347,7 @@ def test_cached_catalog_adds_remote_chapters_without_hiding_local_sets(tmp_path)
         c.close()
 
 
-def test_navigator_paginates_large_sets_and_touch_targets_fit(tmp_path):
-    pygame.font.init()
+def test_navigator_can_jump_to_the_last_question(tmp_path):
     path = tmp_path / "large.db"
     with Repository(path) as repo:
         seed(repo)
@@ -454,12 +366,7 @@ def test_navigator_paginates_large_sets_and_touch_targets_fit(tmp_path):
         c.route(UIScreen.QUESTION)
         c.handle(Action.MENU)
         choose(c, "navigator")
-        for _ in range(99):
-            c.handle(Action.NEXT)
-        controls = console.render(pygame.Surface((800, 480)), c, make_fonts())
-        assert_fit(controls)
-        assert any(control.payload == ("question", 99) for control in controls)
-        c.handle(Action.SELECT_A)
+        c.handle(Action.CONFIRM, ("question", 99))
         assert c.application.engine.current_index == 99
         c.close()
 
@@ -514,56 +421,21 @@ def test_wifi_adapter_passes_values_as_arguments_and_handles_escaped_ssids(monke
     assert service._fields(r"School\:Lab:80:WPA2") == ["School:Lab", "80", "WPA2"]
 
 
-def test_all_virtual_keyboard_targets_fit_and_every_character_is_reachable(tmp_path):
-    pygame.font.init()
+def test_virtual_keyboard_modes_expose_allowed_characters(tmp_path):
     path = tmp_path / "keyboard.db"
     with Repository(path) as repo:
         c = UIController(repo, startup=True)
         c.finish_splash()
         c.route(UIScreen.ADD_PROFILE)
-        surface, fonts = pygame.Surface((800, 480)), make_fonts()
         for mode in range(3):
             c.keyboard_mode = mode
             chars = c.keyboard_characters
+            assert chars
             for index in (0, len(chars) - 1):
                 c.keyboard_index = index
-                controls = console.render(surface, c, fonts)
-                assert_fit(controls)
-                assert any(control.payload == ("text", chars[index]) for control in controls)
-
-
-def test_virtual_keyboard_more_keys_is_reachable_by_touch(tmp_path):
-    pygame.font.init()
-    with Repository(tmp_path / "more-keys.db") as repo:
-        c = UIController(repo, startup=True)
-        c.finish_splash()
-        c.route(UIScreen.ADD_PROFILE)
-        c.keyboard_mode = 2
-        surface, fonts = pygame.Surface((800, 480)), make_fonts()
-        controls = console.render(surface, c, fonts)
-        if len(c.keyboard_characters) > 40:
-            more = next(
-                control for control in controls if control.payload == ("command", "more_keys")
-            )
-            c.handle(more.action, more.payload)
-            controls = console.render(surface, c, fonts)
-            last = c.keyboard_characters[-1]
-            key = next(control for control in controls if control.payload == ("text", last))
-            c.handle(key.action, key.payload)
-            assert c.text_value == last
-
-
-def test_entry_point_does_not_require_writable_log_storage(tmp_path, monkeypatch):
-    monkeypatch.setenv("SDL_VIDEODRIVER", "dummy")
-    monkeypatch.setenv("SDL_AUDIODRIVER", "dummy")
-    blocked = tmp_path / "blocked-logs"
-    blocked.write_text("Existing file; this cannot be a log directory")
-    path = tmp_path / "log-test.db"
-    assert (
-        run(path, config=AppConfig(database_path=path, log_directory=blocked), max_frames=16) == 0
-    )
-    with Repository(path) as repo:
-        assert repo.quick_check().ok
+                c.text_value = ""
+                c.handle(Action.SELECT_A)
+                assert c.text_value == chars[index]
 
 
 def test_unconfigured_network_and_update_actions_are_clear_nonblocking_states(tmp_path):

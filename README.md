@@ -1,8 +1,10 @@
 # Assessment device repository
 
-This repository runs the offline-first Raspberry Pi assessment device. Cloud source
-in `backend/` is **TEMPORARY — being migrated to assasement-cloud repository**.
-It is excluded from Pi deployment and is not a device runtime dependency.
+This repository runs the offline-first Raspberry Pi assessment device. The supported
+device interface is PySide6 / Qt Quick (`app.ui_qt.main`); SQLite remains the source of
+truth for assessment and history while offline. `startup-cloud` owns the deployed cloud
+service. The local `backend/` package remains only for compatibility development and
+cross-repository tests; deployment scripts exclude it from the Pi.
 
 Install the device with `python -m pip install -e ".[gui]"` for the Qt/QML UI (add `dev` for tests).
 Configure `ASSESS_API_URL` and device paths through the environment; see
@@ -33,7 +35,7 @@ Current status:
 - Keyboard input simulation: implemented and laptop-tested.
 - Mouse input: implemented as a future-touch surrogate through the same Action/controller path.
 - Primary GUI framework: PySide6 / Qt Quick (QML); Raspberry Pi Zero 2 W benchmarking remains pending.
-- Legacy Pygame UI remains available for development comparison, not as the device launch path.
+- The retired Pygame presentation is no longer shipped; framework-neutral routing and device services under `app/ui/` remain shared with Qt.
 - Phase 6B Raspberry Pi hardware verification: pending.
 - Phase 7B Raspberry Pi GUI benchmarking: pending.
 - Physical GPIO verification: pending.
@@ -233,8 +235,7 @@ See [the device UI flow](docs/UI_FLOW.md) for routes, input mappings and integra
 The Qt/QML interface targets an 800×480 display and supports touch and keyboard input. Use the
 visible controls to select answers, confidence, navigation, review marks, and submission.
 `--base-url URL` configures network services; `--fullscreen` selects fullscreen launch. Local
-assessment remains available without a server. The Pygame prototype remains available with
-`python -m app.ui.app` when installed using the `pygame-ui` extra.
+assessment remains available without a server.
 
 
 ## Offline CLI assessment
@@ -317,7 +318,7 @@ The package boundaries follow the Phase 0 architecture contract:
 core    → pure assessment domain logic
 data    → SQLite, migrations, and repository implementation
 input   → canonical actions, keyboard adapter, and planned GPIO adapter
-ui      → controller, logical layout, and Phase 8A offline desktop presentation
+ui      → framework-neutral controller, routing, device operations, and startup services used by Qt
 sync    → one-shot upload worker, retry policy, payloads, and isolated HTTP client
 auth    → local and session authentication
 system  → operating-system integration

@@ -2,7 +2,7 @@
 
 ## Default UI
 
-The normal Pi launch path is PySide6/Qt Quick. The GUI install extra installs PySide6; the kiosk session and setup documentation launch app.ui_qt.main. The older pygame prototype remains an optional development extra, not the normal kiosk UI. The illustrated paper-and-ink background and subject art remain in place.
+The supported Pi launch path is PySide6/Qt Quick. The GUI install extra installs PySide6; the kiosk session and setup documentation launch `app.ui_qt.main`. The former Pygame presentation was retired in the repository cleanup; framework-neutral controller, device, and startup services remain under `app/ui/`. The illustrated paper-and-ink background and subject art remain in place.
 
 The practice setup presents topic, difficulty, question count, shuffle and mode within the existing illustrated layout. Selectors use the Basic Qt Controls style for consistent touch-device rendering. Missing palette/type aliases and QML layout warnings found during capture were corrected.
 

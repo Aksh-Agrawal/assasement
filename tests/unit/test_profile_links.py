@@ -2,7 +2,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import httpx
-import pygame
 import pytest
 
 from app.assessment import AssessmentApplication
@@ -16,8 +15,6 @@ from app.input.actions import Action
 from app.ui.controller import UIController
 from app.ui.device import DeviceConsole
 from app.ui.router import UIScreen
-from app.ui.screens import console
-from app.ui.screens.common import make_fonts
 
 
 def result(local="p1"):
@@ -33,7 +30,6 @@ def choose(c, command):
 
 def test_explicit_ui_code_confirmation_and_cancel(tmp_path, monkeypatch):
     monkeypatch.setenv("ASSESS_MAINTENANCE", "1")
-    pygame.font.init()
     with Repository(tmp_path / "db") as repo:
         repo.create_profile(Profile("p1", "NEET Practice"))
         c = UIController(repo, startup=True)
@@ -44,14 +40,9 @@ def test_explicit_ui_code_confirmation_and_cancel(tmp_path, monkeypatch):
         assert c.screen is UIScreen.LINK_PROFILE
         c.handle_text("abcd efgh23")
         assert c.text_value == "ABCDEFGH23"
-        surface, fonts = pygame.Surface((800, 480)), make_fonts()
-        for control in console.render(surface, c, fonts):
-            assert 0 <= control.rect.x <= 800 - control.rect.width
-            assert 0 <= control.rect.y <= 480 - control.rect.height
         c.handle(Action.CONFIRM)
         assert c.screen is UIScreen.LINK_CONFIRM
         assert c.selected_profile.id == "p1"
-        console.render(surface, c, fonts)
         c.handle(Action.BACK)
         assert c.screen is UIScreen.ACCOUNT and c.text_value == ""
 

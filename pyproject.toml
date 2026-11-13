@@ -20,8 +20,6 @@ dependencies = [
 dev = [
     "pytest>=8,<10",
     "ruff>=0.9,<1",
-    # Legacy Pygame modules remain covered by the repository test suite.
-    "pygame-ce>=2.5,<3",
 ]
 gui = [
     # Primary Raspberry Pi presentation layer: Qt Quick / QML.
@@ -31,11 +29,6 @@ qt = [
     # Compatibility extra for existing installs and automation.
     "PySide6-Essentials>=6.6,<7",
 ]
-pygame-ui = [
-    # Legacy Pygame prototype, retained for development comparison only.
-    "pygame-ce>=2.5,<3",
-]
-
 [tool.setuptools.packages.find]
 include = ["app*", "tools*", "schemas"]
 

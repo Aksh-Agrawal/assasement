@@ -103,14 +103,13 @@ profiles. Do not treat the test format as proof of that deployment policy.
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m ruff check .
-.\.venv\Scripts\python.exe -m tools.ui_smoke
+.\.venv\Scripts\python.exe -m pytest tests/test_ui_qt.py
 ```
 
-`ui_smoke` uses a temporary real repository and the shipped sample question pack. It generates
-24 800 × 480 previews and a contact sheet under `artifacts/ui-redesign`, without opening or changing
-student data. Automated tests exercise real engine/repository transitions, restart/version pinning,
-startup/recovery, settings navigation, touch bounds, long text, PIN lockout, background failure,
-local diagnostics/support export, catalogue states and large question navigators.
+The Qt test loads the active QML application at 800 x 480 and writes captured frames to pytest's
+temporary directory. Automated tests exercise real engine/repository transitions, restart/version
+pinning, startup/recovery, settings navigation, PIN lockout, background failure, local diagnostics,
+support export, catalogue states and question navigation without requiring the retired Pygame UI.
 
 Pi display/touch/GPIO, NetworkManager permissions, actual server pairing/sync/download,
 release activation/restart and on-device performance require device acceptance testing.

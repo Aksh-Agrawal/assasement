@@ -1,6 +1,8 @@
 # FULL PRODUCT WORKFLOW AUDIT + REPAIR REPORT
 
 30 October 2026. Local software acceptance; physical and deployed acceptance are separate.
+
+Historical workflow report. File paths below record the implementation as it existed on 30 October 2026; the Pygame-only files listed there were retired in the November 2026 repository cleanup.
 No production migration/deployment, commit, push, destructive cleanup or parent Git repository.
 Cloud remains on `master`; Pi remains on `main`.
 

@@ -121,7 +121,7 @@ Atomic persistence boundaries will be specified before implementation. At minimu
 
 The UI owns screen rendering, presentation routing, display of current state, and collection of student interactions. It emits logical actions and renders state supplied by the controller/application boundary.
 
-The UI must not contain scoring algorithms, execute SQL, or perform HTTP requests directly. Pygame-compatible rendering remains a laptop prototype choice; the production GUI framework remains open pending Phase 7B hardware benchmarks.
+The UI must not contain scoring algorithms, execute SQL, or perform HTTP requests directly. PySide6/Qt Quick is the supported presentation layer. Framework-neutral controller, routing, device-operation, and startup modules under `app/ui/` are shared with Qt; the old Pygame rendering layer was retired in November 2026.
 
 ### Input — `app/input/`
 
@@ -351,11 +351,10 @@ state machine. It sends mutations through `AssessmentApplication`; reads needed 
 and set selection go through `Repository`. Renderers only draw state and return controls carrying
 canonical `Action` values.
 
-Keyboard events are translated by the existing `KeyboardInput` adapter. A mouse click is a
-Phase 7A surrogate for touch: desktop coordinates are transformed into the centralized 800×480
-logical space, hit-tested, and routed through the same controller. Pygame is the Phase 7A
-prototype framework only. The production framework remains pending Phase 7B Raspberry Pi
-benchmarking. GPIO and actual touchscreen behavior remain pending hardware testing.
+This section documents the historical Phase 7A desktop prototype. Its Pygame renderer and
+coordinate hit-testing were removed after Qt Quick became the supported device presentation.
+`KeyboardInput`, canonical actions, and the shared controller remain. GPIO and physical
+touchscreen behavior still require hardware verification.
 
 Closing the window asks `AssessmentApplication.pause()` to checkpoint active monotonic timing;
 it never submits. Rendering uses a frame cap, but assessment timing remains independent of frame
