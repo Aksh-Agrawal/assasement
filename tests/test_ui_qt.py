@@ -12,9 +12,7 @@ os.environ["QSG_RENDER_LOOP"] = "basic"
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 from PySide6.QtCore import QObject, QUrl
-from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtQuickControls2 import QQuickStyle
 
 from app.auth.credentials import CredentialStore
 from app.config import AppConfig
@@ -38,15 +36,6 @@ from app.ui_qt.controllers.profile_controller import ProfileController
 from app.ui_qt.controllers.quick_add_controller import QuickAddController
 from app.ui_qt.controllers.settings_controller import SettingsController
 from app.ui_qt.main import close_qml
-
-
-@pytest.fixture(scope="session")
-def qapp():
-    QQuickStyle.setStyle("Basic")
-    app = QGuiApplication.instance()
-    if app is None:
-        app = QGuiApplication([])
-    yield app
 
 
 @pytest.fixture
@@ -175,7 +164,7 @@ def test_qml_app_loads(qapp, tmp_path, mock_repo):
     assert not quick_add_frame.isNull()
     assert (quick_add_frame.width(), quick_add_frame.height()) == (800, 480)
 
-    app_ctrl.close()
+    close_qml(engine, app_ctrl)
 
 
 def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo):
@@ -306,7 +295,7 @@ def test_external_browser_history_commit_refreshes_rendered_qt_model(qapp, tmp_p
     app_ctrl.navigate("diagnostics")
     qapp.processEvents()
     assert window.grabWindow().save(str(tmp_path / "sync-diagnostics.png"))
-    app_ctrl.close()
+    close_qml(engine, app_ctrl)
 
 
 def test_cloud_echo_of_local_attempt_is_counted_once(tmp_path):
@@ -564,10 +553,10 @@ def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
 
     ctx = engine.rootContext()
     ctx.setContextProperty("appController", app_ctrl)
-    ctx.setContextProperty("profileController", ProfileController(app_ctrl))
-    ctx.setContextProperty("libraryController", LibraryController(app_ctrl))
-    ctx.setContextProperty("assessmentController", AssessmentController(app_ctrl))
-    ctx.setContextProperty("settingsController", SettingsController(app_ctrl))
+    ctx.setContextProperty("profileController", ProfileController(app_ctrl, parent=app_ctrl))
+    ctx.setContextProperty("libraryController", LibraryController(app_ctrl, parent=app_ctrl))
+    ctx.setContextProperty("assessmentController", AssessmentController(app_ctrl, parent=app_ctrl))
+    ctx.setContextProperty("settingsController", SettingsController(app_ctrl, parent=app_ctrl))
 
     engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
     assert len(engine.rootObjects()) > 0
@@ -585,7 +574,7 @@ def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
     assert win.width() == 800
     assert win.height() == 600
 
-    app_ctrl.close()
+    close_qml(engine, app_ctrl)
 
 
 def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo):
@@ -633,8 +622,10 @@ def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo):
         )]
         assert not failures, "\n".join(failures)
     finally:
-        qInstallMessageHandler(previous)
-        app_ctrl.close()
+        try:
+            close_qml(engine, app_ctrl)
+        finally:
+            qInstallMessageHandler(previous)
 
 
 def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):
@@ -657,10 +648,10 @@ def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):
 
     ctx = engine.rootContext()
     ctx.setContextProperty("appController", app_ctrl)
-    ctx.setContextProperty("profileController", ProfileController(app_ctrl))
-    ctx.setContextProperty("libraryController", LibraryController(app_ctrl))
-    ctx.setContextProperty("assessmentController", AssessmentController(app_ctrl))
-    ctx.setContextProperty("settingsController", SettingsController(app_ctrl))
+    ctx.setContextProperty("profileController", ProfileController(app_ctrl, parent=app_ctrl))
+    ctx.setContextProperty("libraryController", LibraryController(app_ctrl, parent=app_ctrl))
+    ctx.setContextProperty("assessmentController", AssessmentController(app_ctrl, parent=app_ctrl))
+    ctx.setContextProperty("settingsController", SettingsController(app_ctrl, parent=app_ctrl))
 
     engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
     assert len(engine.rootObjects()) > 0
@@ -695,7 +686,7 @@ def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):
             # Loader status: 1 is Ready, 0 is Null, 3 is Error
             assert screen_loader.property("status") != 3, f"Screen Loader Error for route '{route}'"
 
-    app_ctrl.close()
+    close_qml(engine, app_ctrl)
 
 
 def test_offline_pack_to_question_flow(qapp, tmp_path, mock_repo):
@@ -1021,7 +1012,7 @@ def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path,
         assert app.screen == "pairing"
     finally:
         release.set()
-        app.close()
+        close_qml(engine, app)
 
 
 def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path):
@@ -1211,8 +1202,9 @@ def test_qml_pairing_retries_and_loads_existing_account_profiles(qapp, tmp_path,
     qml = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml))
     for name, controller in (("appController", app), ("profileController", profile_ctrl),
-            ("libraryController", LibraryController(app)), ("assessmentController", AssessmentController(app)),
-            ("settingsController", settings), ("quickAddController", QuickAddController(app))):
+            ("libraryController", LibraryController(app, parent=app)),
+            ("assessmentController", AssessmentController(app, parent=app)),
+            ("settingsController", settings), ("quickAddController", QuickAddController(app, parent=app))):
         engine.rootContext().setContextProperty(name, controller)
 
     def wait_for(predicate):
@@ -1255,7 +1247,7 @@ def test_qml_pairing_retries_and_loads_existing_account_profiles(qapp, tmp_path,
         assert window.findChild(QObject, "createStudyProfileCard").property("visible")
         assert calls.count("/api/v1/pairing/request") == 2
     finally:
-        app.close()
+        close_qml(engine, app)
 
 
 def test_history_items_preserve_web_or_device_source(qapp):

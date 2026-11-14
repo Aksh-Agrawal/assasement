@@ -12,7 +12,6 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QSG_RENDER_LOOP"] = "basic"
 
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
 from app.auth.credentials import CredentialStore, DeviceCredential
@@ -25,14 +24,6 @@ from app.sync.mobile_upload import (
 )
 from app.ui_qt.controllers.app_controller import AppController
 from app.ui_qt.controllers.quick_add_controller import QuickAddController
-
-
-@pytest.fixture(scope="session")
-def qapp():
-    app = QGuiApplication.instance()
-    if app is None:
-        app = QGuiApplication([])
-    yield app
 
 
 @pytest.fixture
@@ -308,5 +299,4 @@ class TestQuickAddQML:
 
         screen_qml = qml_dir / "screens" / "QuickAddScreen.qml"
         engine.load(QUrl.fromLocalFile(str(screen_qml)))
-
-        assert len(engine.rootObjects()) > 0
+        assert engine.rootObjects()

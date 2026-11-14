@@ -10,7 +10,6 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QSG_RENDER_LOOP"] = "basic"
 
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 
 QML = Path(__file__).resolve().parents[1] / "app/ui_qt/qml"
@@ -48,8 +47,7 @@ def test_case_and_missing_file_guard_rejects_bad_assets(relative):
         exact_asset(QML, relative)
 
 
-def test_qml_resolves_and_loads_every_declared_asset():
-    app = QGuiApplication.instance() or QGuiApplication([])
+def test_qml_resolves_and_loads_every_declared_asset(qapp):
     engine = QQmlEngine()
     declarations = DECLARATION.findall((QML / "Assets.qml").read_text(encoding="utf-8"))
     probe = QQmlComponent(engine)
@@ -69,7 +67,7 @@ def test_qml_resolves_and_loads_every_declared_asset():
         image = image_component.createWithInitialProperties({"source": url, "asynchronous": False})
         assert image is not None
         images.append(image)
-        app.processEvents()
+        qapp.processEvents()
         assert image.property("loaded"), f"{name}: {url.toString()}"
 
 
