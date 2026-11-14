@@ -367,6 +367,8 @@ def test_cloud_echo_of_local_attempt_is_counted_once(tmp_path):
 
 
 def test_profile_controller_listing_and_selection(qapp, tmp_path, mock_repo):
+    from app.auth.credentials import DeviceCredential
+
     db_path = tmp_path / "test.db"
     db_path.touch()
 
@@ -380,7 +382,21 @@ def test_profile_controller_listing_and_selection(qapp, tmp_path, mock_repo):
 
     prof_ctrl = ProfileController(app_ctrl)
     assert prof_ctrl.profileCount >= 1
+    assert prof_ctrl.canAddProfile is False
+    prof_ctrl.createProfile("Should not be created", "Primary 5")
+    assert "Connect your account" in app_ctrl.message
+    app_ctrl.navigate("create_profile")
+    assert app_ctrl.screen == "pairing"
+
+    creds.save(DeviceCredential("rpi-test-01", "device_test.secret"))
     assert prof_ctrl.canAddProfile is True
+    app_ctrl.navigate("create_profile")
+    assert app_ctrl.screen == "create_profile"
+    app_ctrl.navigate("wifi")
+    creds.clear()
+    app_ctrl.goBack()
+    assert app_ctrl.screen == "pairing"
+    assert not prof_ctrl.canAddProfile
 
     prof_ctrl.selectProfile(0)
     assert app_ctrl.screen == "home"

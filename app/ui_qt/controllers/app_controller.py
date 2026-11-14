@@ -245,13 +245,20 @@ class AppController(QObject):
 
     @Slot(str)
     def navigate(self, target_screen: str):
-        if target_screen == "create_profile" and not (
-            self.repository and self.repository.get_student_account_context()
-        ):
-            target_screen = "pairing"
+        target_screen = self._account_screen_route(target_screen)
         if target_screen != self._screen:
             self._screen_history.append(self._screen)
             self._show_screen(target_screen)
+
+    @property
+    def has_account_connection(self) -> bool:
+        return bool(self.repository and self.repository.get_student_account_context()
+                    and self.credentials.load_safe())
+
+    def _account_screen_route(self, target_screen: str) -> str:
+        if target_screen == "create_profile" and not self.has_account_connection:
+            target_screen = "pairing"
+        return target_screen
 
     def _show_screen(self, target_screen: str):
         self._screen = target_screen
@@ -270,7 +277,7 @@ class AppController(QObject):
     @Slot()
     def goBack(self):
         if self.canGoBack:
-            self._show_screen(self._screen_history.pop())
+            self._show_screen(self._account_screen_route(self._screen_history.pop()))
         else:
             self.goHome()
 

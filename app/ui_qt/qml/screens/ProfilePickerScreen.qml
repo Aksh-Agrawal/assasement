@@ -220,6 +220,15 @@ Rectangle {
             }
         }
 
+        SecondaryButton {
+            objectName: "reconnectAccountButton"
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: settingsController.hasAccount && !settingsController.isPaired && !profileController.switchMode
+            text: "Reconnect Account"
+            onClicked: appController.navigate("pairing")
+        }
+
         // Quick Start banner for testing mode
         Row {
             anchors.bottom: parent.bottom

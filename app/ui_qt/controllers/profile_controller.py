@@ -80,7 +80,7 @@ class ProfileController(QObject):
     @Property(bool, notify=profilesChanged)
     def canAddProfile(self) -> bool:
         repo = self.app.repository
-        if not repo or not repo.get_student_account_context() or repo.get_setting("pending_unlink"):
+        if not self.app.has_account_connection or repo.get_setting("pending_unlink"):
             return False
         cached = json.loads(repo.get_setting("account_profiles") or "{}")
         return cached.get("profile_count", self.profileCount) < cached.get("profile_limit", 3)
@@ -203,7 +203,7 @@ class ProfileController(QObject):
     @Slot(str, str)
     def createProfile(self, display_name: str, grade: str = "Primary 6"):
         repo = self.app.repository
-        if not repo or not repo.get_student_account_context():
+        if not self.app.has_account_connection:
             self.app.showNotification("Connect your account before creating a Study Profile.", "warning")
             return
         if repo.get_setting("pending_unlink"):
