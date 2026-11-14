@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15 as Controls
 import ".." 1.0
 import "../components" 1.0
 
@@ -6,6 +7,30 @@ Rectangle {
     id: root
     anchors.fill: parent
     color: Theme.background
+
+    Controls.Dialog {
+        id: unlinkDialog
+        objectName: "unlinkConfirmation"
+        property string profileId: ""
+        property string profileName: ""
+        anchors.centerIn: parent
+        width: 420
+        modal: true
+        title: profileId ? "Unlink Study Profile?" : "Unlink Account?"
+        standardButtons: Controls.Dialog.Ok | Controls.Dialog.Cancel
+        contentItem: Text {
+            text: unlinkDialog.profileId
+                  ? "Remove " + unlinkDialog.profileName + " from this Pi? Other profiles will stay linked. Saved work stays on the device."
+                  : "Disconnect this account and its Study Profiles from this Pi? Saved work stays on the device."
+            wrapMode: Text.WordWrap
+        }
+        onAccepted: {
+            if (profileId)
+                settingsController.unlinkProfile(profileId)
+            else
+                settingsController.disconnectAccount()
+        }
+    }
 
     AppHeader {
         id: header
@@ -77,17 +102,20 @@ Rectangle {
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 38 - Spacing.sm
                                 spacing: 2
                                 Text {
+                                    width: parent.width
                                     text: settingsController.accountName
+                                    elide: Text.ElideRight
                                     font.bold: true
                                     font.pixelSize: Typography.body
                                     font.family: Typography.fontFamily
                                     color: Theme.textPrimary
                                 }
                                 StatusBadge {
-                                    text: settingsController.isPaired ? "Connected to Cloud" : "Not Paired"
-                                    statusType: settingsController.isPaired ? "online" : "offline"
+                                    text: settingsController.accountStatus
+                                    statusType: settingsController.accountStatus === "Connected" ? "online" : "offline"
                                     implicitHeight: 20
                                 }
                             }
@@ -99,10 +127,14 @@ Rectangle {
                     PrimaryButton {
                         width: parent.width
                         preferredHeight: Metrics.touchNormal
-                        text: settingsController.isPaired ? "Sync Study Profiles" : "Pair This Raspberry Pi"
+                        text: settingsController.unlinkPending ? "Retry Unlink"
+                              : settingsController.hasAccount && settingsController.isPaired ? "Sync Study Profiles" : "Link Account"
+                        enabled: !settingsController.accountActionBusy
                         iconSource: Assets.sync
                         onClicked: {
-                            if (settingsController.isPaired) {
+                            if (settingsController.unlinkPending) {
+                                settingsController.retryUnlink();
+                            } else if (settingsController.hasAccount && settingsController.isPaired) {
                                 settingsController.syncProfiles();
                             } else {
                                 appController.navigate("pairing");
@@ -113,11 +145,26 @@ Rectangle {
                     SecondaryButton {
                         width: parent.width
                         preferredHeight: Metrics.touchNormal
-                        visible: settingsController.isPaired
-                        text: "Unlink Device"
+                        objectName: "unlinkAccountButton"
+                        visible: settingsController.hasAccount
+                        enabled: !settingsController.accountActionBusy && !settingsController.unlinkPending
+                        text: "Unlink Account"
                         textColor: Theme.terracotta
                         borderColor: Theme.terracotta
-                        onClicked: settingsController.disconnectAccount()
+                        onClicked: {
+                            unlinkDialog.profileId = ""
+                            unlinkDialog.open()
+                        }
+                    }
+
+                    Text {
+                        objectName: "unlinkStatus"
+                        width: parent.width
+                        visible: text.length > 0
+                        text: settingsController.unlinkStatus
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.caption
+                        wrapMode: Text.WordWrap
                     }
                 }
             }
@@ -135,7 +182,7 @@ Rectangle {
                     Row {
                         width: parent.width
                         Text {
-                            text: "Active Profiles (" + profileController.profileCount + " of 3)"
+                            text: "Study Profiles (" + profileController.profileCount + ")"
                             color: Theme.textPrimary
                             font.pixelSize: Typography.sectionTitle
                             font.family: Typography.fontSerif
@@ -143,18 +190,27 @@ Rectangle {
                         }
                     }
 
+                    SecondaryButton {
+                        width: parent.width
+                        visible: profileController.profileCount > 0
+                        enabled: !settingsController.accountActionBusy
+                        text: "Switch Profile"
+                        onClicked: profileController.switchProfile()
+                    }
+
                     EmptyState {
-                        anchors.centerIn: parent
                         visible: profileController.profiles.length === 0
                         title: "No Study Profiles Found"
-                        description: "Add a local profile or sync your cloud account to link profiles."
-                        actionText: "Create Profile"
+                        description: "There are no linked Study Profiles available on this Pi."
+                        actionText: profileController.canAddProfile && settingsController.hasAccount
+                                    && !settingsController.accountActionBusy && !settingsController.unlinkPending
+                                    ? "Create Profile" : ""
                         onActionClicked: appController.navigate("create_profile")
                     }
 
                     ListView {
                         width: parent.width
-                        height: parent.height - 44
+                        height: parent.height - 96
                         clip: true
                         spacing: Spacing.xs
                         visible: profileController.profiles.length > 0
@@ -168,17 +224,12 @@ Rectangle {
                             border.color: modelData.isActive ? Theme.forest : Theme.border
                             border.width: modelData.isActive ? 2 : 1
 
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: profileController.selectProfileId(modelData.id)
-                            }
-
                             Item {
                                 anchors.fill: parent
                                 anchors.margins: Spacing.sm
 
                                 Row {
+                                    width: parent.width - 140
                                     anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: Spacing.sm
@@ -196,17 +247,22 @@ Rectangle {
                                     }
 
                                     Column {
+                                        width: parent.width - 32 - Spacing.sm
                                         anchors.verticalCenter: parent.verticalCenter
                                         spacing: 2
                                         Text {
+                                            width: parent.width
                                             text: modelData.name
+                                            elide: Text.ElideRight
                                             font.bold: true
                                             font.pixelSize: Typography.body
                                             font.family: Typography.fontFamily
                                             color: Theme.textPrimary
                                         }
                                         Text {
-                                            text: modelData.grade
+                                            width: parent.width
+                                            text: modelData.grade || (modelData.isActive ? "In use" : "")
+                                            elide: Text.ElideRight
                                             font.pixelSize: Typography.caption
                                             font.family: Typography.fontFamily
                                             color: Theme.textSecondary
@@ -214,12 +270,20 @@ Rectangle {
                                     }
                                 }
 
-                                StatusBadge {
-                                    visible: modelData.isActive
-                                    text: "In Use"
-                                    statusType: "success"
+                                SecondaryButton {
+                                    objectName: "unlinkProfileButton"
+                                    visible: settingsController.hasAccount && modelData.isLinked
+                                    enabled: !settingsController.accountActionBusy && !settingsController.unlinkPending
+                                    text: "Unlink Profile"
+                                    textColor: Theme.terracotta
+                                    preferredHeight: Metrics.touchMin
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
+                                    onClicked: {
+                                        unlinkDialog.profileId = modelData.id
+                                        unlinkDialog.profileName = modelData.name
+                                        unlinkDialog.open()
+                                    }
                                 }
                             }
                         }

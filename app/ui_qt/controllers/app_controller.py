@@ -40,6 +40,8 @@ class AppController(QObject):
 
         self._screen = "startup"
         self._screen_history = []
+        self._active_profile_id = None
+        self._account_id = None
         self._message = ""
         self._notification_type = "info"
 
@@ -200,6 +202,8 @@ class AppController(QObject):
             self.ui_controller = UIController(self.repository, startup=True, device=self.device)
             self.ui_controller.startup_rows = tuple(self.startup_session.rows)
             self.ui_controller.finish_splash()
+            account = self.repository.get_student_account_context()
+            self._account_id = account["cloud_account_id"] if account else None
             self._next_connectivity_check = time.monotonic() + 0.5
             last = self.repository.get_setting("last_active_profile_id")
             for index, profile in enumerate(self.ui_controller.profiles):
@@ -265,6 +269,10 @@ class AppController(QObject):
 
     @Slot()
     def goHome(self):
+        if self.ui_controller and not self._active_profile_id:
+            target = "profile_picker" if self.ui_controller.profiles or self._account_id else "pairing"
+            self.navigate(target)
+            return
         if self._screen != "home":
             self._screen_history.clear()
             self._screen = "home"
@@ -337,16 +345,13 @@ class AppController(QObject):
         content_updated = revision != getattr(self, "_content_revision", None)
         self._content_revision = revision
 
-        # Poll device console for background jobs
-        device_updated = self.device.poll()
+        # The core controller owns polling and starts account verification after pairing.
+        device_updated = self.ui_controller.tick() if self.ui_controller else self.device.poll()
 
-        # Tick UI controller if present
-        ctrl_updated = False
-        if self.ui_controller:
-            ctrl_updated = self.ui_controller.tick()
-
-        if device_updated or ctrl_updated or content_updated:
-            if device_updated and self.device.operation == "network":
+        if device_updated or content_updated:
+            completed = self.device.completed_operation if device_updated else ""
+            account_changed = False
+            if completed == "network":
                 if self.isOnline:
                     self._connectivity_failures = 0
                     self._next_connectivity_check = time.monotonic() + 45.0
@@ -357,28 +362,61 @@ class AppController(QObject):
 
             if self.ui_controller:
                 self.ui_controller.refresh_catalog()
-            if device_updated and self.device.operation == "account_create" and not self.device.failure:
-                self.navigate("profile_picker")
-            if getattr(self, "library_controller", None):
-                self.library_controller.refreshLibrary()
-            if self.ui_controller:
-                active = getattr(self, "_active_profile_id", None)
-                if active and active not in {p.id for p in self.ui_controller.profiles}:
-                    self.ui_controller.application.pause()
-                    from app.assessment import AssessmentApplication
-                    self.ui_controller.application = AssessmentApplication(self.repository)
-                    self._active_profile_id = None
-                    if getattr(self, "assessment_controller", None):
-                        self.assessment_controller.resetProfileState()
+                account = self.repository.get_student_account_context()
+                account_id = account["cloud_account_id"] if account else None
+                account_changed = account_id != self._account_id
+                self._account_id = account_id
+                active = self._active_profile_id
+                profile_removed = active and active not in {p.id for p in self.ui_controller.profiles}
+                if account_changed or profile_removed:
+                    self._clear_active_profile()
+                    if account_changed and account_id is None:
+                        self.device.cancel_pairing()
+                        self.device.account_verified = False
+                        self.navigate("pairing")
+                    else:
+                        self.navigate("profile_picker")
+                    self._screen_history.clear()
+                elif completed == "account_create" and not self.device.failure:
                     self.navigate("profile_picker")
+                elif completed == "account_sync" and account_id and not self.device.failure and self.screen == "pairing":
+                    self.navigate("profile_picker")
+                if getattr(self, "library_controller", None):
+                    self.library_controller.refreshLibrary()
                 self.activeProfileChanged.emit()
             if getattr(self, "profile_controller", None):
                 self.profile_controller.profilesChanged.emit()
             if getattr(self, "assessment_controller", None):
                 self.assessment_controller.historyChanged.emit()
             self.statusChanged.emit()
-            if self.device.message:
-                self.showNotification(self.device.message, "info")
+            message = self.device.message
+            if device_updated and message:
+                failed = self.device.failure or self.device.link_error
+                self.showNotification(message, "warning" if failed else "info")
+            elif account_changed and account_id is None:
+                message = self.repository.get_setting("unlink_message") or ""
+                if message.startswith("Account unlinked."):
+                    self.showNotification(message, "info")
+
+    def _clear_active_profile(self):
+        from app.assessment import AssessmentApplication
+
+        ui = self.ui_controller
+        ui.application.pause()
+        ui.application = AssessmentApplication(self.repository)
+        ui.authorized_profile = None
+        ui.result = None
+        ui.review_items = ui.all_review_items = ()
+        ui.institute_assignment = None
+        self._active_profile_id = None
+        library = getattr(self, "library_controller", None)
+        if library:
+            library._selected_subject = library._selected_chapter = library._selected_pack_id = ""
+            library._selected_pack_version = 0
+        if getattr(self, "profile_controller", None):
+            self.profile_controller.resetSelection()
+        if getattr(self, "assessment_controller", None):
+            self.assessment_controller.resetProfileState()
 
     def close(self):
         self._poll_timer.stop()

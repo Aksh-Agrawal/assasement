@@ -555,6 +555,7 @@ class UIController(LegacyController):
                     p.cloud_account_id == context["cloud_account_id"] and p.id in active_ids and p.link_state == "linked")
                 self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
             else:
+                self.profiles = tuple(p for p in self.profiles if p.ownership_state == "legacy_unclaimed")
                 self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
         if os.environ.get("ASSESS_MAINTENANCE") == "1" and getattr(self, "legacy_mode", False):
             self.profiles = tuple(p for p in self.profiles if p.ownership_state == "legacy_unclaimed")

@@ -41,6 +41,7 @@ class SettingsController(QObject):
         self._diagnostics_data = None
         self._pairing_code = ""
         self._pairing_status = "idle"
+        self._unlink_start_error = ""
         self._update_error = ""
         self._ignore_release_status = False
         self._update_idle_status = "Check for a software update"
@@ -239,8 +240,41 @@ class SettingsController(QObject):
         if self.app.repository:
             ctx = self.app.repository.get_student_account_context()
             if ctx:
-                return ctx.get("account_display_name", "Student Account")
-        return "Alex's Account" if self.isPaired else "Not connected"
+                return ctx["display_name"]
+        return "Not connected"
+
+    @Property(bool, notify=accountChanged)
+    def hasAccount(self) -> bool:
+        return bool(self.app.repository and self.app.repository.get_student_account_context())
+
+    @Property(str, notify=accountChanged)
+    def accountStatus(self) -> str:
+        if not self.app.repository:
+            return "Not connected"
+        from app.auth.product_state import account_status
+        label = account_status(self.app.repository, verified_this_run=self.app.device.account_verified)
+        return label.partition(" - ")[0]
+
+    @Property(bool, notify=accountChanged)
+    def accountActionBusy(self) -> bool:
+        return bool(self.app.device and self.app.device.busy)
+
+    @Property(bool, notify=accountChanged)
+    def unlinkPending(self) -> bool:
+        return bool(self.app.repository and self.app.repository.get_setting("pending_unlink"))
+
+    @Property(str, notify=accountChanged)
+    def unlinkStatus(self) -> str:
+        device = self.app.device
+        if device and device.busy and device.operation in {"account_disconnect", "profile_unlink", "unlink_retry"}:
+            return device.message
+        if self.unlinkPending:
+            pending = json.loads(self.app.repository.get_setting("pending_unlink") or "{}")
+            target = "Account" if pending.get("scope") == "account" else "Study Profile"
+            return f"{target} unlink pending. It will retry when connected."
+        if self._unlink_start_error:
+            return self._unlink_start_error
+        return (self.app.repository.get_setting("unlink_message") or "") if self.app.repository else ""
 
     @Property(str, notify=accountChanged)
     def pairingCode(self) -> str:
@@ -554,23 +588,42 @@ class SettingsController(QObject):
 
     @Slot()
     def requestPairingCode(self):
-        if self.app.device:
-            self.app.device.start("pair_request", device_id=self.deviceId)
-            self._pairing_status = "generating"
-            self.accountChanged.emit()
+        if not self.app.device or self.unlinkPending or (self.hasAccount and self.isPaired):
+            return
+        if self.app.device.busy:
+            if self.app.device.operation == "network" and self.app.screen == "pairing":
+                QTimer.singleShot(150, self, self.requestPairingCode)
+            return
+        self.app.device.start("pair_request", device_id=self.deviceId)
+        self.accountChanged.emit()
 
     @Slot()
     def disconnectAccount(self):
-        if self.app.device:
-            self.app.device.start("account_disconnect")
-            self.app.showNotification("Account disconnected. Data preserved.", "info")
+        if self.hasAccount and not self.unlinkPending:
+            self._startUnlink("account_disconnect")
+
+    @Slot(str)
+    def unlinkProfile(self, profile_id):
+        if self.hasAccount and not self.unlinkPending:
+            self._startUnlink("profile_unlink", local_profile_id=profile_id)
+
+    @Slot()
+    def retryUnlink(self):
+        if self.unlinkPending:
+            self._startUnlink("unlink_retry")
+
+    def _startUnlink(self, operation, **arguments):
+        device = self.app.device
+        if device and not device.busy and self.app.screen == "account":
+            device.start(operation, **arguments)
+            self._unlink_start_error = "" if device.busy else device.message
             self.accountChanged.emit()
 
     @Slot()
     def syncProfiles(self):
-        if self.app.device:
+        if self.app.device and not self.unlinkPending:
             self.app.device.start("account_sync")
-            self.app.showNotification("Syncing study profiles…", "info")
+            self.app.showNotification(self.app.device.message, "info")
             self.accountChanged.emit()
 
     @Slot()

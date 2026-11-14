@@ -9,7 +9,7 @@ Rectangle {
 
     Component.onCompleted: {
         if (typeof settingsController !== "undefined" && settingsController) {
-            if (!settingsController.isPaired && (!settingsController.pairingCode || settingsController.pairingCode === "")) {
+            if ((!settingsController.hasAccount || !settingsController.isPaired) && !settingsController.pairingCode) {
                 settingsController.requestPairingCode();
             }
         }
@@ -146,6 +146,7 @@ Rectangle {
                         width: parent.width
                         preferredHeight: Metrics.touchNormal
                         text: "Generate New Code"
+                        enabled: !settingsController.accountActionBusy && !settingsController.unlinkPending
                         iconSource: Assets.refresh
                         onClicked: settingsController.requestPairingCode()
                     }

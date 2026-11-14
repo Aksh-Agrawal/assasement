@@ -202,7 +202,7 @@ Rectangle {
             anchors.bottomMargin: Spacing.xs
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Spacing.md
-            visible: !profileController.switchMode
+            visible: !profileController.switchMode && profileController.canStartTesting
 
             SecondaryButton {
                 preferredHeight: 36

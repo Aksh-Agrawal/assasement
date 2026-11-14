@@ -309,18 +309,35 @@ class Repository:
 
     def retire_profile_link(self, profile_id: str, *, reason: str) -> None:
         """Retain identity/history/bytes but stop using an unavailable relationship."""
-        context = self.get_profile_link_context(profile_id)
         with transaction(self._connection) as connection:
-            connection.execute("UPDATE profiles SET link_state='unlinked' WHERE id=?", (profile_id,))
-            connection.execute("UPDATE profile_library SET eligible=0 WHERE local_profile_id=?", (profile_id,))
-            connection.execute("UPDATE institute_work SET eligible=0 WHERE local_profile_id=?", (profile_id,))
-            connection.execute(
-                "INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                ("unavailable_profile:" + profile_id, json.dumps(
-                    {"link_id": context["link_id"] if context else None, "reason": reason})),
-            )
-            self._repair_content_attempts(connection, profile_id)
+            self._retire_profile_link(connection, profile_id, reason)
         LOGGER.info("profile relationship retired profile_id=%s reason=%s", profile_id, reason)
+
+    def _retire_profile_link(self, connection, profile_id, reason):
+        context = self.get_profile_link_context(profile_id)
+        connection.execute("UPDATE profiles SET link_state='unlinked' WHERE id=?", (profile_id,))
+        for table in ("profile_library", "institute_work"):
+            connection.execute(f"UPDATE {table} SET eligible=0 WHERE local_profile_id=?", (profile_id,))
+        connection.execute("DELETE FROM settings WHERE key='last_active_profile_id' AND value=?", (profile_id,))
+        self._write_setting(connection, "unavailable_profile:" + profile_id, json.dumps(
+            {"link_id": context["link_id"] if context else None, "reason": reason}))
+
+    def finish_profile_unlink(self, profile_id):
+        with transaction(self._connection) as connection:
+            self._retire_profile_link(connection, profile_id, "explicit_unlink")
+            data = json.loads(self.get_setting("account_profiles") or "{}")
+            if "profiles" in data:
+                data["profiles"] = [p for p in data["profiles"] if p["local_profile_id"] != profile_id]
+                self._write_setting(connection, "account_profiles", json.dumps(data))
+            self._finish_unlink(connection, "Study Profile unlinked.")
+
+    def _finish_unlink(self, connection, message):
+        connection.execute("DELETE FROM settings WHERE key='pending_unlink'")
+        self._write_setting(connection, "unlink_message", message)
+
+    def fail_unlink(self, scope):
+        with transaction(self._connection) as connection:
+            self._finish_unlink(connection, f"Could not confirm {scope} unlink. Check the connection and retry.")
 
     def cache_completed_results(self, profile_id: str, link_id: str, items: list[dict]) -> None:
         """Atomically cache cloud History, retaining richer detail across retries."""
@@ -442,6 +459,10 @@ class Repository:
                                   (profile_id,) if profile_id else ()).fetchall()
         for row in rows:
             attempt = self._attempt_from_row(row)
+            profile = self.get_profile(attempt.profile_id)
+            if profile and profile.ownership_state == "owned" and profile.link_state != "linked":
+                # An unavailable relationship does not invalidate the saved assessment.
+                continue
             assignment = self.get_attempt_institute_context(attempt.id)
             allowed = self.can_start_pack(attempt.profile_id, attempt.set_id, attempt.set_version)
             if assignment:
@@ -557,10 +578,19 @@ class Repository:
             connection.execute("UPDATE profiles SET display_name=? WHERE id=? AND cloud_account_id=? AND ownership_state='owned'",
                                (name, profile_id, account_id))
 
-    def clear_student_account_context(self) -> None:
-        """Clear the context without changing profiles, attempts or pending uploads."""
+    def clear_student_account_context(self, *, disconnected=False) -> None:
+        """Clear account visibility and grants while retaining the assessment records."""
         with transaction(self._connection) as connection:
+            context = self.get_student_account_context()
+            if context:
+                for profile in self.list_profiles():
+                    if profile.cloud_account_id == context["cloud_account_id"] and profile.link_state == "linked":
+                        self._retire_profile_link(connection, profile.id, "account_disconnected")
             connection.execute("DELETE FROM student_account_context")
+            connection.execute("DELETE FROM settings WHERE key IN ('account_profiles','last_active_profile_id')")
+            if disconnected:
+                self._finish_unlink(connection, "Account unlinked. Your work is saved on this device.")
+                self._write_setting(connection, "account_connection_state", "not_connected")
 
     def create_profile(
         self,
@@ -1160,12 +1190,20 @@ class Repository:
             raise ValueError("Maximum sync attempts must be positive")
         now_text = datetime_to_text(now)
         rows = self._connection.execute(
-            "SELECT * FROM attempts WHERE status = 'completed' AND ("
+            "SELECT attempts.* FROM attempts WHERE status = 'completed' AND ("
             "sync_status = 'pending' OR ("
             "sync_status = 'failed' AND sync_attempts < ? "
             "AND (sync_error_kind IS NULL OR sync_error_kind = 'transient') "
             "AND (next_sync_at IS NULL OR next_sync_at <= ?)"
-            ")) ORDER BY completed_at, id LIMIT ?",
+            ")) AND (NOT EXISTS (SELECT 1 FROM attempt_ownership o WHERE o.attempt_id=attempts.id) "
+            "OR EXISTS (SELECT 1 FROM attempt_ownership o "
+            "JOIN profiles p ON p.id=attempts.profile_id "
+            "JOIN profile_link_context c ON c.local_profile_id=p.id AND c.link_id=o.link_id "
+            "WHERE o.attempt_id=attempts.id AND p.cloud_profile_id=o.study_profile_id "
+            "AND p.link_state='linked' AND p.deleted_at IS NULL AND ("
+            "(p.id NOT LIKE 'cloud-%' AND NOT EXISTS (SELECT 1 FROM student_account_context)) OR EXISTS ("
+            "SELECT 1 FROM student_account_context a WHERE a.cloud_account_id=p.cloud_account_id)))) "
+            "ORDER BY completed_at, id LIMIT ?",
             (max_attempts, now_text, limit),
         ).fetchall()
         return tuple(self._attempt_from_row(row) for row in rows)
@@ -1491,11 +1529,14 @@ class Repository:
     def set_setting(self, key: str, value: str) -> None:
         """Insert or replace a non-secret application setting."""
         with transaction(self._connection) as connection:
-            connection.execute(
-                "INSERT INTO settings(key, value) VALUES (?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, value),
-            )
+            self._write_setting(connection, key, value)
+
+    @staticmethod
+    def _write_setting(connection, key, value):
+        connection.execute(
+            "INSERT INTO settings(key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value),
+        )
 
     def get_setting(self, key: str) -> str | None:
         """Return a setting value, or None when absent."""

@@ -56,7 +56,7 @@ def mock_repo(tmp_path):
     repo.quick_check.return_value = Mock(ok=True)
     repo.get_student_account_context.return_value = {
         "cloud_account_id": "acc-01",
-        "account_display_name": "Aksh",
+        "display_name": "Aksh",
     }
     def fake_get_setting(key):
         if key == "account_profiles":
@@ -193,6 +193,7 @@ def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo):
     assert app_ctrl.screen in {"profile_picker", "home", "pairing"}
 
     # Test navigation
+    ProfileController(app_ctrl).selectProfile(0)
     app_ctrl.navigate("home")
     assert app_ctrl.screen == "home"
     assert not app_ctrl.isAssessmentActive
@@ -348,6 +349,7 @@ def test_cloud_echo_of_local_attempt_is_counted_once(tmp_path):
     }])
     repo.set_setting("account_profiles", json.dumps({"profiles": [
         {"local_profile_id": local_profile_id}]}))
+    repo.cache_student_account_context(account, "Student")
     app_ctrl = AppController(path, AppConfig(database_path=path),
         CredentialStore(tmp_path / "dedup-creds.json"))
     app_ctrl.startup_session.repository = repo
@@ -877,6 +879,122 @@ def test_authenticated_contact_notifies_header_and_settings_without_restart(qapp
         ctrl.close()
 
 
+def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path, monkeypatch):
+    from threading import Event
+
+    import httpx
+    from PySide6.QtCore import QMetaObject
+    from PySide6.QtTest import QTest
+
+    from app.auth import account_device
+    from app.auth.credentials import DeviceCredential
+    from app.data.repo import Repository
+    from tests.content.test_profile_library import setup
+
+    path = tmp_path / "unlink.db"
+    repo = Repository(path)
+    setup(repo)
+    account = repo.get_student_account_context()["cloud_account_id"]
+    profile = repo.get_profile("a")
+    store = CredentialStore(tmp_path / "unlink-credentials.json")
+    store.save(DeviceCredential("test-device", "device_test.secret"))
+    config = AppConfig(database_path=path, api_base_url="https://unlink.test")
+    link = repo.get_profile_link_context("a")["link_id"]
+    original = account_device.unlink_relationship
+    release = Event()
+    account_result = "offline"
+
+    def endpoint(request):
+        if request.url.path.endswith("profile-links/unlink"):
+            assert release.wait(5)
+            return httpx.Response(200, json={"status": "revoked", "link_id": link,
+                "student_account_id": account, "study_profile_id": profile.cloud_profile_id,
+                "local_profile_id": "a", "account_display_name": "Account", "study_profile_name": "Student A"})
+        if account_result == "offline":
+            raise httpx.ConnectError("offline", request=request)
+        return httpx.Response(200, json={"status": "disconnected"})
+
+    def unlink(*args, **kwargs):
+        return original(*args, **kwargs, transport=httpx.MockTransport(endpoint))
+
+    monkeypatch.setattr(account_device, "unlink_relationship", unlink)
+    app = AppController(path, config, store)
+    app._poll_timer.stop()
+    app.startup_session.repository = repo
+    app.startup_session.complete = True
+    start = app.device.start
+    monkeypatch.setattr(app.device, "start", lambda operation, **args: (
+        start(operation, **args) if operation in {"profile_unlink", "account_disconnect", "unlink_retry"} else None))
+    app._initialize_runtime()
+    profile_ctrl = ProfileController(app)
+    library = LibraryController(app)
+    assessment = AssessmentController(app)
+    settings = SettingsController(app)
+    quick_add = QuickAddController(app)
+    engine = QQmlApplicationEngine()
+    qml = Path("app/ui_qt/qml").resolve()
+    engine.addImportPath(str(qml))
+    for name, controller in (("appController", app), ("profileController", profile_ctrl),
+            ("libraryController", library), ("assessmentController", assessment),
+            ("settingsController", settings), ("quickAddController", quick_add)):
+        engine.rootContext().setContextProperty(name, controller)
+
+    def finish_job():
+        for _ in range(100):
+            app._on_tick()
+            qapp.processEvents()
+            if not app.device.busy:
+                return
+            QTest.qWait(10)
+        pytest.fail("Unlink job did not finish")
+
+    try:
+        profile_ctrl.selectProfileId("b")
+        app.navigate("account")
+        engine.load(QUrl.fromLocalFile(str(qml / "App.qml")))
+        window = engine.rootObjects()[0]
+        qapp.processEvents()
+        assert settings.accountName == repo.get_student_account_context()["display_name"]
+        dialog = window.findChild(QObject, "unlinkConfirmation")
+        assert dialog is not None
+        # ListView delegates are visual children rather than QObject children of the window.
+        def visual_items(item):
+            yield item
+            for child in item.childItems():
+                yield from visual_items(child)
+
+        buttons = [item for item in visual_items(window.contentItem()) if item.objectName() == "unlinkProfileButton"]
+        assert len(buttons) == 2
+        assert QMetaObject.invokeMethod(buttons[0], "clicked")
+        assert dialog.property("profileId") == "a"
+        assert QMetaObject.invokeMethod(dialog, "accept")
+        assert settings.unlinkStatus == "Unlinking profile..."
+        assert repo.get_profile("a").link_state == "linked"
+        release.set()
+        finish_job()
+        assert [p["id"] for p in profile_ctrl.profiles] == ["b"]
+        assert app.activeProfileName == "Student B"
+        assert settings.unlinkStatus == "Study Profile unlinked."
+
+        account_button = window.findChild(QObject, "unlinkAccountButton")
+        assert QMetaObject.invokeMethod(account_button, "clicked")
+        assert not dialog.property("profileId")
+        assert QMetaObject.invokeMethod(dialog, "accept")
+        finish_job()
+        assert settings.unlinkPending and "pending" in settings.unlinkStatus
+        assert settings.hasAccount and app.screen == "account"
+
+        account_result = "connected"
+        settings.retryUnlink()
+        finish_job()
+        assert app.screen == "pairing"
+        assert not settings.hasAccount and not settings.isPaired
+        assert not profile_ctrl.profiles and not assessment.historyList
+    finally:
+        release.set()
+        app.close()
+
+
 def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path):
     import hashlib
 
@@ -1106,6 +1224,8 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
         "question_count": len(qset.questions), "size_bytes": 1,
         "sha256": local_hash, "published_at": "2026-11-12T00:00:00Z",
     }])
+    repo.cache_student_account_context(account_id, "Offline Account")
+    repo.set_setting("account_profiles", json.dumps({"profiles": [{"local_profile_id": profile.id}]}))
     repo.close()
 
     def launch():

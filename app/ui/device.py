@@ -13,7 +13,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from app.api.client import DeviceApi
-from app.api.transport import failure_state
+from app.api.transport import FailureState, failure_state
 from app.auth.credentials import CredentialStore
 from app.auth.profile_links import ProfileLinkError
 from app.config import AppConfig
@@ -50,6 +50,7 @@ class DeviceConsole:
         self.failure = None
         self.link_error = None
         self.link_result = None
+        self.completed_operation = ""
         self.network = None
         self.network_checked_at = 0.0
         self.account_verified = False
@@ -84,7 +85,7 @@ class DeviceConsole:
             self.message = "A device action is still running. Assessment remains available."
             return
         remote = {
-            "account_sync", "account_create", "account_disconnect",
+            "account_sync", "account_create", "account_disconnect", "unlink_retry",
             "sync",
             "catalog",
             "download",
@@ -101,7 +102,7 @@ class DeviceConsole:
                 else "Server not configured. Local assessment remains available."
             )
             return
-        if operation in remote - {"pair_request", "pair_poll"} and not self.credentials.load_safe():
+        if operation in remote - {"pair_request", "pair_poll", "unlink_retry"} and not self.credentials.load_safe():
             self.message = (
                 "Device authentication required. Pair this device; local assessment remains available."
                 if operation.startswith("profile_")
@@ -119,6 +120,8 @@ class DeviceConsole:
         self.message = {
             "profile_claim": "Submitting link...",
             "profile_unlink": "Unlinking profile...",
+            "account_disconnect": "Unlinking account...",
+            "unlink_retry": "Retrying unlink...",
             "profile_status": "Checking link status...",
             "download": "Downloading and validating question pack...",
             "update_download": "Downloading, verifying and staging update...",
@@ -158,6 +161,7 @@ class DeviceConsole:
         if self.future is None or not self.future.done():
             return False
         future, self.future = self.future, None
+        self.completed_operation = self.operation
         try:
             generation, value = future.result()
             if generation != self.generation:
@@ -172,9 +176,15 @@ class DeviceConsole:
                 request_sync(self.database_path)
             if op in {"account_sync", "account_create"}:
                 self.account_verified = True
-            elif op == "account_disconnect":
-                self.account_verified = False
-            if op in {"profile_claim", "profile_unlink", "profile_status"}:
+            if op in {"profile_unlink", "account_disconnect", "unlink_retry"}:
+                if value == "confirmed" and not self.credentials.load_safe():
+                    self.account_verified = False
+                    self.cancel_pairing()
+                with Repository(self.database_path) as repository:
+                    self.message = ("Unlink pending. It will retry when connected." if value == "pending"
+                                    else repository.get_setting("unlink_message") or "Unlinked.")
+                return True
+            if op in {"profile_claim", "profile_status"}:
                 self.link_result = value
                 self.message = (
                     "Linked to account: " + value["account_display_name"] +
@@ -288,17 +298,23 @@ class DeviceConsole:
             self.message = f"Wi-Fi error: {error}"
         except Exception:
             self.message = getattr(self, "account_message", None) or "Action unavailable. Check connection or device configuration and retry."
+        if self.completed_operation in {"account_sync", "account_create"} and self.failure == FailureState.AUTH_REQUIRED:
+            self.account_verified = False
         return True
 
     def _execute(self, operation, **args):
         config = self.config
-        if operation in {"account_sync", "account_create", "account_disconnect"}:
-            from app.auth.account_device import sync_account
-            with Repository(self.database_path) as repository:
-                return sync_account(config, self.credentials, repository,
-                    create=args.get("create"), disconnect=operation == "account_disconnect")
-        if operation in {"profile_claim", "profile_unlink", "profile_status"}:
-            with Repository(self.database_path) as repository:
+        if operation in {"account_sync", "account_create", "account_disconnect", "unlink_retry",
+                         "profile_claim", "profile_unlink", "profile_status"}:
+            from app.auth.account_device import sync_account, unlink_relationship
+            from app.sync.locking import file_lock
+            with file_lock(str(self.database_path) + ".sync.lock"), Repository(self.database_path) as repository:
+                if operation in {"account_sync", "account_create"}:
+                    return sync_account(config, self.credentials, repository, create=args.get("create"))
+                if operation in {"account_disconnect", "profile_unlink", "unlink_retry"}:
+                    scope = {"account_disconnect": "account", "profile_unlink": "profile"}.get(operation)
+                    return unlink_relationship(config, self.credentials, repository, scope=scope,
+                                               profile_id=args.get("local_profile_id"))
                 profile = repository.get_profile(args["local_profile_id"])
                 if profile is None:
                     raise ProfileLinkError("LINK_PROFILE_CONFLICT")
@@ -307,11 +323,6 @@ class DeviceConsole:
                 with DeviceApi(config, store=self.credentials).profile_links() as client:
                     if operation == "profile_claim":
                         result = client.claim(args["code"], profile.id)
-                    elif operation == "profile_unlink":
-                        context = repository.get_profile_link_context(profile.id)
-                        if context is None:
-                            raise ProfileLinkError("LINK_PROFILE_CONFLICT")
-                        result = client.unlink(profile.id, context["link_id"])
                     else:
                         result = client.current(profile.id)
                 if result["status"] != "unlinked":

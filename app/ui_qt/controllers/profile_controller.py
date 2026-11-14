@@ -37,6 +37,11 @@ class ProfileController(QObject):
         self.profilesChanged.emit()
         self.app.navigate("profile_picker")
 
+    def resetSelection(self):
+        self._pending_profile_id = None
+        self._switch_mode = False
+        self.cancelPin()
+
     @Slot()
     def cancelSwitch(self):
         self.cancelPin()
@@ -63,6 +68,7 @@ class ProfileController(QObject):
                 "isActive": (self.app.ui_controller.selected_profile and self.app.ui_controller.selected_profile.id == p.id),
                 "hasPin": has_pin,
                 "ownershipState": p.ownership_state,
+                "isLinked": p.link_state == "linked",
             })
         return res
 
@@ -72,7 +78,17 @@ class ProfileController(QObject):
 
     @Property(bool, notify=profilesChanged)
     def canAddProfile(self) -> bool:
+        if not self.app.repository or self.app.repository.get_setting("pending_unlink"):
+            return False
+        if self.app.repository.get_student_account_context():
+            cached = json.loads(self.app.repository.get_setting("account_profiles") or "{}")
+            return cached.get("profile_count", self.profileCount) < 3
         return self.profileCount < 3
+
+    @Property(bool, notify=profilesChanged)
+    def canStartTesting(self) -> bool:
+        return bool(self.app.repository and not self.app.repository.get_student_account_context()
+                    and not self.app.repository.get_setting("pending_unlink"))
 
     @Property(bool, notify=pinStateChanged)
     def pinLocked(self) -> bool:
@@ -139,6 +155,7 @@ class ProfileController(QObject):
         ui.refresh_catalog()
         self.app.repository.set_setting("last_active_profile_id", profile.id)
         self.app._active_profile_id = profile.id
+        ui.authorized_profile = profile.id
         self.app._screen_history.clear()
         library = getattr(self.app, "library_controller", None)
         if library:
@@ -188,20 +205,14 @@ class ProfileController(QObject):
         if not name:
             self.app.showNotification("Please enter a profile name.", "warning")
             return
-        if self.profileCount >= 3:
+        if not self.canAddProfile:
             self.app.showNotification("Maximum 3 Study Profiles allowed.", "warning")
             return
 
-        # Cloud account creation if paired
-        if (
-            self.app.device
-            and self.app.credentials
-            and self.app.credentials.load_safe()
-            and self.app.repository
-            and self.app.repository.get_student_account_context()
-        ):
-            self.app.device.start("account_create", create={"name": name, "exam_context": grade})
-            self.app.showNotification("Creating Cloud Study Profile…", "info")
+        if self.app.repository and self.app.repository.get_student_account_context():
+            if self.app.device:
+                self.app.device.start("account_create", create={"name": name, "exam_context": grade})
+                self.app.showNotification(self.app.device.message, "info")
             return
 
         # Local profile creation directly in SQLite repository for offline/testing mode
@@ -234,7 +245,7 @@ class ProfileController(QObject):
     @Slot()
     def startTestingMode(self):
         """Quick start in local / testing mode without requiring cloud pairing."""
-        if not self.app.ui_controller:
+        if not self.app.ui_controller or not self.canStartTesting:
             return
         self.app.ui_controller.refresh_catalog()
         profs = self.app.ui_controller.profiles

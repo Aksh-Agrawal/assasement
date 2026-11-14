@@ -13,7 +13,7 @@ from app.api.heartbeat import Heartbeat
 from app.config import AppConfig
 from app.data.repo import Repository, SyncStatus
 from app.sync.policy import SyncPolicy
-from app.sync.worker import SyncWorker
+from app.sync.worker import SyncCycleResult, SyncWorker
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,29 +23,31 @@ def _run_cycle(config: AppConfig, *, heartbeat: bool = True, refresh: bool = Fal
         return
     started_at = datetime.now(UTC).isoformat()
     api = DeviceApi(config)
-    if not api.store.load_safe():
-        from app.connectivity import record_cloud
-        record_cloud(config.database_path, "Authentication required")
-        from app.sync.worker import SyncCycleResult
-        with Repository(config.database_path) as repository:
+    from app.auth.account_device import sync_account, unlink_relationship
+    with Repository(config.database_path) as repository:
+        unlink = unlink_relationship(config, api.store, repository, transport=api.transport)
+        if unlink == "pending":
+            return SyncCycleResult(stage_failures=1)
+        if not api.store.load_safe():
+            if unlink == "confirmed":
+                return SyncCycleResult()
+            from app.connectivity import record_cloud
+            record_cloud(config.database_path, "Authentication required")
             repository.set_setting("connectivity_sync", "Authentication required")
             repository.set_setting("last_full_sync", json.dumps({
                 "at": started_at, "result": "Authentication required",
                 "error_kind": "CredentialMissing"}))
-        return SyncCycleResult(authentication_failures=1)
-    with Repository(config.database_path) as repository:
+            return SyncCycleResult(authentication_failures=1)
         stages = {}
         repository.set_setting("last_sync_attempt", started_at)
         if refresh and (repository.get_student_account_context()
                         or not repository.list_profiles()
                         or any(p.id.startswith("cloud-") for p in repository.list_profiles())):
-            from app.auth.account_device import sync_account
             # Verification/reconciliation precedes delivery. Failure preserves local work
             # and stops this cycle rather than uploading under stale relationships.
             sync_account(config, api.store, repository, transport=api.transport)
             stages["account"] = "OK"
         if not refresh and repository.get_setting("automatic_sync") == "0":
-            from app.sync.worker import SyncCycleResult
             result = SyncCycleResult()
         else:
             with api.attempts() as client:
