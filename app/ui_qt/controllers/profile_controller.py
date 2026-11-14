@@ -1,6 +1,7 @@
 """Profile Controller for StudyProfile selection, creation, and PIN unlock."""
 
 import json
+import os
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
@@ -78,16 +79,16 @@ class ProfileController(QObject):
 
     @Property(bool, notify=profilesChanged)
     def canAddProfile(self) -> bool:
-        if not self.app.repository or self.app.repository.get_setting("pending_unlink"):
+        repo = self.app.repository
+        if not repo or not repo.get_student_account_context() or repo.get_setting("pending_unlink"):
             return False
-        if self.app.repository.get_student_account_context():
-            cached = json.loads(self.app.repository.get_setting("account_profiles") or "{}")
-            return cached.get("profile_count", self.profileCount) < 3
-        return self.profileCount < 3
+        cached = json.loads(repo.get_setting("account_profiles") or "{}")
+        return cached.get("profile_count", self.profileCount) < cached.get("profile_limit", 3)
 
     @Property(bool, notify=profilesChanged)
     def canStartTesting(self) -> bool:
-        return bool(self.app.repository and not self.app.repository.get_student_account_context()
+        return bool(os.environ.get("ASSESS_MAINTENANCE") == "1"
+                    and self.app.repository and not self.app.repository.get_student_account_context()
                     and not self.app.repository.get_setting("pending_unlink"))
 
     @Property(bool, notify=pinStateChanged)
@@ -201,46 +202,24 @@ class ProfileController(QObject):
 
     @Slot(str, str)
     def createProfile(self, display_name: str, grade: str = "Primary 6"):
+        repo = self.app.repository
+        if not repo or not repo.get_student_account_context():
+            self.app.showNotification("Connect your account before creating a Study Profile.", "warning")
+            return
+        if repo.get_setting("pending_unlink"):
+            self.app.showNotification("Finish unlinking before creating a Study Profile.", "warning")
+            return
         name = display_name.strip()
         if not name:
             self.app.showNotification("Please enter a profile name.", "warning")
             return
         if not self.canAddProfile:
-            self.app.showNotification("Maximum 3 Study Profiles allowed.", "warning")
+            self.app.showNotification("Your account has reached its Study Profile limit.", "warning")
             return
 
-        if self.app.repository and self.app.repository.get_student_account_context():
-            if self.app.device:
-                self.app.device.start("account_create", create={"name": name, "exam_context": grade})
-                self.app.showNotification(self.app.device.message, "info")
-            return
-
-        # Local profile creation directly in SQLite repository for offline/testing mode
-        if self.app.repository:
-            from uuid import uuid4
-
-            from app.core.models import Profile
-
-            profile_id = str(uuid4())
-            profile = Profile(id=profile_id, display_name=name)
-            self.app.repository.create_profile(profile)
-
-            try:
-                cached = json.loads(self.app.repository.get_setting("account_profiles") or "{}")
-                p_list = cached.get("profiles", [])
-                p_list.append({"local_profile_id": profile_id, "exam_context": grade, "name": name})
-                cached["profiles"] = p_list
-                self.app.repository.set_setting("account_profiles", json.dumps(cached))
-            except Exception:
-                pass
-
-            if self.app.ui_controller:
-                self.app.ui_controller.refresh_catalog()
-
-            self.profilesChanged.emit()
-            self._pending_profile_id = profile_id
-            self._activate_profile(0)
-            self.app.showNotification(f"Profile '{name}' created!", "info")
+        self.app.device.start("account_create", create={"name": name, "exam_context": grade})
+        self.app.showNotification(self.app.device.message, "info" if self.app.device.busy else "warning")
+        self.app.statusChanged.emit()
 
     @Slot()
     def startTestingMode(self):

@@ -990,6 +990,11 @@ def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path,
         assert app.screen == "pairing"
         assert not settings.hasAccount and not settings.isPaired
         assert not profile_ctrl.profiles and not assessment.historyList
+        assert not app.canGoBack and not profile_ctrl.canAddProfile
+        app.goBack()
+        assert app.screen == "pairing"
+        app.navigate("create_profile")
+        assert app.screen == "pairing"
     finally:
         release.set()
         app.close()
@@ -1068,13 +1073,15 @@ def test_auto_sync_toggle_persists_and_manual_sync_remains_available(qapp, tmp_p
         assert repo.get_setting("automatic_sync") == "0"
 
 
-def test_local_profile_creation_and_testing_mode(qapp, tmp_path):
-    """Verify local profile creation and testing mode work offline without cloud pairing."""
+def test_unpaired_profile_creation_requires_an_account(qapp, tmp_path, monkeypatch):
+    """Only operator mode can start anonymous offline practice."""
     from app.data.repo import Repository
 
     db_path = tmp_path / "offline_profile.db"
+    monkeypatch.delenv("ASSESS_MAINTENANCE", raising=False)
     with Repository(db_path) as repo:
-        ctrl = AppController(db_path, AppConfig(database_path=db_path), CredentialStore(tmp_path / "creds.json"))
+        config = AppConfig(database_path=db_path, api_base_url=None)
+        ctrl = AppController(db_path, config, CredentialStore(tmp_path / "creds.json"))
         ctrl.startup_session.repository = repo
         ctrl.startup_session.complete = True
         ctrl._initialize_runtime()
@@ -1088,18 +1095,129 @@ def test_local_profile_creation_and_testing_mode(qapp, tmp_path):
         assert received_text == ["Test Student"]
         assert not ctrl.keyboardVisible
 
-        # Create local profile directly
         prof_ctrl.createProfile("Alice Learner", "Primary 5")
-        assert any(p["name"] == "Alice Learner" for p in prof_ctrl.profiles)
-        assert ctrl.activeProfileName == "Alice Learner"
-        assert ctrl.screen == "home"
+        prof_ctrl.startTestingMode()
+        assert not prof_ctrl.canAddProfile
+        assert not repo.list_profiles()
+        assert ctrl.screen == "pairing"
+        assert "Connect your account" in ctrl.message
 
-        # Testing mode quick start
+        monkeypatch.setenv("ASSESS_MAINTENANCE", "1")
         prof_ctrl.startTestingMode()
         assert ctrl.screen == "home"
         assert ctrl.activeProfileName != ""
 
         ctrl.close()
+
+
+def test_qml_pairing_retries_and_loads_existing_account_profiles(qapp, tmp_path, monkeypatch):
+    from uuid import uuid4
+
+    import httpx
+    from PySide6.QtCore import QEvent, QMetaObject
+    from PySide6.QtTest import QTest
+
+    from app.api.client import DeviceApi
+    from app.auth import account_device
+    from app.auth.pairing import PairingClient
+    from app.data.repo import Repository
+
+    monkeypatch.delenv("ASSESS_MAINTENANCE", raising=False)
+    path = tmp_path / "pairing.db"
+    api_url = "https://pairing.test"
+    account_id, session_id = str(uuid4()), str(uuid4())
+    profiles = []
+    for name in ("Learner One", "Learner Two"):
+        profile_id = str(uuid4())
+        profiles.append({"id": profile_id, "local_profile_id": "cloud-" + profile_id,
+                         "name": name, "account_id": account_id, "link_id": str(uuid4())})
+    calls = []
+    pairing_approved = False
+
+    def endpoint(request):
+        route = request.url.path
+        calls.append(route)
+        if route == "/api/v1/pairing/request":
+            if calls.count(route) == 1:
+                return httpx.Response(503, json={"detail": "Database temporarily unavailable"})
+            return httpx.Response(201, json={"session_id": session_id, "pairing_code": "123456",
+                                             "claim_secret": "test-claim", "expires_at": "2030-01-01T00:00:00Z"})
+        if route.endswith("/status"):
+            return httpx.Response(200, json={"status": "approved" if pairing_approved else "pending"})
+        if route.endswith("/claim"):
+            return httpx.Response(200, json={"credential": "device_test.secret"})
+        assert route == "/api/v1/device-account"
+        if calls.count(route) == 1:
+            return httpx.Response(503, json={"detail": "Database temporarily unavailable"})
+        return httpx.Response(200, json={"account_id": account_id, "display_name": "Existing Account",
+                                         "profiles": profiles, "profile_count": 2, "profile_limit": 3})
+
+    transport = httpx.MockTransport(endpoint)
+    monkeypatch.setattr(DeviceApi, "pairing", lambda self: PairingClient(api_url, transport=transport))
+    sync_account = account_device.sync_account
+    monkeypatch.setattr(account_device, "sync_account", lambda *args, **kwargs: (
+        sync_account(*args, **kwargs, transport=transport)))
+
+    app = AppController(path, AppConfig(database_path=path, api_base_url=api_url),
+                        CredentialStore(tmp_path / "pairing-credentials.json"))
+    app._poll_timer.stop()
+    app.startup_session.repository = Repository(path)
+    app.startup_session.complete = True
+    start = app.device.start
+    monkeypatch.setattr(app.device, "start", lambda operation, **args: (
+        start(operation, **args) if operation in {"pair_request", "pair_poll", "account_sync"} else None))
+    app._initialize_runtime()
+    profile_ctrl = ProfileController(app)
+    settings = SettingsController(app)
+    engine = QQmlApplicationEngine()
+    qml = Path("app/ui_qt/qml").resolve()
+    engine.addImportPath(str(qml))
+    for name, controller in (("appController", app), ("profileController", profile_ctrl),
+            ("libraryController", LibraryController(app)), ("assessmentController", AssessmentController(app)),
+            ("settingsController", settings), ("quickAddController", QuickAddController(app))):
+        engine.rootContext().setContextProperty(name, controller)
+
+    def wait_for(predicate):
+        for _ in range(300):
+            app._on_tick()
+            qapp.processEvents()
+            if predicate():
+                return
+            QTest.qWait(10)
+        pytest.fail(f"Pairing stopped on {app.screen}: {settings.pairingStatus} ({calls})")
+
+    try:
+        engine.load(QUrl.fromLocalFile(str(qml / "App.qml")))
+        window = engine.rootObjects()[0]
+        wait_for(lambda: bool(settings.pairingError))
+        status = window.findChild(QObject, "pairingStatusText")
+        assert "temporarily unavailable" in status.property("text")
+        assert not profile_ctrl.canAddProfile
+
+        app.navigate("profile_picker")
+        assert not window.findChild(QObject, "createStudyProfileCard").property("visible")
+        connect = window.findChild(QObject, "connectExistingAccountButton")
+        assert connect.property("visible") and QMetaObject.invokeMethod(connect, "clicked")
+        assert app.screen == "pairing"
+        qapp.sendPostedEvents(None, QEvent.DeferredDelete)
+        qapp.processEvents()
+
+        retry = window.findChild(QObject, "pairingRetryButton")
+        assert QMetaObject.invokeMethod(retry, "clicked")
+        wait_for(lambda: settings.pairingCode == "123456" and not app.device.busy)
+        pairing_approved = True
+        app.ui_controller.next_pair_poll = 0
+        wait_for(lambda: bool(settings.pairingError) and settings.canRetryAccountSync)
+        assert not profile_ctrl.canAddProfile
+        assert retry.property("text") == "Retry Profile Sync"
+        assert QMetaObject.invokeMethod(retry, "clicked")
+        wait_for(lambda: app.screen == "profile_picker")
+        assert [p["name"] for p in profile_ctrl.profiles] == ["Learner One", "Learner Two"]
+        assert len(app.repository.list_profiles()) == 2
+        assert window.findChild(QObject, "createStudyProfileCard").property("visible")
+        assert calls.count("/api/v1/pairing/request") == 2
+    finally:
+        app.close()
 
 
 def test_history_items_preserve_web_or_device_source(qapp):

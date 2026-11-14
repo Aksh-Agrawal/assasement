@@ -6,13 +6,15 @@ Rectangle {
     id: root
     anchors.fill: parent
     color: Theme.canvas
+    readonly property bool showProfiles: settingsController.hasAccount || profileController.canStartTesting
 
     AppHeader {
         id: header
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        title: profileController.switchMode ? "Switch Study Profile" : "Who's studying today?"
+        title: !root.showProfiles ? "Connect Your Account"
+               : profileController.switchMode ? "Switch Study Profile" : "Who's studying today?"
         showBack: profileController.switchMode
         onBackClicked: profileController.cancelSwitch()
         networkText: appController.networkLabel
@@ -29,12 +31,13 @@ Rectangle {
 
         // Horizontal Row of Learner Cards
         Row {
+            visible: root.showProfiles
             anchors.centerIn: parent
             anchors.verticalCenterOffset: profileController.switchMode ? 0 : -16
             spacing: Spacing.xl
 
             Repeater {
-                model: profileController.profiles
+                model: root.showProfiles ? profileController.profiles : []
 
                 delegate: AppCard {
                     width: 175
@@ -138,6 +141,7 @@ Rectangle {
 
             // Add Profile Card
             Rectangle {
+                objectName: "createStudyProfileCard"
                 visible: profileController.canAddProfile && !profileController.switchMode
                 width: 155
                 height: 230
@@ -171,7 +175,7 @@ Rectangle {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Add Learner"
+                        text: "Add Study Profile"
                         color: Theme.deepInk
                         font.pixelSize: Typography.body
                         font.bold: true
@@ -193,6 +197,26 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: appController.navigate("create_profile")
                 }
+            }
+        }
+
+        Column {
+            anchors.centerIn: parent
+            spacing: Spacing.lg
+            visible: !root.showProfiles
+
+            Text {
+                text: "Connect your Questraa account to see your Study Profiles."
+                color: Theme.textPrimary
+                font.family: Typography.family
+                font.pixelSize: Typography.body
+            }
+
+            PrimaryButton {
+                objectName: "connectExistingAccountButton"
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Connect Existing Account"
+                onClicked: appController.navigate("pairing")
             }
         }
 

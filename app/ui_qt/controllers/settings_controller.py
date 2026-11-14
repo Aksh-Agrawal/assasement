@@ -39,8 +39,6 @@ class SettingsController(QObject):
         self._sync_countdown.timeout.connect(self.syncChanged.emit)
         self._sync_countdown.start()
         self._diagnostics_data = None
-        self._pairing_code = ""
-        self._pairing_status = "idle"
         self._unlink_start_error = ""
         self._update_error = ""
         self._ignore_release_status = False
@@ -280,15 +278,30 @@ class SettingsController(QObject):
     def pairingCode(self) -> str:
         if self.app.device and self.app.device.pairing:
             return getattr(self.app.device.pairing, "code", "")
-        return self._pairing_code or ""
+        return ""
 
     @Property(str, notify=accountChanged)
     def pairingStatus(self) -> str:
-        if self.app.device and self.app.device.operation == "pair_request" and self.app.device.busy:
-            return "Generating…"
-        if self.isPaired:
-            return "Connected ✓"
-        return self._pairing_status
+        device = self.app.device
+        if device and device.busy:
+            if device.operation == "pair_request":
+                return "Generating a pairing code…"
+            if device.operation == "account_sync":
+                return "Loading your Study Profiles…"
+        if self.pairingError:
+            return self.pairingError
+        if self.pairingCode:
+            return "Waiting for you to confirm on the learning portal."
+        return "Generate a code to connect your account."
+
+    @Property(str, notify=accountChanged)
+    def pairingError(self) -> str:
+        return self.app.device.pairing_error if self.app.device else ""
+
+    @Property(bool, notify=accountChanged)
+    def canRetryAccountSync(self) -> bool:
+        return bool(self.isPaired and not self.hasAccount and self.app.repository
+                    and self.app.repository.get_setting("account_connection_state") != "revoked")
 
     # -------------------------------------------------------------------------
     # Storage & Content Properties
@@ -592,9 +605,12 @@ class SettingsController(QObject):
             return
         if self.app.device.busy:
             if self.app.device.operation == "network" and self.app.screen == "pairing":
-                QTimer.singleShot(150, self, self.requestPairingCode)
+                QTimer.singleShot(150, self, lambda: self.requestPairingCode() if self.app.screen == "pairing" else None)
             return
-        self.app.device.start("pair_request", device_id=self.deviceId)
+        if self.canRetryAccountSync:
+            self.app.device.start("account_sync")
+        else:
+            self.app.device.start("pair_request", device_id=self.deviceId)
         self.accountChanged.emit()
 
     @Slot()

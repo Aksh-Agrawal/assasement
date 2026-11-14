@@ -77,6 +77,10 @@ class AppController(QObject):
         return self._screen
 
     @Property(bool, notify=screenChanged)
+    def canGoBack(self) -> bool:
+        return bool(self._screen_history and self._screen_history[-1] != "startup")
+
+    @Property(bool, notify=screenChanged)
     def isAssessmentActive(self) -> bool:
         return self._screen in {
             "question",
@@ -241,36 +245,40 @@ class AppController(QObject):
 
     @Slot(str)
     def navigate(self, target_screen: str):
+        if target_screen == "create_profile" and not (
+            self.repository and self.repository.get_student_account_context()
+        ):
+            target_screen = "pairing"
         if target_screen != self._screen:
             self._screen_history.append(self._screen)
-            self._screen = target_screen
-            if self.ui_controller:
-                from app.ui.controller import UIScreen
-                screen_map = {
-                    "home": UIScreen.HOME,
-                    "profile_picker": UIScreen.PROFILE,
-                    "pairing": UIScreen.PAIRING,
-                    "settings": UIScreen.SETTINGS,
-                    "wifi": UIScreen.WIFI,
-                    "diagnostics": UIScreen.DIAGNOSTICS,
-                }
-                if target_screen in screen_map:
-                    self.ui_controller.route(screen_map[target_screen])
-            self.screenChanged.emit()
+            self._show_screen(target_screen)
+
+    def _show_screen(self, target_screen: str):
+        self._screen = target_screen
+        screen_map = {
+            "home": UIScreen.HOME,
+            "profile_picker": UIScreen.PROFILE,
+            "pairing": UIScreen.PAIRING,
+            "settings": UIScreen.SETTINGS,
+            "wifi": UIScreen.WIFI,
+            "diagnostics": UIScreen.DIAGNOSTICS,
+        }
+        if self.ui_controller and target_screen in screen_map:
+            self.ui_controller.route(screen_map[target_screen])
+        self.screenChanged.emit()
 
     @Slot()
     def goBack(self):
-        if self._screen_history:
-            prev = self._screen_history.pop()
-            self._screen = prev
-            self.screenChanged.emit()
+        if self.canGoBack:
+            self._show_screen(self._screen_history.pop())
         else:
             self.goHome()
 
     @Slot()
     def goHome(self):
         if self.ui_controller and not self._active_profile_id:
-            target = "profile_picker" if self.ui_controller.profiles or self._account_id else "pairing"
+            testing = getattr(self, "profile_controller", None)
+            target = "profile_picker" if self._account_id or (testing and testing.canStartTesting) else "pairing"
             self.navigate(target)
             return
         if self._screen != "home":
@@ -370,13 +378,13 @@ class AppController(QObject):
                 profile_removed = active and active not in {p.id for p in self.ui_controller.profiles}
                 if account_changed or profile_removed:
                     self._clear_active_profile()
+                    self._screen_history.clear()
                     if account_changed and account_id is None:
                         self.device.cancel_pairing()
                         self.device.account_verified = False
-                        self.navigate("pairing")
+                        self._show_screen("pairing")
                     else:
-                        self.navigate("profile_picker")
-                    self._screen_history.clear()
+                        self._show_screen("profile_picker")
                 elif completed == "account_create" and not self.device.failure:
                     self.navigate("profile_picker")
                 elif completed == "account_sync" and account_id and not self.device.failure and self.screen == "pairing":

@@ -130,7 +130,7 @@ Rectangle {
                                     root.profileName = text;
                                 }
                                 onAccepted: {
-                                    if (root.profileName.trim().length > 0) {
+                                    if (createButton.enabled) {
                                         profileController.createProfile(root.profileName, root.selectedGrade);
                                     }
                                 }
@@ -215,10 +215,12 @@ Rectangle {
                 Item { width: 1; height: Spacing.xs }
 
                 PrimaryButton {
+                    id: createButton
                     width: parent.width
                     preferredHeight: Metrics.touchNormal
-                    text: "Create & Start Learning"
-                    enabled: root.profileName.trim().length > 0
+                    text: "Create Study Profile"
+                    enabled: profileController.canAddProfile && !settingsController.accountActionBusy
+                             && root.profileName.trim().length > 0
                     onClicked: {
                         profileController.createProfile(root.profileName, root.selectedGrade);
                     }

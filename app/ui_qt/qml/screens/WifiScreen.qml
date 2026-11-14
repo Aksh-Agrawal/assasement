@@ -20,7 +20,7 @@ Rectangle {
         syncText: appController.syncLabel
         isOnline: appController.isOnline
         showBack: true
-        onBackClicked: appController.navigate("settings")
+        onBackClicked: appController.goBack()
     }
 
     Item {

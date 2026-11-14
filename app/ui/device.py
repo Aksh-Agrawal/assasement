@@ -63,6 +63,7 @@ class DeviceConsole:
         self.catalog = ()
         self.catalog_profile_id = None
         self.pairing = None
+        self.pairing_error = ""
         self.available_update = None
         self.staged = None
         self.update_progress = 0.0
@@ -75,6 +76,7 @@ class DeviceConsole:
         with self.pairing_lock:
             self.generation += 1
             self.pairing = None
+            self.pairing_error = ""
 
     @property
     def busy(self):
@@ -84,6 +86,9 @@ class DeviceConsole:
         if self.busy:
             self.message = "A device action is still running. Assessment remains available."
             return
+        pairing_operation = operation in {"pair_request", "pair_poll", "account_sync"}
+        if pairing_operation:
+            self.pairing_error = ""
         remote = {
             "account_sync", "account_create", "account_disconnect", "unlink_retry",
             "sync",
@@ -101,6 +106,8 @@ class DeviceConsole:
                 if operation.startswith("profile_")
                 else "Server not configured. Local assessment remains available."
             )
+            if pairing_operation:
+                self.pairing_error = "The learning portal is not configured."
             return
         if operation in remote - {"pair_request", "pair_poll", "unlink_retry"} and not self.credentials.load_safe():
             self.message = (
@@ -298,6 +305,14 @@ class DeviceConsole:
             self.message = f"Wi-Fi error: {error}"
         except Exception:
             self.message = getattr(self, "account_message", None) or "Action unavailable. Check connection or device configuration and retry."
+            if self.completed_operation in {"pair_request", "pair_poll", "account_sync"}:
+                self.pairing_error = {
+                    FailureState.SERVER_ERROR: "The learning portal is temporarily unavailable. Try again in a moment.",
+                    FailureState.OFFLINE: "Could not reach the learning portal. Check Wi-Fi and try again.",
+                    FailureState.TIMEOUT: "The learning portal took too long to respond. Try again.",
+                    FailureState.AUTH_REQUIRED: "Could not verify this connection. Generate a new code to link again.",
+                }.get(self.failure, "Could not connect your account. Try again.")
+                self.message = self.pairing_error
         if self.completed_operation in {"account_sync", "account_create"} and self.failure == FailureState.AUTH_REQUIRED:
             self.account_verified = False
         return True
