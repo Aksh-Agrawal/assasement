@@ -37,6 +37,7 @@ from app.ui_qt.controllers.library_controller import LibraryController
 from app.ui_qt.controllers.profile_controller import ProfileController
 from app.ui_qt.controllers.quick_add_controller import QuickAddController
 from app.ui_qt.controllers.settings_controller import SettingsController
+from app.ui_qt.main import close_qml
 
 
 @pytest.fixture(scope="session")
@@ -1325,11 +1326,12 @@ def test_history_analytics_window_and_cloud_answer_time_denominator(qapp):
     controller._countdown_timer.stop()
 
 
-def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_path):
+def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_path, request):
     """Run the native QML assessment against a disposable SQLite database offline."""
     import hashlib
     import json
     import time
+    from datetime import UTC, timedelta
     from uuid import uuid4
 
     from PySide6.QtCore import QPoint, Qt
@@ -1392,12 +1394,24 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
         app_ctrl.startup_session.complete = True
         app_ctrl._initialize_runtime()
         app_ctrl._poll_timer.stop()  # no connectivity probes or background network activity
-        profile_ctrl = ProfileController(app_ctrl)
-        library_ctrl = LibraryController(app_ctrl)
-        assessment_ctrl = AssessmentController(app_ctrl)
-        settings_ctrl = SettingsController(app_ctrl)
-        quick_add_ctrl = QuickAddController(app_ctrl)
+        profile_ctrl = ProfileController(app_ctrl, parent=app_ctrl)
+        library_ctrl = LibraryController(app_ctrl, parent=app_ctrl)
+        assessment_ctrl = AssessmentController(app_ctrl, parent=app_ctrl)
+        settings_ctrl = SettingsController(app_ctrl, parent=app_ctrl)
+        quick_add_ctrl = QuickAddController(app_ctrl, parent=app_ctrl)
         engine = QQmlApplicationEngine()
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
+        closed = False
+
+        def close():
+            nonlocal closed
+            if not closed:
+                closed = True
+                close_qml(engine, app_ctrl)
+                assert not warnings, "\n".join(warnings)
+
+        request.addfinalizer(close)
         qml = Path("app/ui_qt/qml").resolve()
         engine.addImportPath(str(qml))
         for name, controller in (
@@ -1412,9 +1426,9 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
         library_ctrl._selected_pack_id = qset.id
         library_ctrl._selected_pack_version = qset.version
         qapp.processEvents()
-        return app_ctrl, library_ctrl, assessment_ctrl, settings_ctrl, engine
+        return app_ctrl, library_ctrl, assessment_ctrl, settings_ctrl, engine, close
 
-    app_ctrl, library_ctrl, assessment_ctrl, settings_ctrl, engine = launch()
+    app_ctrl, library_ctrl, assessment_ctrl, settings_ctrl, engine, close = launch()
     assert app_ctrl.config.api_base_url is None
     assessment_ctrl.startTest("practice", 0, 3, "", "", False)
     time.sleep(1.1)  # ensure persisted practice duration has visible sub-minute evidence
@@ -1550,12 +1564,9 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     qapp.processEvents()
     QTest.qWait(60)
     assert window.grabWindow().save(str(capture_dir / "sync-status-error-800x480.png"))
-    engine.deleteLater()
-    qapp.sendPostedEvents()
-    qapp.processEvents()
-    app_ctrl.close()
+    close()
 
-    app_ctrl, library_ctrl, assessment_ctrl, settings_ctrl, engine = launch()
+    app_ctrl, library_ctrl, assessment_ctrl, settings_ctrl, engine, close = launch()
     persisted = assessment_ctrl.historyAnalytics
     assert persisted["attempts"] == 2
     assert (persisted["correct"], persisted["wrong"], persisted["skipped"]) == (2, 1, 1)
@@ -1571,6 +1582,13 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     assert restarted_screenshot.save(str(capture_dir / "progress-after-restart-800x480.png"))
     # Cache a cloud-completed web assessment after restart and open it through
     # the real History row and existing Review screen while the app stays offline.
+    latest_completed = max(item.completed_at for item in app_ctrl.ui_controller.history_items)
+    if latest_completed.tzinfo is None:
+        latest_completed = latest_completed.replace(tzinfo=UTC)
+
+    web_started_at = latest_completed + timedelta(seconds=1)
+    web_completed_at = web_started_at + timedelta(minutes=2)
+
     web_attempt_id = str(uuid4())
     app_ctrl.repository.cache_completed_results(profile.id, link_id, [{
         "attempt_id": web_attempt_id,
@@ -1581,8 +1599,8 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
         "version": 1,
         "title": "Web Memory Check",
         "subject": "Biology",
-        "started_at": "2026-11-14T10:00:00Z",
-        "completed_at": "2026-11-14T10:02:00Z",
+        "started_at": web_started_at.isoformat(),
+        "completed_at": web_completed_at.isoformat(),
         "result": {"score": 4, "maximum_score": 12, "correct": 1, "wrong": 1,
                    "skipped": 1, "duration_ms": 120000, "response_time_ms": 5000,
                    "answered": 2, "confidence": {"sure": {"correct": 1, "wrong": 0}}},
@@ -1607,11 +1625,7 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     assert engine.rootObjects()[0].grabWindow().save(
         str(capture_dir / "web-attempt-review-800x480.png")
     )
-    engine.deleteLater()
-    qapp.sendPostedEvents()
-    qapp.processEvents()
-    app_ctrl.close()
-
+    close()
 
 
 def test_practice_filters_expose_count_presets_and_allow_empty_matches(qapp, mock_repo):

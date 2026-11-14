@@ -190,18 +190,20 @@ def test_repository_context_manager_closes_connection(tmp_path: Path) -> None:
     assert not database_path.exists()
 
 
-def test_phase_8_schema_migrates_without_losing_assessment_data(tmp_path: Path) -> None:
-    """A real version-1 database retains all assessment tables through migration 0002."""
+@pytest.mark.parametrize("installed_schema", [1, 8])
+def test_schema_migrates_without_losing_assessment_data(
+    tmp_path: Path, installed_schema: int
+) -> None:
+    """The supported OTA baseline and legacy databases retain assessment data."""
     prior_migrations = tmp_path / "prior-migrations"
     prior_migrations.mkdir()
-    shutil.copyfile(
-        MIGRATIONS_DIRECTORY / "0001_init.sql",
-        prior_migrations / "0001_init.sql",
-    )
+    for path in sorted(MIGRATIONS_DIRECTORY.glob("*.sql")):
+        if int(path.name.split("_", 1)[0]) <= installed_schema:
+            shutil.copyfile(path, prior_migrations / path.name)
     database_path = tmp_path / "phase8.db"
     connection = connect_database(database_path)
     try:
-        assert run_migrations(connection, prior_migrations) == 1
+        assert run_migrations(connection, prior_migrations) == installed_schema
         connection.execute(
             "INSERT INTO profiles(id, display_name, created_at) VALUES (?, ?, ?)",
             ("profile-1", "Student", "2026-10-17T06:00:00.000Z"),
@@ -268,6 +270,7 @@ def test_phase_8_schema_migrates_without_losing_assessment_data(tmp_path: Path) 
 
     with Repository(database_path) as repository:
         assert repository.schema_version == 9
+        assert repository.integrity_check().ok
         assert repository.get_profile("profile-1") is not None
         assert repository.get_question_set("set-1", 1) is not None
         assert repository.get_attempt("attempt-1") is not None
@@ -275,3 +278,12 @@ def test_phase_8_schema_migrates_without_losing_assessment_data(tmp_path: Path) 
         state = repository.get_attempt_sync_state("attempt-1")
         assert state.status.value == "pending"
         assert state.next_sync_at is None
+
+    # The previous release can reopen the forward-migrated database on rollback.
+    connection = connect_database(database_path)
+    try:
+        assert run_migrations(connection, prior_migrations) == 9
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert connection.execute("SELECT selected_key FROM responses").fetchone()[0] == "A"
+    finally:
+        connection.close()

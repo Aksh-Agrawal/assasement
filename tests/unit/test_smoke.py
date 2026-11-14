@@ -9,7 +9,9 @@ from app.input.actions import Action
 
 
 def test_app_package_imports() -> None:
-    assert app.__version__ == "0.1.0"
+    from app.version import __version__ as canonical_version
+
+    assert app.__version__ == canonical_version
 
 
 def test_main_module_is_importable() -> None:

@@ -35,6 +35,7 @@ include = ["app*", "tools*", "schemas"]
 [tool.setuptools.package-data]
 schemas = ["*.json"]
 "app.data" = ["migrations/*.sql"]
+"app.ui_qt" = ["qml/qmldir", "qml/*.qml", "qml/*/*.qml", "qml/icons/*.svg", "assets/*.svg", "assets/*/*.svg"]
 
 [tool.setuptools.exclude-package-data]
 tools = ["approve_pairing.py", "revoke_device.py"]

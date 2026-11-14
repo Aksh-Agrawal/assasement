@@ -2,13 +2,14 @@ name: Publish signed Raspberry Pi release
 
 on:
   push:
+    branches: ["main"]
     tags: ["v*.*.*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  validate:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
@@ -27,20 +28,74 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
+          test "$(uname -m)" = aarch64
+          python -c 'import sys; assert sys.version_info[:2] == (3, 13)'
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            test "$GITHUB_REF_NAME" = "v$(python -c 'from app import __version__; print(__version__)')"
+          fi
           ruff check .
           pytest -q -m 'not cloud_integration'
           python -m tools.release_check --offline
+      - name: Install and smoke-test the signed release with an ephemeral key
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          WORK="$(mktemp -d)"
+          trap 'rm -rf "$WORK"' EXIT
+          VERSION="$(python -c 'from app import __version__; print(__version__)')"
+          python -m tools.generate_update_keys --private "$WORK/test.pem" --public "$WORK/test.pub"
+          python -m tools.build_release --version "$VERSION" --private-key "$WORK/test.pem" \
+            --output "$WORK/dist" --min-supported-version 0.1.0 --required-db-schema 8
+          python -m tools.verify_release "$WORK/dist/update-manifest.json" \
+            "$WORK/dist/update-manifest.sig" "$WORK/dist/assessment-device-${VERSION}.tar.gz" \
+            --public-key "$WORK/test.pub" --current-version 0.1.0 \
+            --platform linux --architecture aarch64 --db-schema 8
+          mkdir "$WORK/source" "$WORK/runtime"
+          tar -xzf "$WORK/dist/assessment-device-${VERSION}.tar.gz" -C "$WORK/source"
+          python -m venv "$WORK/installed"
+          "$WORK/installed/bin/python" -m pip install "$WORK/source[gui]"
+          cd "$WORK/runtime"
+          export ASSESS_DATA_DIR="$WORK/runtime"
+          "$WORK/installed/bin/python" -m app.ui_qt.main --db "$WORK/runtime/device.db" --smoke-test
+          "$WORK/installed/bin/python" - "$VERSION" <<'PY'
+          import sys
+          from importlib.metadata import version
+          from pathlib import Path
+          from app import __version__
+          from app.data.repo import Repository
+          assert version("offline-assessment-device") == __version__ == sys.argv[1]
+          with Repository(Path("device.db")) as repo:
+              assert repo.schema_version >= 9
+              assert repo.integrity_check().ok
+          PY
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: validate
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -e .
       - name: Build and verify signed ARM64 artifact
         env:
           UPDATE_SIGNING_PRIVATE_KEY_B64: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_B64 }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          mkdir -p "$RUNNER_TEMP/update-key"
-          echo "$UPDATE_SIGNING_PRIVATE_KEY_B64" | base64 --decode > "$RUNNER_TEMP/update-key/signing.pem"
-          chmod 600 "$RUNNER_TEMP/update-key/signing.pem"
+          test "$VERSION" = "$(python -c 'from app import __version__; print(__version__)')"
+          test -n "$UPDATE_SIGNING_PRIVATE_KEY_B64"
+          umask 077
+          KEY_DIR="$(mktemp -d "$RUNNER_TEMP/update-key.XXXXXX")"
+          trap 'rm -rf "$KEY_DIR"' EXIT
+          printf '%s' "$UPDATE_SIGNING_PRIVATE_KEY_B64" | base64 --decode > "$KEY_DIR/signing.pem"
           python -m tools.build_release \
             --version "$VERSION" \
-            --private-key "$RUNNER_TEMP/update-key/signing.pem" \
+            --private-key "$KEY_DIR/signing.pem" \
             --output dist/update \
             --key-id questraa-stable-1 \
             --platform linux \
@@ -48,11 +103,11 @@ jobs:
             --min-supported-version 0.1.0 \
             --required-db-schema 8 \
             --notes "Questraa device software ${VERSION}"
-          python - <<'PY'
-          import os
+          python - "$KEY_DIR" <<'PY'
+          import sys
           from pathlib import Path
           from cryptography.hazmat.primitives import serialization
-          key_dir = Path(os.environ["RUNNER_TEMP"]) / "update-key"
+          key_dir = Path(sys.argv[1])
           private = serialization.load_pem_private_key((key_dir / "signing.pem").read_bytes(), password=None)
           (key_dir / "public.pem").write_bytes(private.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo))
           PY
@@ -60,7 +115,7 @@ jobs:
             dist/update/update-manifest.json \
             dist/update/update-manifest.sig \
             "dist/update/assessment-device-${VERSION}.tar.gz" \
-            --public-key "$RUNNER_TEMP/update-key/public.pem" \
+            --public-key "$KEY_DIR/public.pem" \
             --current-version 0.1.0 \
             --platform linux \
             --architecture aarch64 \
@@ -79,30 +134,42 @@ jobs:
           UPDATE_CLOUD_URL: ${{ secrets.UPDATE_CLOUD_URL }}
           UPDATE_ADMIN_EMAIL: ${{ secrets.UPDATE_ADMIN_EMAIL }}
           UPDATE_ADMIN_PASSWORD: ${{ secrets.UPDATE_ADMIN_PASSWORD }}
+          UPDATE_CLOUD_ORIGIN: ${{ vars.UPDATE_CLOUD_ORIGIN || 'https://startup-cloud-1.onrender.com' }}
         run: |
           python - <<'PY'
           import base64, http.cookiejar, json, os, pathlib, urllib.request
+          from urllib.parse import urlsplit
           base = os.environ["UPDATE_CLOUD_URL"].rstrip("/")
+          origin = os.environ["UPDATE_CLOUD_ORIGIN"].rstrip("/")
+          for value in (base, origin):
+              url = urlsplit(value)
+              if url.scheme != "https" or not url.hostname or url.path or url.query or url.fragment or url.username:
+                  raise SystemExit("Set UPDATE_CLOUD_URL and UPDATE_CLOUD_ORIGIN to exact HTTPS origins")
           version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
           opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-          def post(url, body):
-              data = json.dumps(body).encode()
-              request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+          def call(path, data=None):
+              request = urllib.request.Request(base + path, data=data, headers={
+                  "Content-Type": "application/json", "Origin": origin,
+              })
               with opener.open(request, timeout=90) as response:
                   return json.load(response)
-          post(base + "/api/v1/admin/auth/login", {
+          call("/api/v1/admin/auth/login", json.dumps({
               "email": os.environ["UPDATE_ADMIN_EMAIL"],
               "password": os.environ["UPDATE_ADMIN_PASSWORD"],
-          })
+          }).encode())
           root = pathlib.Path("dist/update")
           manifest = json.loads((root / "update-manifest.json").read_text())
           artifact = root / manifest["artifact"]["filename"]
-          result = post(base + "/api/v1/admin/releases", {
+          body = json.dumps({
               "manifest": manifest,
               "signature": base64.b64encode((root / "update-manifest.sig").read_bytes()).decode(),
               "artifact_base64": base64.b64encode(artifact.read_bytes()).decode(),
-          })
+          }).encode()
+          settings = call("/api/v1/admin/settings")
+          if len(body) > settings["max_upload_bytes"]:
+              raise SystemExit("Release payload exceeds the cloud MAX_UPLOAD_BYTES limit")
+          result = call("/api/v1/admin/releases", body)
           if result.get("status") != "published" or result.get("version") != version:
-              raise SystemExit(f"Cloud release publication failed: {result}")
+              raise SystemExit("Cloud release publication did not confirm the expected version")
           print(f"Published Questraa {version} to the authenticated device catalog")
           PY

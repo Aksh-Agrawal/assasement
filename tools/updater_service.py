@@ -87,6 +87,21 @@ def _activation_metadata(current: str | None, previous: str | None, state: str) 
     temporary.replace(path)
 
 
+def _smoke_test_release(release: Path, scratch: Path) -> bool:
+    env = dict(os.environ)
+    for setting, suffix in {
+        "DATA_DIR": "", "SQLITE_PATH": "device.db", "CREDENTIAL_PATH": "credentials.json",
+        "PACK_DIR": "packs", "MEDIA_DIR": "media", "DOWNLOAD_DIR": "downloads",
+        "LOG_DIR": "log", "UPDATE_DIR": "updates", "UPDATE_INBOX": "inbox",
+    }.items():
+        env[f"ASSESS_{setting}"] = str(scratch / suffix)
+    env.update(QT_QPA_PLATFORM="offscreen", PYTHONDONTWRITEBYTECODE="1")
+    return subprocess.run(
+        [str(release / ".venv" / "bin/python"), "-m", "app.ui_qt.main", "--smoke-test"],
+        cwd=release, env=env, capture_output=True, text=True, timeout=90,
+    ).returncode == 0
+
+
 def recover_interrupted_install() -> int:
     """Run before the kiosk at boot to finish or reverse a power-cut update."""
     if os.geteuid() != 0:
@@ -116,14 +131,9 @@ def recover_interrupted_install() -> int:
         return 0
     if selected_version != version:
         raise RuntimeError("Interrupted update points to an unexpected release")
-    python = selected / ".venv" / "bin/python"
-    smoke = subprocess.run(
-        [str(python), "-m", "app.ui_qt.main", "--db", str(UPDATE_ROOT / "recovery-smoke.db"), "--smoke-test"],
-        cwd=selected, env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "PYTHONDONTWRITEBYTECODE": "1"},
-        capture_output=True, text=True, timeout=90,
-    )
-    if smoke.returncode == 0:
-        (UPDATE_ROOT / "recovery-smoke.db").unlink(missing_ok=True)
+    with tempfile.TemporaryDirectory(prefix="assessdev-recovery-") as scratch:
+        smoke_ok = _smoke_test_release(selected, Path(scratch))
+    if smoke_ok:
         _install_stable_helper(selected)
         _status("successful", version, "Recovered after an unexpected restart")
         _activation_metadata(version, old_version, "healthy")
@@ -188,7 +198,7 @@ def _restore_data_backup(database: Path, backup_db: Path | None, credential_path
         temporary.replace(credential_path)
 
 
-def _run_migration_probe(python: Path, database: Path, *, expected_success: bool) -> bool:
+def _run_migration_probe(release: Path, database: Path) -> bool:
     code = (
         "from app.data.repo import Repository; "
         f"r=Repository({str(database)!r}); "
@@ -196,10 +206,11 @@ def _run_migration_probe(python: Path, database: Path, *, expected_success: bool
         "assert r.integrity_check().ok; r.close()"
     )
     result = subprocess.run(
-        [str(python), "-c", code], capture_output=True, text=True, timeout=120,
+        [str(release / ".venv" / "bin/python"), "-I", "-c", code],
+        cwd=release, capture_output=True, text=True, timeout=120,
         env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     )
-    return (result.returncode == 0) is expected_success
+    return result.returncode == 0
 
 
 def _protected_data_snapshot(database: Path) -> dict[str, list[tuple]]:
@@ -241,6 +252,20 @@ def _install_stable_helper(release: Path) -> None:
     os.chmod(temporary, 0o755)
     os.chown(temporary, 0, 0)
     temporary.replace(destination)
+
+
+def _set_release_permissions(release: Path, group_id: int) -> None:
+    """Let the kiosk read the root-owned release created under systemd's 0077 umask."""
+    for directory, _subdirs, files in os.walk(release):
+        os.chown(directory, 0, group_id)
+        os.chmod(directory, 0o750)
+        for name in files:
+            path = Path(directory) / name
+            if path.is_symlink():
+                continue
+            executable = path.stat().st_mode & stat.S_IXUSR
+            os.chown(path, 0, group_id)
+            path.chmod(0o750 if executable else 0o640)
 
 
 def _healthy(version: str, previous_pid: str) -> bool:
@@ -382,18 +407,16 @@ def main() -> int:
             with sqlite3.connect(config.database_path) as source, sqlite3.connect(probe_db) as target:
                 source.backup(target)
         protected_before = _protected_data_snapshot(probe_db)
-        if not _run_migration_probe(new_venv / "bin/python", probe_db, expected_success=True):
+        if not _run_migration_probe(staged, probe_db):
             raise RuntimeError("The update could not safely migrate a test copy of local data")
         if _protected_data_snapshot(probe_db) != protected_before:
             raise RuntimeError("The migration changed or removed saved student assessment data")
-        # Rollback must still read the new, forward-migrated schema.
-        smoke_db = work / "ui-smoke.db"
-        smoke = subprocess.run(
-            [str(new_venv / "bin/python"), "-m", "app.ui_qt.main", "--db", str(smoke_db), "--smoke-test"],
-            cwd=staged, env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "PYTHONDONTWRITEBYTECODE": "1"},
-            capture_output=True, text=True, timeout=90,
-        )
-        if smoke.returncode:
+        if not _run_migration_probe(old_release, probe_db):
+            raise RuntimeError("The previous release could not open the migrated database")
+        if _protected_data_snapshot(probe_db) != protected_before:
+            raise RuntimeError("The previous release changed protected data in the rollback probe")
+
+        if not _smoke_test_release(staged, work / "ui-smoke"):
             raise RuntimeError("The update failed the Qt startup check")
 
         release_dir = APP_ROOT / "releases" / version
@@ -401,47 +424,45 @@ def main() -> int:
             raise RuntimeError("That release version is already installed")
         release_dir.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(staged), str(release_dir))
-        shutil.chown(release_dir, user="root", group=service_group)
-        for directory, _subdirs, files in os.walk(release_dir):
-            os.chown(directory, 0, assess_gid)
-            for name in files:
-                os.chown(Path(directory) / name, 0, assess_gid)
+        _set_release_permissions(release_dir, assess_gid)
 
         old_pid = subprocess.run(
             ["/usr/bin/systemctl", "show", UI_UNIT, "--property=MainPID", "--value"],
             capture_output=True, text=True, check=False,
         ).stdout.strip()
         _systemctl("stop", UI_UNIT)
-        backup = _backup_database(config.database_path, credential_path=config.credential_path)
-        transaction_tmp = TRANSACTION.with_suffix(".tmp")
-        transaction_tmp.write_text(json.dumps({
-            "version": version, "previous": old_version,
-            "database_backup": str(backup) if backup else None,
-        }), encoding="utf-8")
-        transaction_tmp.replace(TRANSACTION)
-        next_link = APP_ROOT / "current.next"
-        next_link.unlink(missing_ok=True)
-        next_link.symlink_to(release_dir)
-        next_link.replace(current_link)
-        _activation_metadata(version, old_version, "activating")
-        _systemctl("start", UI_UNIT)
-        if _healthy(version, old_pid):
+        backup = None
+        try:
+            backup = _backup_database(config.database_path, credential_path=config.credential_path)
+            transaction_tmp = TRANSACTION.with_suffix(".tmp")
+            transaction_tmp.write_text(json.dumps({
+                "version": version, "previous": old_version,
+                "database_backup": str(backup) if backup else None,
+            }), encoding="utf-8")
+            transaction_tmp.replace(TRANSACTION)
+            next_link = APP_ROOT / "current.next"
+            next_link.unlink(missing_ok=True)
+            next_link.symlink_to(release_dir)
+            next_link.replace(current_link)
+            _activation_metadata(version, old_version, "activating")
+            _systemctl("start", UI_UNIT)
+            if not _healthy(version, old_pid):
+                raise RuntimeError("Updated service failed its health check")
             _install_stable_helper(release_dir)
-            _status("successful", version)
+        except Exception as error:
+            _systemctl("stop", UI_UNIT)
+            _restore_data_backup(config.database_path, backup, config.credential_path)
+            previous_link = APP_ROOT / "current.rollback"
+            previous_link.unlink(missing_ok=True)
+            previous_link.symlink_to(old_release)
+            previous_link.replace(current_link)
+            _activation_metadata(old_version, version, "rolled_back")
+            _systemctl("start", UI_UNIT)
+            _status("rolled_back", version, f"Restored application {old_version}: {type(error).__name__}")
+        else:
             _activation_metadata(version, old_version, "healthy")
-            TRANSACTION.unlink(missing_ok=True)
-            REQUEST.unlink(missing_ok=True)
-            return 0
+            _status("successful", version)
 
-        _systemctl("stop", UI_UNIT, check=False)
-        _restore_data_backup(config.database_path, backup, config.credential_path)
-        previous_link = APP_ROOT / "current.rollback"
-        previous_link.unlink(missing_ok=True)
-        previous_link.symlink_to(old_release)
-        previous_link.replace(current_link)
-        _activation_metadata(old_version, version, "rolled_back")
-        _systemctl("start", UI_UNIT, check=False)
-        _status("rolled_back", version, f"Restored application {old_version}; local data backup: {backup or 'not needed'}")
         TRANSACTION.unlink(missing_ok=True)
         REQUEST.unlink(missing_ok=True)
         return 0

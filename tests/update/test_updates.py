@@ -2,7 +2,9 @@
 
 import base64
 import json
+import os
 import sqlite3
+import stat
 import tarfile
 from io import BytesIO
 from pathlib import Path
@@ -76,6 +78,77 @@ def test_valid_signed_release_and_semantic_version(tmp_path: Path) -> None:
     second = tmp_path / "second.tar.gz"
     build_artifact(Path.cwd(), second, "0.10.0")
     assert artifact.read_bytes() == second.read_bytes()
+
+
+def test_release_archive_excludes_runtime_state_and_keeps_qml_resources(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    inputs = (
+        "pyproject.toml", "README.md", "setup.py", "app/version.py",
+        "app/ui_qt/qml/App.qml", "app/ui_qt/qml/qmldir",
+        "app/ui_qt/qml/screens/ReviewScreen.qml", "app/ui_qt/qml/icons/history.svg",
+        "app/data/migrations/0009_numerical_answers.sql", "schemas/update_manifest.schema.json",
+    )
+    excluded = (
+        "app/data/live.db", "app/device_credentials.json", "tools/private.pem",
+        "app/ui_qt/assets/student.png", "app/ui_qt/qml/.local/draft.qml", "var/attempts.db",
+    )
+    for name in (*inputs, *excluded):
+        target = source / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("sample", encoding="utf-8")
+    artifact = tmp_path / "release.tar.gz"
+    build_artifact(source, artifact, "0.1.1")
+    with tarfile.open(artifact) as archive:
+        assert set(archive.getnames()) == {*inputs, "release.json"}
+        assert json.load(archive.extractfile("release.json")) == {"version": "0.1.1"}
+
+
+def test_systemd_private_umask_does_not_block_kiosk_release_access(tmp_path, monkeypatch) -> None:
+    release = tmp_path / "release"
+    applications = release / "app"
+    applications.mkdir(parents=True, mode=0o700)
+    source = applications / "main.py"
+    source.write_text("pass\n", encoding="utf-8")
+    source.chmod(0o600)
+    executable = release / "launcher"
+    executable.touch(mode=0o700)
+    owned = {}
+    monkeypatch.setattr(os, "chown", lambda path, uid, gid: owned.update({Path(path): (uid, gid)}),
+                        raising=False)
+
+    updater_service._set_release_permissions(release, 1234)
+
+    assert set(owned) == {release, applications, source, executable}
+    assert set(owned.values()) == {(0, 1234)}
+    if os.name == "posix":
+        assert stat.S_IMODE(release.stat().st_mode) == 0o750
+        assert stat.S_IMODE(applications.stat().st_mode) == 0o750
+        assert stat.S_IMODE(source.stat().st_mode) == 0o640
+        assert stat.S_IMODE(executable.stat().st_mode) == 0o750
+
+
+def test_updater_smoke_uses_only_disposable_state(tmp_path, monkeypatch) -> None:
+    real_data = tmp_path / "persistent"
+    monkeypatch.setenv("ASSESS_DATA_DIR", str(real_data))
+    monkeypatch.setenv("ASSESS_SQLITE_PATH", str(real_data / "live.db"))
+    monkeypatch.setenv("ASSESS_LOG_DIR", str(real_data / "log"))
+    release = tmp_path / "release"
+    scratch = tmp_path / "smoke"
+    calls = []
+
+    def smoke(command, **options):
+        calls.append((command, options))
+        return updater_service.subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(updater_service.subprocess, "run", smoke)
+    assert updater_service._smoke_test_release(release, scratch)
+    [(command, options)] = calls
+    assert command[-3:] == ["-m", "app.ui_qt.main", "--smoke-test"]
+    assert options["cwd"] == release
+    assert options["env"]["ASSESS_DATA_DIR"] == str(scratch)
+    assert options["env"]["ASSESS_SQLITE_PATH"] == str(scratch / "device.db")
+    assert options["env"]["ASSESS_LOG_DIR"] == str(scratch / "log")
+    assert options["env"]["ASSESS_CREDENTIAL_PATH"] == str(scratch / "credentials.json")
 
 
 def test_tampered_manifest_artifact_wrong_key_and_bad_schema(tmp_path: Path) -> None:

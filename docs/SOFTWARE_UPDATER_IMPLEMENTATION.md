@@ -29,14 +29,21 @@ The service deliberately requires additive, migration-safe releases. It probes t
 
 ## Release publishing
 
-`.github/workflows/device-release.yml` runs on a `vMAJOR.MINOR.PATCH` tag using an ARM64 Ubuntu runner and Python 3.13. It runs lint, device tests and offline release checks; builds and verifies the signed Linux/aarch64 release artifact; attaches the manifest, signature and artifact to a GitHub Release; then signs in to the cloud admin API and publishes the release into its immutable authenticated device catalog. No cloud frontend change is involved.
+`.github/workflows/device-release.yml` validates pushes to `main` and version tags on ARM64 Ubuntu with Python 3.13. Validation runs lint, the device tests, the offline readiness checks and an installed-package Qt smoke test with an ephemeral signing key. Only a version tag whose version matches the application can reach the production signing and publication job.
 
 Before the workflow can publish:
 
 - The cloud service needs `RELEASE_PUBLIC_KEYS` set to JSON mapping `questraa-stable-1` to the base64 encoded raw Ed25519 public key. Set `MAX_UPLOAD_BYTES` high enough for the base64 encoded artifact plus JSON (the existing default is 25 MiB).
 - Configure GitHub Actions secrets `UPDATE_SIGNING_PRIVATE_KEY_B64`, `UPDATE_CLOUD_URL`, `UPDATE_ADMIN_EMAIL` and `UPDATE_ADMIN_PASSWORD`.
+- The release upload uses an authenticated cookie and the backend checks its Origin header. The workflow defaults to `https://startup-cloud-1.onrender.com`. Set the optional GitHub Actions variable `UPDATE_CLOUD_ORIGIN` to another exact HTTPS origin in `CORS_ALLOWED_ORIGINS` if the frontend changes.
 - Put only the PEM public key on the Pi at `/etc/assessdev/update-public.pem`. Never place the private signing key on the device or in the repository.
-- The workflow currently targets `linux/aarch64`, installed database schema 8 and minimum app version 0.1.0. Change those release policy values deliberately when support policy changes.
+- The v0.1.1 workflow targets `linux/aarch64`, requires app 0.1.0 or later and accepts an installed SQLite schema of 8 or later. The package migrates schema 8 to 9. The regression test verifies existing responses, pending sync state and question-set pins survive the migration.
+
+### Existing 0.1.0 installations
+
+The 0.1.0 updater installed by the original bootstrap creates its staging tree under `UMask=0077`. It changes ownership on the new release, but does not grant the kiosk group access to those files. If the installed helper still has that implementation, the kiosk cannot read the first OTA release and the corrected helper inside that release never becomes active.
+
+Before publishing this OTA, identify the installed helper and its unit configuration with read-only checks. If the permissions fix is missing, update the standalone helper through an approved maintenance session using the reviewed release source. Keep the existing managed release, database, credentials and content paths in place. Verify the service account can traverse and read a staged release before attempting the one-click update.
 
 The workflow itself does not require a human environment approval. Because a matching `v*.*.*` tag can access the Ed25519 signing key and cloud admin credentials, protect that tag pattern in GitHub rulesets and restrict tag creation to release maintainers before enabling the secrets. The cloud route validates the admin session, manifest schema, trusted Ed25519 signature, artifact hash and immutable version. The cloud schema was checked locally; production cloud configuration was not changed.
 

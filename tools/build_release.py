@@ -20,7 +20,22 @@ from app.update.manifest import canonical_manifest_bytes
 def _files(root: Path) -> list[Path]:
     files = [root / "pyproject.toml", root / "setup.py", root / "README.md"]
     for directory in (root / "app", root / "schemas", root / "tools"):
-        files.extend(path for path in directory.rglob("*") if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc" and path.name not in {"approve_pairing.py", "revoke_device.py"})
+        for path in directory.rglob("*"):
+            relative = path.relative_to(root)
+            if not path.is_file() or path.is_symlink() or any(
+                part.startswith(".") or part == "__pycache__" for part in relative.parts
+            ):
+                continue
+            if path.name in {"approve_pairing.py", "revoke_device.py"}:
+                continue
+            if (path.suffix == ".py"
+                or relative.parent == Path("app/data/migrations") and path.suffix == ".sql"
+                or relative.parent == Path("schemas") and path.suffix == ".json"
+                or relative.is_relative_to("app/ui_qt/qml")
+                and (path.suffix in {".qml", ".svg"} or path.name == "qmldir")
+                or relative.is_relative_to("app/ui_qt/assets") and path.suffix == ".svg"
+            ):
+                files.append(path)
     return sorted(files, key=lambda path: path.relative_to(root).as_posix())
 
 

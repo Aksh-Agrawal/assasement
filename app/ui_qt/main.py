@@ -9,7 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QCoreApplication, QEvent, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -24,6 +24,13 @@ from app.ui_qt.controllers.quick_add_controller import QuickAddController
 from app.ui_qt.controllers.settings_controller import SettingsController
 
 LOGGER = logging.getLogger(__name__)
+
+
+def close_qml(engine: QQmlApplicationEngine, controller: AppController) -> None:
+    """Destroy QML bindings before their Python objects and database go away."""
+    engine.deleteLater()
+    QCoreApplication.sendPostedEvents(engine, QEvent.Type.DeferredDelete)
+    controller.close()
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -93,11 +100,11 @@ def run(
 
     # Initialize controllers
     app_controller = AppController(database_path, config, credentials)
-    profile_controller = ProfileController(app_controller)
-    library_controller = LibraryController(app_controller)
-    assessment_controller = AssessmentController(app_controller)
-    settings_controller = SettingsController(app_controller)
-    quick_add_controller = QuickAddController(app_controller)
+    profile_controller = ProfileController(app_controller, parent=app_controller)
+    library_controller = LibraryController(app_controller, parent=app_controller)
+    assessment_controller = AssessmentController(app_controller, parent=app_controller)
+    settings_controller = SettingsController(app_controller, parent=app_controller)
+    quick_add_controller = QuickAddController(app_controller, parent=app_controller)
 
     # Expose to QML root context
     root_context = engine.rootContext()
@@ -110,32 +117,36 @@ def run(
 
     # Load main App.qml
     main_qml = qml_dir / "App.qml"
-    engine.load(QUrl.fromLocalFile(str(main_qml)))
-
-    if not engine.rootObjects():
-        sys.stderr.write(f"Failed to load QML root object from {main_qml}\n")
-        return 1
-
-    root_window = engine.rootObjects()[0]
-
-    if fullscreen:
-        root_window.showFullScreen()
-    else:
-        root_window.show()
-
-    if smoke_test:
-        app_controller.advanceStartup()
-        app_controller.close()
-        return 0
-
-    from app.sync.scheduler import AutoSyncScheduler
-    scheduler = AutoSyncScheduler(replace(config, database_path=database_path, credential_path=credentials.path))
-    scheduler.start()
     try:
-        return app.exec()
+        engine.load(QUrl.fromLocalFile(str(main_qml)))
+        if not engine.rootObjects():
+            sys.stderr.write(f"Failed to load QML root object from {main_qml}\n")
+            return 1
+
+        root_window = engine.rootObjects()[0]
+        if fullscreen:
+            root_window.showFullScreen()
+        else:
+            root_window.show()
+
+        if smoke_test:
+            startup = app_controller.startup_session
+            while not startup.complete and not startup.failed:
+                app_controller.advanceStartup()
+            return int(startup.failed or app_controller.screen == "recovery")
+
+        from app.sync.scheduler import AutoSyncScheduler
+
+        scheduler = AutoSyncScheduler(
+            replace(config, database_path=database_path, credential_path=credentials.path)
+        )
+        try:
+            scheduler.start()
+            return app.exec()
+        finally:
+            scheduler.close()
     finally:
-        scheduler.close()
-        app_controller.close()
+        close_qml(engine, app_controller)
 
 
 def main() -> int:
