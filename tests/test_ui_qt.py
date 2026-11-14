@@ -971,6 +971,13 @@ def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path,
         window = engine.rootObjects()[0]
         qapp.processEvents()
         assert settings.accountName == repo.get_student_account_context()["display_name"]
+        sync_button = window.findChild(QObject, "accountSyncButton")
+        assert sync_button.property("text") == "Sync Now"
+        with monkeypatch.context() as patch:
+            sync = Mock(wraps=app.device.start)
+            patch.setattr(app.device, "start", sync)
+            assert QMetaObject.invokeMethod(sync_button, "clicked")
+            sync.assert_called_once_with("sync")
         dialog = window.findChild(QObject, "unlinkConfirmation")
         assert dialog is not None
         # ListView delegates are visual children rather than QObject children of the window.
@@ -1087,6 +1094,20 @@ def test_auto_sync_toggle_persists_and_manual_sync_remains_available(qapp, tmp_p
         ctrl._poll_timer.stop()
     with Repository(path) as repo:
         assert repo.get_setting("automatic_sync") == "0"
+
+
+def test_qt_library_download_uses_the_selected_study_profile(qapp):
+    from app.content.catalog import RemotePack
+    from tests.content.test_profile_library import metadata
+
+    pack = RemotePack.from_dict(metadata(Path("content/sample_biology.json").read_bytes()))
+    app = Mock()
+    app.ui_controller.remote_packs = (pack,)
+    app.ui_controller.selected_profile = Profile("selected", "Student")
+
+    LibraryController(app).downloadPack(pack.set_id, pack.version)
+
+    app.device.start.assert_called_once_with("download", pack=pack, local_profile_id="selected")
 
 
 def test_unpaired_profile_creation_requires_an_account(qapp, tmp_path, monkeypatch):

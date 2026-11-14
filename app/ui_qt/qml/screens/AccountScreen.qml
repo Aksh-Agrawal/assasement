@@ -125,17 +125,19 @@ Rectangle {
                     Item { width: 1; height: Spacing.xs }
 
                     PrimaryButton {
+                        objectName: "accountSyncButton"
                         width: parent.width
                         preferredHeight: Metrics.touchNormal
                         text: settingsController.unlinkPending ? "Retry Unlink"
-                              : settingsController.hasAccount && settingsController.isPaired ? "Sync Study Profiles" : "Link Account"
-                        enabled: !settingsController.accountActionBusy
+                              : settingsController.isSyncing ? "Syncing…"
+                              : settingsController.hasAccount && settingsController.isPaired ? "Sync Now" : "Link Account"
+                        enabled: !settingsController.accountActionBusy && !settingsController.isSyncing
                         iconSource: Assets.sync
                         onClicked: {
                             if (settingsController.unlinkPending) {
                                 settingsController.retryUnlink();
                             } else if (settingsController.hasAccount && settingsController.isPaired) {
-                                settingsController.syncProfiles();
+                                settingsController.startSync();
                             } else {
                                 appController.navigate("pairing");
                             }

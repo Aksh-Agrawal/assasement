@@ -155,7 +155,7 @@ class ContentApiClient:
 
     def fetch_changes(self):
         response = self._client.get(f"/api/v1/profile-content/{self.link_id}/operations",
-            params={"local_profile_id": self.local_profile_id})
+            params={"local_profile_id": self.local_profile_id, "pack_schema": SUPPORTED_SCHEMA_VERSION})
         if response.status_code == 404:
             return None  # Compatible with a cloud rollout preceding/following the Pi.
         self._check_response(response)

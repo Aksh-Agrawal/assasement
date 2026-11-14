@@ -140,12 +140,9 @@ Rectangle {
                         anchors.centerIn: parent
                         visible: settingsController.installedPacks.length === 0
                         title: "No Practice Packs Downloaded"
-                        description: "Add questions instantly from your phone using QR code, or browse available subjects."
-                        actionText: "Quick Add Questions"
-                        onActionClicked: {
-                            quickAddController.startQuickAdd(profileController.activeProfileId);
-                            appController.navigate("quick_add");
-                        }
+                        description: "On the website, choose this Study Profile and use Send to Pi on a pack. Then sync to download it."
+                        actionText: "Open Sync"
+                        onActionClicked: appController.navigate("sync")
                     }
 
                     ListView {

@@ -92,6 +92,10 @@ def _run_cycle(config: AppConfig, *, heartbeat: bool = True, refresh: bool = Fal
             repository.set_setting("connectivity_sync", "Syncing")
         deliveries_ok = True
         if refresh:
+            from app.sync.history import sync_history
+
+            history_ok = sync_history(repository, api)
+            stages["history"] = "OK" if history_ok else "History needs a retry"
             # Student delivery jobs run in this background worker, never the GUI thread.
             from app.content.profile_library import sync_profile_deliveries
             deliveries_ok = sync_profile_deliveries(repository, api, config) is not False
@@ -100,9 +104,6 @@ def _run_cycle(config: AppConfig, *, heartbeat: bool = True, refresh: bool = Fal
                 repository.set_setting("connectivity_sync", "Failed")
             from app.content.institute_work import sync_institute_work
             stages["institute"] = "OK" if sync_institute_work(repository, api, config) else "Unavailable"
-            from app.sync.history import sync_history
-            history_ok = sync_history(repository, api)
-            stages["history"] = "OK" if history_ok else "History fetch failed"
             if not deliveries_ok or not history_ok:
                 result = replace(result, stage_failures=result.stage_failures +
                                  int(not deliveries_ok) + int(not history_ok))

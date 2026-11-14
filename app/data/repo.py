@@ -409,8 +409,8 @@ class Repository:
             same_attempt = bool(old and all(old.get(field) == item.get(field) for field in (
                 "study_profile_id", "source", "set_id", "version", "completed_at"
             )))
-            if same_attempt and not detail and old.get("review"):
-                item = {**item, "review": old["review"],
+            if same_attempt and not detail and (old.get("review") or "review_available" in old and detail is None):
+                item = {**item, "review": old.get("review", []),
                         "review_available": old.get("review_available", True)}
             if item.get("review") and item.get("review_available") is False:
                 raise ValueError("Review data cannot be marked unavailable")

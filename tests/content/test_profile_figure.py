@@ -37,7 +37,7 @@ def test_profile_figure_fetch_uses_link_and_checks_exact_png_digest() -> None:
     assert seen["auth"] == "Bearer device-token"
 
 
-def test_profile_catalog_and_download_request_supported_pack_schema() -> None:
+def test_profile_operations_catalog_and_download_request_supported_pack_schema() -> None:
     data = Path("content/sample_biology.json").read_bytes()
     document = json.loads(data)
     pack = document["set"]
@@ -51,6 +51,8 @@ def test_profile_catalog_and_download_request_supported_pack_schema() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
+        if request.url.path.endswith("/operations"):
+            return httpx.Response(200, json={"snapshot_token": "snapshot", "removals": []})
         if request.url.path.endswith("/catalog"):
             return httpx.Response(200, json={
                 "schema_version": 1, "packs": [item], "next_offset": None,
@@ -60,12 +62,13 @@ def test_profile_catalog_and_download_request_supported_pack_schema() -> None:
     with ContentApiClient("https://cloud.example", auth_token="device-token",
                           local_profile_id="local-profile", link_id="link-uuid",
                           transport=httpx.MockTransport(handler)) as client:
+        assert client.fetch_changes()["snapshot_token"] == "snapshot"
         remote = client.fetch_catalog().packs[0]
         with client.stream_pack(remote) as response:
             assert response.read() == data
 
     assert [request.url.params.get("pack_schema") for request in requests] == [
-        str(SUPPORTED_SCHEMA_VERSION), str(SUPPORTED_SCHEMA_VERSION),
+        str(SUPPORTED_SCHEMA_VERSION), str(SUPPORTED_SCHEMA_VERSION), str(SUPPORTED_SCHEMA_VERSION),
     ]
     assert all(request.url.params.get("local_profile_id") == "local-profile"
                for request in requests)

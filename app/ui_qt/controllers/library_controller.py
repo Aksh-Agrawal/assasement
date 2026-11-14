@@ -202,13 +202,14 @@ class LibraryController(QObject):
 
     @Slot(str, int)
     def downloadPack(self, pack_id: str, version: int):
-        if not self.app.device:
+        if not self.app.device or not self.app.ui_controller:
             return
         # Find matching remote pack
         for r in self.app.ui_controller.remote_packs:
             if r.set_id == pack_id and r.version == version:
-                self.app.device.start("download", pack=r)
-                self.app.showNotification(f"Downloading {r.title}…", "info")
+                profile = self.app.ui_controller.selected_profile
+                self.app.device.start("download", pack=r, local_profile_id=profile.id if profile else None)
+                self.app.showNotification(self.app.device.message, "info" if self.app.device.busy else "warning")
                 self.selectionChanged.emit()
                 return
         self.app.showNotification("Pack not found in catalog.", "warning")

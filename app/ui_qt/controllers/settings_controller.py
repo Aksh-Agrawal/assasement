@@ -167,11 +167,12 @@ class SettingsController(QObject):
 
     @Property(bool, notify=syncChanged)
     def isSyncing(self) -> bool:
-        return self.app.syncLabel == "Syncing"
+        device = self.app.device
+        return bool((device and device.busy and device.operation == "sync") or self.app.syncLabel == "Syncing")
 
     @Property(str, notify=syncChanged)
     def lastSyncTime(self) -> str:
-        value = self.app.repository.get_setting("last_sync_success") if self.app.repository else None
+        value = self.app.repository.get_setting("last_full_sync_success") if self.app.repository else None
         if not value:
             return "Never"
         try:
@@ -207,21 +208,32 @@ class SettingsController(QObject):
                 full = {}
         result = full.get("result")
         stages = full.get("stages", {})
+        history = full.get("history", {})
+        content = full.get("content", {})
         upload = stages.get("attempt_uploads", {}) if isinstance(stages, dict) else {}
         if result == "Authentication required":
             return "Reconnect this device to your account before syncing. Your local assessments are safe."
         if result in {"Failed", "Partially synced"}:
             failed = upload.get("failed", 0) if isinstance(upload, dict) else 0
-            history = stages.get("history") if isinstance(stages, dict) else None
-            detail = (f"{failed} assessment upload(s) need a retry." if failed else
-                      "Some cloud updates could not be downloaded.")
-            if history and history not in {"OK", "Not checked"}:
-                detail = f"History download needs a retry. {detail}"
+            messages = []
+            if failed:
+                messages.append(f"{failed} assessment upload(s) need a retry.")
+            if history.get("review_failures") and not history.get("failures"):
+                messages.append("History was updated. Some answer reviews need a retry.")
+            elif stages.get("history") not in {None, "OK", "Not checked"}:
+                messages.append("History download needs a retry.")
+            if stages.get("content") == "Delivery reconciliation failed":
+                messages.append("Some Practice downloads need a retry.")
+            detail = " ".join(messages) or "Some cloud updates could not be downloaded."
             return f"Last sync was incomplete. {detail} Local records remain saved."
         if pending:
             return f"{pending} completed assessment(s) are saved on this device and waiting to sync."
         if result == "Up to date":
-            return "Your recent assessments and profile History are up to date."
+            if content.get("remaining"):
+                return "History is up to date. More Practice packs are waiting to download."
+            if not history.get("profiles_synced", 1):
+                return "No linked Study Profiles were available to sync."
+            return "History, Analytics, and Practice downloads are up to date."
         return "Your assessments stay saved offline and sync when the device reconnects."
 
     # -------------------------------------------------------------------------
@@ -596,8 +608,9 @@ class SettingsController(QObject):
     def startSync(self):
         if self.app.device:
             self.app.device.start("sync")
-            self.app.showNotification("Syncing assessments…", "info")
+            self.app.showNotification(self.app.device.message, "info" if self.app.device.busy else "warning")
             self.syncChanged.emit()
+            self.accountChanged.emit()
 
     @Slot()
     def requestPairingCode(self):
@@ -633,13 +646,6 @@ class SettingsController(QObject):
         if device and not device.busy and self.app.screen == "account":
             device.start(operation, **arguments)
             self._unlink_start_error = "" if device.busy else device.message
-            self.accountChanged.emit()
-
-    @Slot()
-    def syncProfiles(self):
-        if self.app.device and not self.unlinkPending:
-            self.app.device.start("account_sync")
-            self.app.showNotification(self.app.device.message, "info")
             self.accountChanged.emit()
 
     @Slot()

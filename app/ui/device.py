@@ -133,7 +133,7 @@ class DeviceConsole:
             "download": "Downloading and validating question pack...",
             "update_download": "Downloading, verifying and staging update...",
             "diagnostics": "Checking local device...",
-            "sync": "Syncing completed assessments...",
+            "sync": "Syncing History, Analytics, and Practice downloads...",
             "wifi_scan": "Scanning for networks...",
             "wifi_connect": f"Connecting to {arguments.get('ssid', 'network')}...",
         }.get(operation, "Working...")
@@ -497,6 +497,7 @@ class DeviceConsole:
                             repository, client, profile_id, context["link_id"], args["pack"],
                             temp_directory=config.content_download_directory,
                             max_pack_bytes=config.content_max_pack_bytes,
+                            media_directory=config.media_directory,
                         )
                     return _install_one(
                         repository, client, args["pack"],

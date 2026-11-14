@@ -1,4 +1,5 @@
 import copy
+import json
 from uuid import uuid4
 
 import httpx
@@ -17,11 +18,17 @@ def test_paginated_history_atomic_validation_and_transient_recovery(tmp_path):
         "title": "Browser result", "subject": "Biology", "started_at": "2026-10-30T10:00:00Z",
         "completed_at": "2026-10-30T10:01:00Z", "result": {"score": 4, "maximum_score": 8}}
     broken = [False]
+    review_status = 503
+    review_calls = []
     calls = []
     def handler(request):
         assert request.headers["Authorization"] == "Bearer device_test.secret"
         if request.url.path.endswith("/history/" + result):
-            return httpx.Response(404)  # Older cloud deployment: summary-only fallback.
+            review_calls.append(review_status)
+            if review_status != 200:
+                return httpx.Response(review_status)
+            return httpx.Response(200, json={**item, "review_available": True,
+                "review": [{"question_id": "q1", "question_text": "Question", "is_correct": True}]})
         offset = int(request.url.params["offset"])
         calls.append(offset)
         if offset == 0:
@@ -38,9 +45,12 @@ def test_paginated_history_atomic_validation_and_transient_recovery(tmp_path):
         repo.apply_profile_link(local, {"status": "linked", "link_id": link, "student_account_id": account,
             "study_profile_id": pid, "local_profile_id": local, "account_display_name": "Student",
             "study_profile_name": "Student"})
-        assert sync_history(repo, Api())
+        assert not sync_history(repo, Api())
         assert calls == [0, 1]
         saved = repo.completed_results(local)
+        assert saved == [item]
+        history = json.loads(repo.get_setting("last_history_summary"))
+        assert (history["results"], history["failures"], history["review_failures"]) == (1, 0, 1)
         invalid = copy.deepcopy(item)
         invalid["study_profile_id"] = str(uuid4())
         with pytest.raises(ValueError):
@@ -53,5 +63,11 @@ def test_paginated_history_atomic_validation_and_transient_recovery(tmp_path):
         assert not sync_history(repo, Api())
         assert repo.completed_results(local) == saved  # An incomplete page never replaces history.
         broken[0] = False
+        review_status = 404  # Older API: summary-only fallback remains successful.
         assert sync_history(repo, Api())
         assert repo.completed_results(local) == saved
+        review_status = 200
+        assert sync_history(repo, Api())
+        assert repo.completed_results(local)[0]["review_available"]
+        assert sync_history(repo, Api())
+        assert review_calls == [503, 404, 200]
