@@ -42,7 +42,8 @@ def refresh_library(repository, client, profile_id, link_id):
 
 
 def download_for_profile(repository, client, profile_id, link_id, pack, *,
-                         temp_directory, max_pack_bytes, media_directory=Path("media"), on_verifying=None):
+                         temp_directory, max_pack_bytes, media_directory=Path("media"),
+                         on_verifying=None, on_progress=None):
     # Refresh server eligibility before using either shared cached bytes or downloading.
     remote = refresh_library(repository, client, profile_id, link_id)
     approved = next((p for p in remote if (p.set_id, p.version) == (pack.set_id, pack.version)), None)
@@ -83,7 +84,7 @@ def download_for_profile(repository, client, profile_id, link_id, pack, *,
         _report(repository, client, profile_id, pack, "downloading")
         result = _install_one(repository, client, pack, temp_directory=temp_directory,
                               max_pack_bytes=max_pack_bytes, before_import=verify_figures,
-                              on_verifying=on_verifying)
+                              on_verifying=on_verifying, on_progress=on_progress)
     if result.status is ContentSyncStatus.AUTH_REQUIRED:
         repository.revoke_profile_library(profile_id)
     # Delivery acknowledgement is distinct from the durable installation and local grant.

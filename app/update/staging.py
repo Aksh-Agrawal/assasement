@@ -6,6 +6,7 @@ import shutil
 import stat
 import tarfile
 import tempfile
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from app.update.errors import StagingError
@@ -32,7 +33,13 @@ def _matching_file(path: Path, expected: bytes) -> bool:
             and path.read_bytes() == expected)
 
 
-def stage_update(update: VerifiedUpdate, root: Path, *, reuse_for_service: bool = False) -> Path:
+def stage_update(
+    update: VerifiedUpdate,
+    root: Path,
+    *,
+    reuse_for_service: bool = False,
+    progress: Callable[[str, float | None], None] | None = None,
+) -> Path:
     LOGGER.info("update staging started: version=%s", update.manifest.version)
     staged_root = root / "staged"
     staged_root.mkdir(parents=True, exist_ok=True)
@@ -51,6 +58,8 @@ def stage_update(update: VerifiedUpdate, root: Path, *, reuse_for_service: bool 
     temporary = Path(tempfile.mkdtemp(prefix="incoming-", dir=root))
     try:
         with tarfile.open(update.artifact, "r:gz") as archive:
+            if progress is not None:
+                progress("checking_archive", None)
             members = archive.getmembers()
             if any(
                 not _safe_member(item.name)
@@ -60,6 +69,10 @@ def stage_update(update: VerifiedUpdate, root: Path, *, reuse_for_service: bool 
                 for item in members
             ):
                 raise StagingError("Archive contains an unsafe path or link")
+            total = sum(item.size for item in members if item.isfile())
+            extracted = 0
+            if progress is not None:
+                progress("extracting", 0.0)
             for item in members:
                 destination = temporary.joinpath(*PurePosixPath(item.name).parts)
                 if item.isdir():
@@ -70,7 +83,12 @@ def stage_update(update: VerifiedUpdate, root: Path, *, reuse_for_service: bool 
                 if source is None:
                     raise StagingError("Archive contains an unreadable file")
                 with source, destination.open("wb") as output:
-                    shutil.copyfileobj(source, output)
+                    while chunk := source.read(256 * 1024):
+                        extracted += output.write(chunk)
+                        if progress is not None and total:
+                            progress("extracting", extracted / total)
+        if progress is not None:
+            progress("finalizing", None)
         required = (temporary / "app", temporary / "pyproject.toml", temporary / "release.json")
         if not required[0].is_dir() or any(not path.exists() for path in required[1:]):
             raise StagingError("Release structure is incomplete")

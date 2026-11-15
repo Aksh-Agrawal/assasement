@@ -18,6 +18,7 @@ def download_pack_to_temp(
     *,
     temp_directory: Path,
     max_bytes: int,
+    on_progress=None,
 ) -> Path:
     if max_bytes < 1:
         raise ValueError("max_bytes must be positive")
@@ -31,11 +32,15 @@ def download_pack_to_temp(
     actual = 0
     try:
         with os.fdopen(descriptor, "wb") as output, client.stream_pack(pack) as response:
+            if on_progress is not None:
+                on_progress(0, pack.size_bytes)
             for chunk in response.iter_bytes():
                 actual += len(chunk)
                 if actual > pack.size_bytes or actual > max_bytes:
                     raise DownloadSizeError("Download exceeded declared or configured size")
                 output.write(chunk)
+                if on_progress is not None:
+                    on_progress(actual, pack.size_bytes)
             output.flush()
             os.fsync(output.fileno())
         if actual != pack.size_bytes:

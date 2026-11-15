@@ -5,6 +5,7 @@ Rectangle {
     id: root
 
     property real progress: 0.0 // 0.0 to 1.0
+    property bool indeterminate: false
     property color barColor: Theme.forest
     property color trackColor: Theme.borderLight
 
@@ -16,6 +17,7 @@ Rectangle {
 
     Rectangle {
         id: fillRect
+        visible: !root.indeterminate
         height: parent.height
         width: Math.max(0, Math.min(parent.width, parent.width * root.progress))
         radius: root.radius
@@ -23,6 +25,23 @@ Rectangle {
 
         Behavior on width {
             NumberAnimation { duration: Theme.animDuration; easing.type: Easing.OutQuad }
+        }
+    }
+
+    Rectangle {
+        id: pulse
+        visible: root.indeterminate
+        height: parent.height
+        width: parent.width / 4
+        radius: root.radius
+        color: root.barColor
+
+        NumberAnimation on x {
+            running: pulse.visible
+            from: -pulse.width
+            to: root.width
+            duration: 1100
+            loops: Animation.Infinite
         }
     }
 }

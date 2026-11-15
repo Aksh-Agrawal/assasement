@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,6 +34,7 @@ def verify_update(
     architecture: str,
     db_schema: int,
     allow_downgrade: bool = False,
+    progress: Callable[[int, int], None] | None = None,
 ) -> VerifiedUpdate:
     manifest = UpdateManifest.parse(manifest_bytes)
     key_id = manifest.data["signing_key_id"]
@@ -53,8 +55,20 @@ def verify_update(
         raise IntegrityError("Update artifact is unavailable") from error
     if actual_size != expected["size_bytes"]:
         raise IntegrityError("Update artifact size mismatch")
-    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
-    if digest != expected["sha256"]:
+    digest = hashlib.sha256()
+    hashed = 0
+    try:
+        with artifact.open("rb") as stream:
+            while chunk := stream.read(256 * 1024):
+                hashed += len(chunk)
+                if hashed > actual_size:
+                    raise IntegrityError("Update artifact size changed during verification")
+                digest.update(chunk)
+                if progress is not None:
+                    progress(hashed, actual_size)
+    except OSError as error:
+        raise IntegrityError("Update artifact could not be read") from error
+    if hashed != actual_size or digest.hexdigest() != expected["sha256"]:
         raise IntegrityError("Update artifact SHA-256 mismatch")
     current = Version(current_version)
     if manifest.version == current:

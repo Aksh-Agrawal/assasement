@@ -201,9 +201,20 @@ def test_size_truncation_and_malicious_paths_rejected_before_activation(tmp_path
 
 def test_atomic_staging_success_activation_and_rollback(tmp_path: Path) -> None:
     raw, signature, artifact, private = _bundle(tmp_path / "good")
-    verified = _verify(raw, signature, artifact, private)
+    verified_bytes = []
+    verified = _verify(raw, signature, artifact, private,
+                       progress=lambda done, total: verified_bytes.append((done, total)))
+    assert verified_bytes[-1] == (artifact.stat().st_size, artifact.stat().st_size)
+    assert verified_bytes == sorted(verified_bytes)
     root = tmp_path / "runtime"
-    staged = stage_update(verified, root)
+    work = []
+    staged = stage_update(verified, root, progress=lambda phase, fraction: work.append((phase, fraction)))
+    assert work[0] == ("checking_archive", None)
+    assert work[-1] == ("finalizing", None)
+    extracted = [fraction for phase, fraction in work if phase == "extracting"]
+    assert extracted[0] == 0 and extracted[-1] == 1
+    assert extracted == sorted(extracted)
+    assert any(0 < part < 1 for part in extracted)
     manager = ActivationManager(root)
     current = tmp_path / "current"
     current.mkdir()

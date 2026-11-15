@@ -1,17 +1,34 @@
 """Library Controller for subjects, chapters, and assessment packs."""
 
+from dataclasses import dataclass
+
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from app.api.transport import FailureState
 from app.connectivity import internet_label
+from app.content.catalog import RemotePack
 from app.content.client import QUESTION_BANK_PAGE_SIZE
 from app.ui_qt.controllers.app_controller import AppController
+
+
+@dataclass(slots=True)
+class PracticeDownload:
+    scope: tuple[str, str]
+    pack: RemotePack
+    operation: str
+    state: str = "Queued"
+
+    @property
+    def identity(self):
+        return self.scope, self.pack.set_id, self.pack.version
 
 
 class LibraryController(QObject):
     catalogChanged = Signal()
     selectionChanged = Signal()
     bankCatalogChanged = Signal()
+    downloadsChanged = Signal()
+    downloadProgressChanged = Signal()
 
     def __init__(self, app_controller: AppController, parent=None):
         super().__init__(parent)
@@ -31,9 +48,10 @@ class LibraryController(QObject):
         self._bank_packs = ()
         self._bank_state = "idle"
         self._bank_request = None
-        self._bank_download = None
-        self._bank_download_phase = ""
-        self._failed_bank_download = None
+        self._show_download_queue = False
+        self._downloads = {}
+        self._active_download = None
+        self._download_percent = 0
         self.app.deviceOperationFinished.connect(self._device_finished)
         self.app.screenChanged.connect(self._screen_changed)
 
@@ -122,13 +140,7 @@ class LibraryController(QObject):
         installed = {(p["id"], p["version"]) for p in results}
         for pack in self._delivered_packs():
             if (pack.subject, pack.chapter) == context and (pack.set_id, pack.version) not in installed:
-                state = self.app.device.download_state.get((pack.set_id, pack.version), "")
-                results.append({
-                    "id": pack.set_id, "version": pack.version, "title": pack.title,
-                    "subject": pack.subject, "chapter": pack.chapter, "questionCount": pack.question_count,
-                    "isInstalled": False, "isDownloading": state in {"QUEUED", "DOWNLOADING"},
-                    "status": "Available to download",
-                })
+                results.append(self._remote_row(pack, self._download_scope()))
         return results
 
     @Property(dict, notify=selectionChanged)
@@ -211,19 +223,45 @@ class LibraryController(QObject):
     @Property(list, notify=bankCatalogChanged)
     def questionBanks(self):
         installed = {(p.id, p.version) for p in self._local_sets()}
-        rows = []
-        for pack in self._bank_packs:
-            identity = self._bank_scope, pack.set_id, pack.version
-            ready = (pack.set_id, pack.version) in installed
-            active = identity == self._bank_download
-            failed = identity == self._failed_bank_download
-            status = ("Ready offline" if ready else self._bank_download_phase if active
-                      else "Download failed" if failed else "Available")
-            rows.append({"id": pack.set_id, "version": pack.version, "title": pack.title,
-                         "subject": pack.subject, "chapter": pack.chapter, "questionCount": pack.question_count,
-                         "isInstalled": ready, "isDownloading": active and not ready,
-                         "status": status, "retry": failed})
-        return rows
+        return [self._remote_row(pack, self._bank_scope, ready=(pack.set_id, pack.version) in installed)
+                for pack in self._bank_packs]
+
+    def _remote_row(self, pack, scope, *, ready=False):
+        entry = self._downloads.get((scope, pack.set_id, pack.version))
+        state = entry.state if entry else "Available"
+        if state == "Ready offline":
+            state = "Available"  # Eligibility may have changed since installation.
+        return {"id": pack.set_id, "version": pack.version, "title": pack.title,
+                "subject": pack.subject, "chapter": pack.chapter, "questionCount": pack.question_count,
+                "isInstalled": ready,
+                "isDownloading": not ready and state in {"Queued", "Preparing", "Downloading", "Verifying"},
+                "status": "Ready offline" if ready else state, "retry": state == "Download failed"}
+
+    @Property(bool, notify=downloadsChanged)
+    def showingDownloadQueue(self):
+        return self._show_download_queue
+
+    @Property(list, notify=downloadsChanged)
+    def downloadQueue(self):
+        scope = self._download_scope()
+        entries = [entry for entry in self._downloads.values() if entry.scope == scope]
+        entries.sort(key=lambda entry: 0 if entry is self._active_download else 1 if entry.state == "Queued" else 2)
+        installed = {(pack.id, pack.version) for pack in self._local_sets()} if entries else set()
+        return [{"id": entry.pack.set_id, "version": entry.pack.version, "title": entry.pack.title,
+                 "active": entry is self._active_download,
+                 "state": ("No longer available" if entry.state == "Ready offline"
+                           and (entry.pack.set_id, entry.pack.version) not in installed else entry.state)}
+                for entry in entries]
+
+    @Property(int, notify=downloadsChanged)
+    def pendingDownloads(self):
+        scope = self._download_scope()
+        return sum(entry.scope == scope and (entry is self._active_download or entry.state == "Queued")
+                   for entry in self._downloads.values())
+
+    @Property(int, notify=downloadProgressChanged)
+    def downloadPercent(self):
+        return self._download_percent
 
     def _linked_scope(self):
         ui = self.app.ui_controller
@@ -233,8 +271,20 @@ class LibraryController(QObject):
         context = self.app.repository.get_profile_link_context(profile.id)
         return (profile.id, context["link_id"]) if context else None
 
+    def _download_scope(self):
+        ui = self.app.ui_controller
+        profile = ui.selected_profile if ui else None
+        if not profile or ui.authorized_profile != profile.id:
+            return None
+        if profile.ownership_state != "owned":
+            return profile.id, ""
+        return self._linked_scope()
+
     @Slot(bool)
     def setBrowsingBanks(self, active):
+        if self._show_download_queue:
+            self._show_download_queue = False
+            self.downloadsChanged.emit()
         if active != self._browsing:
             self._browsing = active
             if active:
@@ -245,6 +295,12 @@ class LibraryController(QObject):
     @Slot()
     def openQuestionBanks(self):
         self.setBrowsingBanks(True)
+        self.app.navigate("content")
+
+    @Slot()
+    def openDownloadQueue(self):
+        self._show_download_queue = True
+        self.downloadsChanged.emit()
         self.app.navigate("content")
 
     @Slot(str, str, str)
@@ -278,12 +334,20 @@ class LibraryController(QObject):
         self.bankCatalogChanged.emit()
 
     def tick(self):
+        if self._active_download:
+            state, percent = self.app.device.pack_download_progress
+            if self._download_percent != percent:
+                self._download_percent = percent
+                self.downloadProgressChanged.emit()
+            if self._active_download.state != state:
+                self._active_download.state = state
+                self._download_states_changed()
+        self._tick_bank_catalog()
+        self._advance_downloads()
+
+    def _tick_bank_catalog(self):
         device = self.app.device
-        if self._bank_download and device.bank_download_phase in {"Downloading", "Verifying"}:
-            if device.bank_download_phase != self._bank_download_phase:
-                self._bank_download_phase = device.bank_download_phase
-                self.bankCatalogChanged.emit()
-        if not self._browsing or self.app.screen != "content":
+        if self._show_download_queue or not self._browsing or self.app.screen != "content":
             return
         scope, connectivity = self._linked_scope(), self.libraryConnection
         if scope != self._bank_scope or connectivity != self._bank_connectivity:
@@ -317,20 +381,55 @@ class LibraryController(QObject):
             self.selectPack(set_id, version)
             return
         pack = next((p for p in self._bank_packs if (p.set_id, p.version) == (set_id, version)), None)
-        if not pack:
+        if pack:
+            self._enqueue_download(PracticeDownload(scope, pack, "download_bank"))
+
+    def _download_states_changed(self):
+        self.downloadsChanged.emit()
+        self.bankCatalogChanged.emit()
+        self.selectionChanged.emit()
+
+    def _enqueue_download(self, entry):
+        previous = self._downloads.get(entry.identity)
+        if previous and (previous is self._active_download or previous.state == "Queued"):
+            return
+        self._downloads.pop(entry.identity, None)
+        self._downloads[entry.identity] = entry
+        self._download_states_changed()
+        self._advance_downloads()
+
+    def _advance_downloads(self):
+        if not self._downloads or self._active_download or self.app.device.busy:
+            return
+        scope = self._download_scope()
+        if not scope or self.libraryConnection in {"offline", "auth"}:
             return
         device = self.app.device
-        if device.busy:
-            self.app.showNotification("Wait for the current device action, then try again.", "info")
+        for entry in self._downloads.values():
+            if entry.scope != scope or entry.state != "Queued":
+                continue
+            pack = entry.pack
+            if any((p.id, p.version) == (pack.set_id, pack.version) for p in self._local_sets()):
+                entry.state = "Ready offline"
+                self._download_states_changed()
+                continue
+            device.start(entry.operation, scope=scope, pack=pack, local_profile_id=scope[0])
+            if device.busy:
+                entry.state = "Preparing"
+                self._active_download = entry
+                self._download_percent = 0
+                self.downloadProgressChanged.emit()
+            else:
+                entry.state = "Download failed"
+                self.app.showNotification(device.message, "warning")
+            self._download_states_changed()
             return
-        device.start("download_bank", scope=scope, pack=pack)
-        if device.busy:
-            self._bank_download = scope, set_id, version
-            self._bank_download_phase = "Downloading"
-            self._failed_bank_download = None
-            self.bankCatalogChanged.emit()
-        else:
-            self.app.showNotification(device.message, "warning")
+
+    @Slot(str, int)
+    def retryDownload(self, set_id, version):
+        entry = self._downloads.get((self._download_scope(), set_id, version))
+        if entry and entry.state == "Download failed":
+            self._enqueue_download(PracticeDownload(entry.scope, entry.pack, entry.operation))
 
     def _device_finished(self, operation):
         device = self.app.device
@@ -346,15 +445,14 @@ class LibraryController(QObject):
                 self._bank_state = ("auth" if device.failure == FailureState.AUTH_REQUIRED
                                     else "offline" if self.libraryConnection == "offline" else "unreachable")
             self.bankCatalogChanged.emit()
-        elif operation == "download_bank":
-            download = self._bank_download
-            self._bank_download = None
-            if device.bank_download_phase == "SUPERSEDED" and download and download[0] == self._linked_scope():
+        elif self._active_download and operation == self._active_download.operation:
+            entry, self._active_download = self._active_download, None
+            outcome = device.pack_download_outcome
+            entry.state = {"INSTALLED": "Ready offline", "ALREADY_PRESENT": "Ready offline",
+                           "SUPERSEDED": "Pack changed"}.get(outcome, "Download failed")
+            if outcome == "SUPERSEDED" and operation == "download_bank" and entry.scope == self._linked_scope():
                 self._load_bank_page(0)
-                return
-            if device.bank_download_phase not in {"INSTALLED", "ALREADY_PRESENT"}:
-                self._failed_bank_download = download
-            self.bankCatalogChanged.emit()
+            self._download_states_changed()
         elif operation == "network" and self.app.isOnline and self._bank_state in {"offline", "unreachable"}:
             self._load_bank_page(0)
 
@@ -426,23 +524,22 @@ class LibraryController(QObject):
         self._installed_only = False
         self._clear_pack()
         self._browsing = False
-        self._bank_scope = self._bank_request = self._failed_bank_download = None
+        self._show_download_queue = False
+        self._bank_scope = self._bank_request = None
         self._bank_filters = ("", "", "")
         self._load_bank_page(0)
+        self.downloadsChanged.emit()
 
     @Slot(str, int)
     def downloadPack(self, pack_id: str, version: int):
-        if not self.app.device or not self.app.ui_controller:
+        scope = self._download_scope()
+        if not scope:
             return
-        # Find matching remote pack
-        for r in self.app.ui_controller.remote_packs:
-            if r.set_id == pack_id and r.version == version:
-                profile = self.app.ui_controller.selected_profile
-                self.app.device.start("download", pack=r, local_profile_id=profile.id if profile else None)
-                self.app.showNotification(self.app.device.message, "info" if self.app.device.busy else "warning")
-                self.selectionChanged.emit()
-                return
-        self.app.showNotification("Pack not found in catalog.", "warning")
+        pack = next((p for p in self._delivered_packs() if (p.set_id, p.version) == (pack_id, version)), None)
+        if pack:
+            self._enqueue_download(PracticeDownload(scope, pack, "download"))
+        else:
+            self.app.showNotification("Pack not found in catalog.", "warning")
 
     @Slot()
     def refreshLibrary(self):
@@ -464,5 +561,7 @@ class LibraryController(QObject):
             self._clear_pack()
         self.catalogChanged.emit()
         self.selectionChanged.emit()
+        if self._downloads:
+            self.downloadsChanged.emit()
         if self._browsing:
             self.bankCatalogChanged.emit()

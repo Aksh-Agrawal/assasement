@@ -36,10 +36,13 @@ def _systemctl(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(["/usr/bin/systemctl", *args], check=check, capture_output=True, text=True)
 
 
-def _status(state: str, version: str, detail: str = "") -> None:
+def _status(state: str, version: str, detail: str = "", *, step: str = "") -> None:
     UPDATE_ROOT.mkdir(parents=True, exist_ok=True)
     tmp = STATUS.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"state": state, "version": version, "detail": detail}), encoding="utf-8")
+    data = {"state": state, "version": version, "detail": detail}
+    if step:
+        data["step"] = step
+    tmp.write_text(json.dumps(data), encoding="utf-8")
     os.chmod(tmp, 0o644)
     tmp.replace(STATUS)
 
@@ -344,7 +347,7 @@ def main() -> int:
         raise RuntimeError("Configured SQLite path does not match the validated updater data path")
     if config.credential_path.resolve() != configured.credential_path:
         raise RuntimeError("Configured credential path does not match the validated updater data path")
-    _status("installing", version)
+    _status("installing", version, step="checking_release")
     staged_user = UPDATE_ROOT / "staged" / version
     manifest_path = staged_user / "update-manifest.json"
     signature_path = staged_user / "update-manifest.sig"
@@ -394,7 +397,9 @@ def main() -> int:
             current_version=old_version, platform=config.update_platform,
             architecture=config.update_architecture, db_schema=database_schema,
         )
+        _status("installing", version, step="unpacking_release")
         staged = stage_update(verified, work)
+        _status("installing", version, step="installing_dependencies")
         new_venv = staged / ".venv"
         subprocess.run(["/usr/bin/python3", "-m", "venv", str(new_venv)], check=True, timeout=180)
         subprocess.run(
@@ -402,6 +407,7 @@ def main() -> int:
              "--no-cache-dir", "--retries", "2", ".[gui]"],
             cwd=staged, check=True, timeout=1200,
         )
+        _status("installing", version, step="checking_saved_data")
         probe_db = work / "migration-probe.db"
         if config.database_path.exists():
             with sqlite3.connect(config.database_path) as source, sqlite3.connect(probe_db) as target:
@@ -416,6 +422,7 @@ def main() -> int:
         if _protected_data_snapshot(probe_db) != protected_before:
             raise RuntimeError("The previous release changed protected data in the rollback probe")
 
+        _status("installing", version, step="testing_startup")
         if not _smoke_test_release(staged, work / "ui-smoke"):
             raise RuntimeError("The update failed the Qt startup check")
 
@@ -426,6 +433,7 @@ def main() -> int:
         shutil.move(str(staged), str(release_dir))
         _set_release_permissions(release_dir, assess_gid)
 
+        _status("installing", version, step="activating_release")
         old_pid = subprocess.run(
             ["/usr/bin/systemctl", "show", UI_UNIT, "--property=MainPID", "--value"],
             capture_output=True, text=True, check=False,

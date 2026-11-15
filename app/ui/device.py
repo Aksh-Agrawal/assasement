@@ -66,13 +66,13 @@ class DeviceConsole:
         self.catalog = ()
         self.catalog_profile_id = None
         self.bank_page = None
-        self.bank_download_phase = ""
+        self.pack_download_progress = ("Preparing", 0)
+        self.pack_download_outcome = ""
         self.pairing = None
         self.pairing_error = ""
         self.available_update = None
         self.staged = None
-        self.update_progress = 0.0
-        self.update_phase = "idle"
+        self.update_work = ("downloading", 0.0)
         self.download_state = {}
         self.generation = 0
         self.pairing_lock = threading.Lock()
@@ -129,14 +129,12 @@ class DeviceConsole:
         self.operation = operation
         if operation == "update_download":
             self.staged = None
-            self.update_progress = 0.0
-            self.update_phase = "downloading"
-        elif operation == "update_install":
-            self.update_phase = "installing"
+            self.update_work = ("downloading", 0.0)
         elif operation == "browse_banks":
             self.bank_page = None
-        elif operation == "download_bank":
-            self.bank_download_phase = "Downloading"
+        elif operation in {"download", "download_bank"}:
+            self.pack_download_progress = ("Preparing", 0)
+            self.pack_download_outcome = ""
         self.message = {
             "profile_claim": "Submitting link...",
             "profile_unlink": "Unlinking profile...",
@@ -280,8 +278,8 @@ class DeviceConsole:
             elif op == "update_download":
                 self.staged = value
             elif op in {"download", "institute_download", "download_bank"}:
-                if op == "download_bank":
-                    self.bank_download_phase = value.status.value
+                if op != "institute_download":
+                    self.pack_download_outcome = value.status.value
                 self.download_state[(value.set_id, value.version)] = value.status.value
                 self.message = {
                     "INSTALLED": "Downloaded and verified.",
@@ -315,8 +313,8 @@ class DeviceConsole:
         except ProfileLinkError as error:
             self.message = str(error)
         except ContentSupersededError:
-            if self.completed_operation == "download_bank":
-                self.bank_download_phase = "SUPERSEDED"
+            if self.completed_operation in {"download", "download_bank"}:
+                self.pack_download_outcome = "SUPERSEDED"
                 self.message = "This question bank changed. Choose a pack from the refreshed list."
                 return True
             self.message = "The practice library changed. Refresh it and try again."
@@ -340,8 +338,8 @@ class DeviceConsole:
                     FailureState.AUTH_REQUIRED: "Could not verify this connection. Generate a new code to link again.",
                 }.get(self.failure, "Could not connect your account. Try again.")
                 self.message = self.pairing_error
-        if self.completed_operation == "download_bank":
-            self.bank_download_phase = "FAILED"
+        if self.completed_operation in {"download", "download_bank"}:
+            self.pack_download_outcome = "FAILED"
         if self.completed_operation in {"account_sync", "account_create"} and self.failure == FailureState.AUTH_REQUIRED:
             self.account_verified = False
         return True
@@ -456,16 +454,17 @@ class DeviceConsole:
 
             return connected, net_status, internet, ssid
 
-        if operation in {"browse_banks", "download_bank"}:
+        scope = args.get("scope")
+        if operation in {"browse_banks", "download_bank"} or (operation == "download" and scope and scope[1]):
             from contextlib import nullcontext
 
             from app.content.client import ProfileUnavailableError
             from app.content.profile_library import download_for_profile
             from app.sync.locking import file_lock
 
-            profile_id, link_id = args["scope"]
+            profile_id, link_id = scope
             # Share the delivery lock with the scheduled sync and account unlink.
-            lock = file_lock(str(self.database_path) + ".sync.lock") if operation == "download_bank" else nullcontext()
+            lock = file_lock(str(self.database_path) + ".sync.lock") if operation != "browse_banks" else nullcontext()
             with lock, Repository(self.database_path) as repository:
                 profile = repository.get_profile(profile_id)
                 context = repository.get_profile_link_context(profile_id)
@@ -476,13 +475,16 @@ class DeviceConsole:
                             local_profile_id=profile_id, link_id=link_id) as client:
                         if operation == "browse_banks":
                             return client.browse_question_banks(**args["query"])
-                        pack = client.request_question_bank(args["pack"])
+                        pack = args["pack"]
+                        if operation == "download_bank":
+                            pack = client.request_question_bank(pack)
                         return download_for_profile(
                             repository, client, profile_id, link_id, pack,
                             temp_directory=config.content_download_directory,
                             max_pack_bytes=config.content_max_pack_bytes,
                             media_directory=config.media_directory,
-                            on_verifying=self._verify_bank_download,
+                            on_verifying=self._verify_pack_download,
+                            on_progress=self._report_pack_download,
                         )
                 except ProfileUnavailableError:
                     if (current := repository.get_profile_link_context(profile_id)) and current["link_id"] == link_id:
@@ -544,6 +546,8 @@ class DeviceConsole:
                 profile = repository.get_profile(profile_id) if profile_id else None
                 context = repository.get_profile_link_context(profile_id) if profile_id else None
                 scoped = bool(profile and profile.ownership_state == "owned")
+                if operation == "download" and scope and (profile is None or scoped):
+                    raise RuntimeError("Study Profile connection changed")
                 if scoped and (profile.link_state != "linked" or not context):
                     raise RuntimeError("Link the study profile before refreshing its library")
                 options = {"local_profile_id": profile_id, "link_id": context["link_id"]} if scoped else {}
@@ -560,11 +564,15 @@ class DeviceConsole:
                             temp_directory=config.content_download_directory,
                             max_pack_bytes=config.content_max_pack_bytes,
                             media_directory=config.media_directory,
+                            on_verifying=self._verify_pack_download,
+                            on_progress=self._report_pack_download,
                         )
                     return _install_one(
                         repository, client, args["pack"],
                         temp_directory=config.content_download_directory,
                         max_pack_bytes=config.content_max_pack_bytes,
+                        on_verifying=self._verify_pack_download,
+                        on_progress=self._report_pack_download,
                     )
             if operation in {"update_check", "update_download"}:
                 if not token:
@@ -578,8 +586,11 @@ class DeviceConsole:
                     client.close()
         raise ValueError("Unsupported device action")
 
-    def _verify_bank_download(self):
-        self.bank_download_phase = "Verifying"
+    def _report_pack_download(self, received, total):
+        self.pack_download_progress = ("Downloading", received * 100 // total)
+
+    def _verify_pack_download(self):
+        self.pack_download_progress = ("Verifying", 100)
 
     def _prepare_update(self, update, db_schema: int) -> Path:
         config = self.config
@@ -593,13 +604,14 @@ class DeviceConsole:
         key = load_pem_public_key(config.trusted_update_public_key_path.read_bytes())
 
         def verify():
-            self.update_phase = "verifying"
+            self.update_work = ("verifying", 0.0)
             return verify_update(
                 update.manifest_bytes, update.signature, artifact,
                 trusted_keys={config.trusted_update_key_id: key},
                 current_version=config.application_version,
                 platform=config.update_platform, architecture=config.update_architecture,
                 db_schema=db_schema,
+                progress=lambda done, total: self._report_update_work("verifying", done / total),
             )
 
         if not artifact.is_symlink() and artifact.is_file():
@@ -608,18 +620,23 @@ class DeviceConsole:
             except IntegrityError:
                 pass  # Replace corrupt cached bytes with a fresh download and verify again.
             else:
-                return stage_update(verified, config.update_root, reuse_for_service=True)
+                return stage_update(verified, config.update_root, reuse_for_service=True,
+                                    progress=self._report_update_work)
 
-        self.update_phase = "downloading"
+        self.update_work = ("downloading", 0.0)
         client = DeviceApi(config, store=self.credentials).updates()
         try:
             client.download_update(
                 update, artifact,
-                progress=lambda done, total: setattr(self, "update_progress", done / total),
+                progress=lambda done, total: self._report_update_work("downloading", done / total),
             )
         finally:
             client.close()
-        return stage_update(verify(), config.update_root, reuse_for_service=True)
+        return stage_update(verify(), config.update_root, reuse_for_service=True,
+                            progress=self._report_update_work)
+
+    def _report_update_work(self, phase: str, fraction: float | None) -> None:
+        self.update_work = (phase, fraction)
 
     def device_rows(self, repository):
         root = self.database_path.resolve().parent

@@ -9,7 +9,8 @@ Rectangle {
     anchors.fill: parent
     color: Theme.canvas
 
-    readonly property bool browsing: libraryController.browsingBanks
+    readonly property bool showingQueue: libraryController.showingDownloadQueue
+    readonly property bool browsing: !showingQueue && libraryController.browsingBanks
     readonly property string bankState: libraryController.bankState
     readonly property string connectionState: libraryController.libraryConnection
     readonly property bool hasFilters: libraryController.bankFilters.some(function(value) { return value.length > 0; })
@@ -110,7 +111,7 @@ Rectangle {
 
             LibraryButton {
                 text: "Downloaded"
-                checked: !root.browsing
+                checked: !root.browsing && !root.showingQueue
                 onClicked: libraryController.setBrowsingBanks(false)
             }
 
@@ -120,10 +121,17 @@ Rectangle {
                 onClicked: libraryController.setBrowsingBanks(true)
             }
 
+            LibraryButton {
+                objectName: "practiceDownloadQueueTab"
+                text: "Download queue" + (libraryController.pendingDownloads ? " (" + libraryController.pendingDownloads + ")" : "")
+                checked: root.showingQueue
+                onClicked: libraryController.openDownloadQueue()
+            }
+
             Item { Layout.fillWidth: true }
 
             LibraryButton {
-                visible: !root.browsing
+                visible: !root.browsing && !root.showingQueue
                 text: "Quick Add"
                 onClicked: {
                     quickAddController.startQuickAdd(profileController.activeProfileId);
@@ -171,7 +179,7 @@ Rectangle {
         AppCard {
             Layout.fillWidth: true
             Layout.preferredHeight: offlineCopy.implicitHeight + Spacing.md
-            visible: !root.browsing && root.connectionState === "offline" && libraryController.installedPacks.length > 0
+            visible: !root.browsing && !root.showingQueue && root.connectionState === "offline" && libraryController.installedPacks.length > 0
 
             Text {
                 id: offlineCopy
@@ -195,13 +203,14 @@ Rectangle {
                 objectName: "questionBankGrid"
                 anchors.fill: parent
                 model: root.browsing ? libraryController.questionBanks : libraryController.installedPacks
-                visible: count > 0 && (!root.browsing || root.bankState === "ready")
+                visible: !root.showingQueue && count > 0 && (!root.browsing || root.bankState === "ready")
 
                 delegate: LibraryPackCard {
                     required property var modelData
                     width: grid.cellWidth - Spacing.sm
                     height: grid.cardHeight
                     pack: modelData
+                    progressPercent: pack.status === "Downloading" ? libraryController.downloadPercent : 0
                     onClicked: {
                         if (pack.isInstalled)
                             libraryController.selectPack(pack.id, pack.version);
@@ -240,7 +249,7 @@ Rectangle {
             }
 
             EmptyState {
-                visible: !grid.visible && !skeleton.visible
+                visible: !root.showingQueue && !grid.visible && !skeleton.visible
                 title: {
                     if (!root.browsing)
                         return "No practice questions downloaded yet.";
@@ -287,6 +296,11 @@ Rectangle {
                         libraryController.filterBanks("", "", "");
                     }
                 }
+            }
+
+            DownloadQueue {
+                anchors.fill: parent
+                visible: root.showingQueue
             }
         }
 

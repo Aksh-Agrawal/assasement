@@ -140,12 +140,13 @@ def _install_one(
     max_pack_bytes: int,
     before_import=None,
     on_verifying=None,
+    on_progress=None,
 ) -> PackSyncResult:
     temporary: Path | None = None
     LOGGER.info("pack download started set_id=%s version=%d", pack.set_id, pack.version)
     try:
         temporary = download_pack_to_temp(
-            client, pack, temp_directory=temp_directory, max_bytes=max_pack_bytes
+            client, pack, temp_directory=temp_directory, max_bytes=max_pack_bytes, on_progress=on_progress
         )
         LOGGER.info("pack download complete set_id=%s version=%d", pack.set_id, pack.version)
         if on_verifying is not None:

@@ -20,8 +20,24 @@ from app.update.layout import active_release_version
 UPDATE_OPERATIONS = {
     "update_check": "Checking for updates",
     "update_download": "Downloading update",
-    "update_install": "Restarting to install update",
+    "update_install": "Starting installation",
 }
+UPDATE_PREPARATION = {
+    "downloading": "Downloading update",
+    "verifying": "Verifying update",
+    "checking_archive": "Checking archive contents",
+    "extracting": "Preparing installation",
+    "finalizing": "Finalizing preparation",
+}
+UPDATE_INSTALLATION = {
+    "checking_release": "Checking release files",
+    "unpacking_release": "Unpacking release files",
+    "installing_dependencies": "Installing dependencies",
+    "checking_saved_data": "Checking saved data compatibility",
+    "testing_startup": "Testing app startup",
+    "activating_release": "Activating the update",
+}
+UPDATE_PROGRESS_LABELS = {"downloading": "Downloaded", "verifying": "File checked", "extracting": "Extracted"}
 
 
 class SettingsController(QObject):
@@ -55,6 +71,7 @@ class SettingsController(QObject):
         self._release_status_revision = None
         self._ignored_status_revision = None
         self._release_state = ""
+        self._release_step = ""
         self._update_requested = False
         self._update_error = ""
         self._checked_for_update = False
@@ -419,9 +436,24 @@ class SettingsController(QObject):
     def updateError(self) -> str:
         return self._update_error
 
-    @Property(float, notify=updateChanged)
-    def updateProgress(self) -> float:
-        return max(0.0, min(1.0, float(getattr(self.app.device, "update_progress", 0.0))))
+    @Property(dict, notify=updateChanged)
+    def updateWork(self) -> dict:
+        device = self.app.device
+        if device and device.busy and device.operation == "update_download":
+            phase, fraction = device.update_work
+            if fraction is None:
+                return {"label": "In progress", "indeterminate": True, "fraction": 0.0}
+            label = UPDATE_PROGRESS_LABELS[phase]
+            return {"label": f"{label} · {int(fraction * 100)}%", "indeterminate": False, "fraction": fraction}
+        if self._release_state == "installing" and self._release_step:
+            completed = tuple(UPDATE_INSTALLATION).index(self._release_step)
+            total = len(UPDATE_INSTALLATION)
+            return {"label": f"{completed} of {total} installation steps complete", "indeterminate": False,
+                    "fraction": completed / total}
+        if (self._update_requested or self._release_state == "installing"
+                or (device and device.busy and device.operation == "update_install")):
+            return {"label": "In progress", "indeterminate": True, "fraction": 0.0}
+        return {}
 
     @Property(bool, notify=updateChanged)
     def updateBusy(self) -> bool:
@@ -453,12 +485,14 @@ class SettingsController(QObject):
     @Property(str, notify=updateChanged)
     def updateStatus(self) -> str:
         device = self.app.device
+        if device and device.busy and device.operation == "update_download":
+            return UPDATE_PREPARATION[device.update_work[0]]
+        if self._release_state == "installing":
+            return UPDATE_INSTALLATION.get(self._release_step, "Installing update")
         if device and device.busy and device.operation in UPDATE_OPERATIONS:
-            if device.operation == "update_download" and getattr(device, "update_phase", "") == "verifying":
-                return "Verifying update"
             return UPDATE_OPERATIONS[device.operation]
-        if self._update_requested or self._release_state == "installing":
-            return "Installing update"
+        if self._update_requested:
+            return "Starting installation"
         if self._restart_required:
             return "Restart required to load the active release"
         if self._update_error:
@@ -496,7 +530,7 @@ class SettingsController(QObject):
         view = (self.appVersion, self.activeReleaseVersion, self.availableVersion,
                 self.updateNotes, self.updateCompatible,
                 self.updateStatus, self.updateError, self.updateBusy,
-                self.updateProgress, self.updatePendingInstall)
+                self.updateWork, self.updatePendingInstall)
         if view != self._update_view:
             self._update_view = view
             self.updateChanged.emit()
@@ -517,6 +551,7 @@ class SettingsController(QObject):
 
     def _refreshReleaseStatus(self):
         self._release_state = ""
+        self._release_step = ""
         self._release_status_revision = None
         try:
             if not stat.S_ISREG(self._release_status_path.lstat().st_mode):
@@ -540,6 +575,9 @@ class SettingsController(QObject):
             self._update_error = ""
         elif state == "installing" and version is not None and version >= installed:
             self._release_state = state
+            step = data.get("step")
+            if isinstance(step, str) and step in UPDATE_INSTALLATION:
+                self._release_step = step
         elif state == "failed" and (version_text == "" or (version is not None and version > installed)):
             self._release_state = state
         elif state == "rolled_back" and version is not None and version > installed:

@@ -39,9 +39,22 @@ Rectangle {
         anchors.margins: Spacing.md
 
 
+        SecondaryButton {
+            id: downloadQueue
+            visible: libraryController.downloadQueue.length > 0
+            text: "Download queue" + (libraryController.pendingDownloads ? " (" + libraryController.pendingDownloads + ")" : "")
+            activeFocusOnTab: true
+            Accessible.role: Accessible.Button
+            Accessible.name: text
+            Keys.onReturnPressed: clicked()
+            Keys.onSpacePressed: clicked()
+            onClicked: libraryController.openDownloadQueue()
+        }
+
         LibraryGrid {
             id: grid
             anchors.fill: parent
+            anchors.topMargin: downloadQueue.visible ? downloadQueue.implicitHeight + Spacing.sm : 0
 
             model: libraryController.packs
             visible: count > 0
@@ -51,6 +64,7 @@ Rectangle {
                 width: grid.cellWidth - Spacing.sm
                 height: grid.cardHeight
                 pack: modelData
+                progressPercent: pack.status === "Downloading" ? libraryController.downloadPercent : 0
                 onClicked: {
                     if (pack.isInstalled)
                         libraryController.selectPack(pack.id, pack.version);

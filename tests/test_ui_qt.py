@@ -545,9 +545,9 @@ def _available_release(version, *, architecture="aarch64"):
     ))
 
 
-def _write_update_status(tmp_path, state, version):
+def _write_update_status(tmp_path, state, version, **extra):
     pending = tmp_path / "status.tmp"
-    pending.write_text(json.dumps({"state": state, "version": version, "detail": ""}), encoding="utf-8")
+    pending.write_text(json.dumps({"state": state, "version": version, "detail": "", **extra}), encoding="utf-8")
     pending.replace(tmp_path / "status.json")
 
 
@@ -672,11 +672,14 @@ def test_update_qml_refreshes_on_entry_and_after_state_changes(update_controller
         available = screen.findChild(QObject, "softwareAvailableVersion")
         install = screen.findChild(QObject, "softwareInstallButton")
         warning = screen.findChild(QObject, "softwareCompatibilityWarning")
+        progress = screen.findChild(QObject, "softwareUpdateProgress")
+        progress_label = screen.findChild(QObject, "softwareUpdateProgressLabel")
         assert status.property("text") == "Software is up to date"
         assert current.property("text") == "Current version · v0.1.1"
         assert available.property("text") == "Raspberry Pi OS · 64-bit"
         assert not install.property("visible")
         assert not warning.property("visible")
+        assert not progress.property("visible")
 
         app.device.operation = "update_check"
         app.device.future = Future()
@@ -692,22 +695,45 @@ def test_update_qml_refreshes_on_entry_and_after_state_changes(update_controller
 
         app.device.operation = "update_download"
         app.device.future = Future()
+        app.device.update_work = ("downloading", 1.0)
         settings.refreshUpdateState()
         assert status.property("text") == "Downloading update"
-        app.device.update_phase = "verifying"
+        assert progress.property("progress") == 1
+        assert progress_label.property("text") == "Downloaded · 100%"
+        app.device.update_work = ("verifying", 0.25)
         settings.refreshUpdateState()
         assert status.property("text") == "Verifying update"
+        assert progress.property("progress") == 0.25
+        app.device.update_work = ("checking_archive", None)
+        settings.refreshUpdateState()
+        assert progress.property("visible") and progress.property("indeterminate")
+        app.device.update_work = ("extracting", 0.5)
+        settings.refreshUpdateState()
+        assert status.property("text") == "Preparing installation"
+        assert progress.property("visible") and not progress.property("indeterminate")
+        assert progress.property("progress") == 0.5
+        assert progress_label.property("text") == "Extracted · 50%"
         app.device.future = None
 
         _write_update_status(tmp_path, "installing", "0.1.2")
         settings.refreshUpdateState()
         assert status.property("text") == "Installing update"
         assert not install.property("visible")
+        assert progress.property("visible") and progress.property("indeterminate")
+        _write_update_status(tmp_path, "installing", "0.1.2", step="installing_dependencies")
+        settings.refreshUpdateState()
+        assert status.property("text") == "Installing dependencies"
+        assert progress.property("progress") == pytest.approx(2 / 6)
+        assert progress_label.property("text") == "2 of 6 installation steps complete"
+        _write_update_status(tmp_path, "installing", "0.1.2", step="activating_release")
+        settings.refreshUpdateState()
+        assert progress.property("progress") == pytest.approx(5 / 6)
         _write_update_status(tmp_path, "rolled_back", "0.1.2")
         settings.refreshUpdateState()
         assert status.property("text") == "Update failed. Previous version restored"
         assert current.property("text") == "Current version · v0.1.1"
         assert install.property("visible")
+        assert not progress.property("visible")
 
         active.version = Version("0.1.2")
         _write_update_status(tmp_path, "successful", "0.1.2")
@@ -1282,10 +1308,15 @@ def test_qt_library_download_uses_the_selected_study_profile(qapp):
     app = Mock()
     app.ui_controller.remote_packs = (pack,)
     app.ui_controller.selected_profile = Profile("selected", "Student")
+    app.ui_controller.authorized_profile = "selected"
+    app.ui_controller.question_sets = ()
+    app.repository = None
+    app.device.busy = False
 
     LibraryController(app).downloadPack(pack.set_id, pack.version)
 
-    app.device.start.assert_called_once_with("download", pack=pack, local_profile_id="selected")
+    app.device.start.assert_called_once_with("download", scope=("selected", ""), pack=pack,
+                                             local_profile_id="selected")
 
 
 def test_unpaired_profile_creation_requires_an_account(qapp, tmp_path, monkeypatch):
@@ -1854,7 +1885,7 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
     hold_download = Event()
     verifying = Event()
     hold_verification = Event()
-    state = {"grants": [], "requests": [], "fail": False, "superseded": False}
+    state = {"grants": [], "requests": [], "downloads": [], "fail": False, "superseded": False}
 
     def content_bytes(identifier, subject, chapter, title):
         bank = json.loads(sample)
@@ -1880,8 +1911,19 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         seed.cache_profile_library("a", link_a, state["grants"])
         seed.cache_profile_library("b", link_b, [metadata(maths)])
 
-    public = [biology, metadata(maths), *state["grants"]]
+    extra_sample = content_bytes("biology-genetics", "Biology", "Genetics", "Molecular genetics")
+    extra = metadata(extra_sample)
+    public = [biology, metadata(maths), *state["grants"], extra]
+    banks = {pack["set_id"]: pack for pack in (biology, extra)}
     scope_requests = []
+
+    class InterruptedStream(httpx.SyncByteStream):
+        def __iter__(self):
+            midpoint = len(sample) // 2
+            yield sample[:midpoint]
+            bank_requested.set()
+            assert hold_download.wait(8)
+            yield sample[midpoint:]
 
     def handle(request):
         path = request.url.path
@@ -1896,27 +1938,30 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
             return httpx.Response(200, json={"schema_version": 1, "packs": matches, "next_offset": None})
         if path.endswith("/question-banks/download"):
             body = json.loads(request.content)
-            assert (body["local_profile_id"], body["set_id"], body["version"]) == ("a", biology["set_id"], 1)
+            assert (body["local_profile_id"], body["version"]) == ("a", 1)
+            pack = banks[body["set_id"]]
             if state["superseded"]:
                 public.remove(biology)
                 return httpx.Response(409, json={"detail": {"code": "operation_superseded"}})
-            if biology not in state["grants"]:
-                state["grants"].append(biology)
-            return httpx.Response(200, json=biology)
+            state["downloads"].append(pack["set_id"])
+            if pack not in state["grants"]:
+                state["grants"].append(pack)
+            return httpx.Response(200, json=pack)
         if path.endswith("/catalog"):
             return httpx.Response(200, json={"schema_version": 1, "packs": state["grants"], "next_offset": None})
         if path.endswith("/status"):
-            status = json.loads(request.content)["status"]
-            if status == "downloaded":
+            body = json.loads(request.content)
+            status = body["status"]
+            if status == "downloaded" and body["set_id"] == biology["set_id"]:
                 verifying.set()
                 assert hold_verification.wait(8)
             return httpx.Response(200, json={"status": status})
+        if path.endswith(f"/packs/{extra['set_id']}/1"):
+            return httpx.Response(200, content=extra_sample)
         assert path.endswith(f"/packs/{biology['set_id']}/1")
         if state["fail"]:
             return httpx.Response(503)
-        bank_requested.set()
-        assert hold_download.wait(8)
-        return httpx.Response(200, content=sample)
+        return httpx.Response(200, stream=InterruptedStream())
 
     def fake_content(_api, **kwargs):
         scope_requests.append(kwargs)
@@ -2038,25 +2083,49 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         assert library.questionBanks[0]["retry"]
         assert [r["name"] for r in library.homeSubjects] == ["Chemistry"]
         state["fail"] = False
-        library.downloadBank(biology["set_id"], 1)
+        library.filterBanks("", "", "")
+        ready()
+        library.retryDownload(biology["set_id"], 1)
         assert bank_requested.wait(5)
+        library.downloadBank(extra["set_id"], 1)
+        library.downloadBank(extra["set_id"], 1)
+        ctrl._on_tick()
+        assert 0 < library.downloadPercent < 100
+        assert library.pendingDownloads == 2
+        assert [row["state"] for row in library.downloadQueue] == ["Downloading", "Queued"]
+        assert state["downloads"] == [biology["set_id"], biology["set_id"]]
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(400, 83))
+        assert library.showingDownloadQueue
+        queue_view = window.findChild(QObject, "practiceDownloadQueue")
+        assert queue_view.property("visible") and queue_view.property("count") == 2
         save("09-download-in-progress")
         hold_download.set()
         assert verifying.wait(5)
         ctrl._on_tick()
-        assert library.questionBanks[0]["status"] == "Verifying"
+        assert library.downloadQueue[0]["state"] == "Verifying"
         save("10-download-verifying")
+        connectivity("Offline", "Unavailable")
         hold_verification.set()
         ready()
-        assert library.questionBanks[0]["isInstalled"]
+        assert library.pendingDownloads == 1
+        assert library.downloadQueue[0]["state"] == "Queued"
+        assert extra["set_id"] not in state["downloads"]
+        ctrl.navigate("home")
+        connectivity("Online", "Available")
+        ready()
+        assert library.pendingDownloads == 0
+        assert all(row["state"] == "Ready offline" for row in library.downloadQueue)
+        assert state["downloads"] == [biology["set_id"], biology["set_id"], extra["set_id"]]
         assert [r["name"] for r in library.homeSubjects] == ["Biology", "Chemistry"]
         assert len(ctrl.repository.list_question_set_versions(biology["set_id"])) == 1
+        library.openDownloadQueue()
         save("11-download-ready")
         assert all(scope == {"local_profile_id": "a", "link_id": link_a} for scope in scope_requests)
 
         profile.selectProfileId("b")
         assert [r["name"] for r in library.homeSubjects] == ["Mathematics"]
         assert library.questionBanks == []
+        assert library.downloadQueue == []
         library.selectInstalledSubject("Mathematics")
         assert library.chapters == ["Algebra"]
         library.selectChapter("Algebra")

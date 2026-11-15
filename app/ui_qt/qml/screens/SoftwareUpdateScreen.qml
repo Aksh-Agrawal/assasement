@@ -6,6 +6,7 @@ Rectangle {
     id: root
     anchors.fill: parent
     color: Theme.background
+    readonly property var updateWork: settingsController.updateWork
     Component.onCompleted: settingsController.refreshUpdateState()
 
     AppHeader {
@@ -30,7 +31,7 @@ Rectangle {
 
         AppCard {
             anchors.centerIn: parent
-            width: 520
+            width: Math.min(520, parent.width)
             implicitHeight: contentCol.implicitHeight + Spacing.xl * 2
 
             Column {
@@ -97,7 +98,7 @@ Rectangle {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
-                    visible: settingsController.updateNotes.length > 0
+                    visible: settingsController.updateNotes.length > 0 && !settingsController.updateBusy
                     text: settingsController.updateNotes
                     color: Theme.textSecondary
                     font.pixelSize: Typography.caption
@@ -117,11 +118,33 @@ Rectangle {
                     font.family: Typography.fontFamily
                 }
 
-                ProgressBar {
+                Column {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: Math.min(360, parent.width)
-                    visible: settingsController.updateBusy && settingsController.updateProgress > 0
-                    progress: settingsController.updateProgress
+                    spacing: Spacing.xs
+                    visible: !!root.updateWork.label
+
+                    ProgressBar {
+                        objectName: "softwareUpdateProgress"
+                        width: parent.width
+                        progress: root.updateWork.fraction || 0
+                        indeterminate: !!root.updateWork.indeterminate
+                        Accessible.role: Accessible.ProgressBar
+                        Accessible.name: settingsController.updateStatus
+                        Accessible.description: progressLabel.text
+                    }
+
+                    Text {
+                        id: progressLabel
+                        objectName: "softwareUpdateProgressLabel"
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        text: root.updateWork.label || ""
+                        wrapMode: Text.WordWrap
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.caption
+                        font.family: Typography.fontFamily
+                    }
                 }
 
                 Text {
@@ -136,32 +159,25 @@ Rectangle {
                     font.family: Typography.fontFamily
                 }
 
-                Item { width: 1; height: Spacing.xs }
-
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: Spacing.md
+                    visible: !settingsController.updateBusy
 
                     PrimaryButton {
                         text: "Check for Updates"
                         iconSource: Assets.refresh
                         preferredHeight: Metrics.touchNormal
-                        enabled: !settingsController.updateBusy
                         onClicked: settingsController.checkUpdate()
                     }
 
                     PrimaryButton {
                         objectName: "softwareInstallButton"
                         visible: settingsController.hasUpdate && !settingsController.updatePendingInstall
-                        text: settingsController.updateBusy
-                              ? (settingsController.updateStatus === "Restarting to install update"
-                                 ? "Restarting..."
-                                 : settingsController.updateStatus === "Verifying update" ? "Verifying..."
-                                 : settingsController.updateProgress > 0 ? "Downloading..." : "Preparing...")
-                              : "Download & Install"
+                        text: "Download & Install"
                         buttonColor: Theme.forest
                         preferredHeight: Metrics.touchNormal
-                        enabled: !settingsController.updateBusy && settingsController.updateCompatible
+                        enabled: settingsController.updateCompatible
                         onClicked: settingsController.downloadUpdate()
                     }
                 }
