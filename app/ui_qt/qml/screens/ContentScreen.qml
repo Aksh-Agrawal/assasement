@@ -1,221 +1,313 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 import ".." 1.0
 import "../components" 1.0
 
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Theme.background
+    color: Theme.canvas
 
-    Row {
-        anchors.fill: parent
+    readonly property bool browsing: libraryController.browsingBanks
+    readonly property string bankState: libraryController.bankState
+    readonly property string connectionState: libraryController.libraryConnection
+    readonly property bool hasFilters: libraryController.bankFilters.some(function(value) { return value.length > 0; })
 
-        NavRail {
-            id: rail
+    component LibraryButton: Button {
+        id: button
+        implicitHeight: Metrics.touchMin
+        font.family: Typography.family
+        font.pixelSize: Typography.caption
+        contentItem: Text {
+            text: button.text
+            font: button.font
+            color: button.checked ? Theme.forest : Theme.deepInk
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            opacity: button.enabled ? 1 : 0.55
+        }
+        background: AppCard {
+            customBgColor: button.checked ? Theme.primaryLight : "transparent"
+            selected: button.checked
+            highlighted: button.down || button.hovered
+            customBorderColor: button.activeFocus ? Theme.borderFocus : "transparent"
+        }
+    }
+
+    component BankFilter: TextField {
+        id: input
+        required property string field
+        Layout.fillWidth: true
+        Layout.minimumWidth: 84
+        Layout.preferredHeight: Metrics.touchMin
+        font.family: Typography.family
+        font.pixelSize: Typography.caption
+        color: Theme.deepInk
+        maximumLength: 200
+        Accessible.name: placeholderText
+        selectByMouse: true
+        rightPadding: Metrics.touchMin
+
+        background: AppCard {
+            customBorderColor: input.activeFocus ? Theme.borderFocus : "transparent"
+        }
+
+        ToolButton {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: Metrics.touchMin
             height: parent.height
-            currentTab: "practice"
-            onTabSelected: function(tab) {
-                if (tab === "home") appController.navigate("home");
-                else if (tab === "library") appController.navigate("subjects");
-                else if (tab === "practice") appController.navigate("content");
-                else if (tab === "progress") appController.navigate("progress");
-                else if (tab === "history") appController.navigate("history");
-                else if (tab === "settings") appController.navigate("settings");
+            icon.source: Assets.keyboard
+            Accessible.name: "Open keyboard for " + input.placeholderText
+            onClicked: appController.openKeyboard(input.field, input.text, false, input.placeholderText)
+        }
+
+        Connections {
+            target: appController
+            function onKeyboardSubmitted(value) {
+                if (appController.keyboardTarget === input.field)
+                    input.text = value;
+            }
+        }
+    }
+
+    NavRail {
+        id: rail
+        height: parent.height
+        currentTab: "practice"
+        onTabSelected: function(tab) {
+            const screens = {home: "home", library: "subjects", practice: "content",
+                             progress: "progress", history: "history", settings: "settings"};
+            appController.navigate(screens[tab]);
+        }
+    }
+
+    AppHeader {
+        id: header
+        anchors.left: rail.right
+        anchors.right: parent.right
+        title: "Practice Library"
+        profileText: appController.activeProfileName
+        networkText: appController.networkLabel
+        syncText: appController.syncLabel
+        isOnline: appController.isOnline
+        showBack: true
+        onBackClicked: appController.navigate("subjects")
+    }
+
+    ColumnLayout {
+        anchors.left: rail.right
+        anchors.right: parent.right
+        anchors.top: header.bottom
+        anchors.bottom: parent.bottom
+        anchors.margins: Spacing.md
+        spacing: Spacing.sm
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Spacing.xs
+
+            LibraryButton {
+                text: "Downloaded"
+                checked: !root.browsing
+                onClicked: libraryController.setBrowsingBanks(false)
+            }
+
+            LibraryButton {
+                text: "Browse question banks"
+                checked: root.browsing
+                onClicked: libraryController.setBrowsingBanks(true)
+            }
+
+            Item { Layout.fillWidth: true }
+
+            LibraryButton {
+                visible: !root.browsing
+                text: "Quick Add"
+                onClicked: {
+                    quickAddController.startQuickAdd(profileController.activeProfileId);
+                    appController.navigate("quick_add");
+                }
             }
         }
 
-        Column {
-            width: parent.width - rail.width
-            height: parent.height
+        GridLayout {
+            Layout.fillWidth: true
+            columns: width >= 520 ? 4 : 2
+            visible: root.browsing
+            columnSpacing: Spacing.sm
+            rowSpacing: Spacing.xs
 
-            AppHeader {
-                width: parent.width
-                title: "Practice Downloads"
-                profileText: appController.activeProfileName
-                networkText: appController.networkLabel
-                syncText: appController.syncLabel
-                isOnline: appController.isOnline
-                showBack: true
-                onBackClicked: appController.navigate("home")
+            BankFilter {
+                id: search
+                field: "bank_search"
+                text: libraryController.bankFilters[0]
+                placeholderText: "Search question banks"
+                onAccepted: apply.clicked()
+            }
+            BankFilter {
+                id: subject
+                field: "bank_subject"
+                text: libraryController.bankFilters[1]
+                placeholderText: "Subject"
+                onAccepted: apply.clicked()
+            }
+            BankFilter {
+                id: chapter
+                field: "bank_chapter"
+                text: libraryController.bankFilters[2]
+                placeholderText: "Chapter"
+                onAccepted: apply.clicked()
+            }
+            LibraryButton {
+                id: apply
+                text: "Search"
+                enabled: !["offline", "auth"].includes(root.bankState)
+                onClicked: libraryController.filterBanks(search.text, subject.text, chapter.text)
+            }
+        }
+
+        AppCard {
+            Layout.fillWidth: true
+            Layout.preferredHeight: offlineCopy.implicitHeight + Spacing.md
+            visible: !root.browsing && root.connectionState === "offline" && libraryController.installedPacks.length > 0
+
+            Text {
+                id: offlineCopy
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - 2 * Spacing.sm
+                x: Spacing.sm
+                text: "You're offline. Your downloaded practice questions are ready. Connect to Wi-Fi to find more."
+                color: Theme.deepInk
+                font.pixelSize: Typography.caption
+                font.family: Typography.family
+                wrapMode: Text.WordWrap
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            LibraryGrid {
+                id: grid
+                objectName: "questionBankGrid"
+                anchors.fill: parent
+                model: root.browsing ? libraryController.questionBanks : libraryController.installedPacks
+                visible: count > 0 && (!root.browsing || root.bankState === "ready")
+
+                delegate: LibraryPackCard {
+                    required property var modelData
+                    width: grid.cellWidth - Spacing.sm
+                    height: grid.cardHeight
+                    pack: modelData
+                    onClicked: {
+                        if (pack.isInstalled)
+                            libraryController.selectPack(pack.id, pack.version);
+                        else
+                            libraryController.downloadBank(pack.id, pack.version);
+                    }
+                }
             }
 
-            Item {
-                width: parent.width
-                height: parent.height - Metrics.headerHeight
+            LibraryGrid {
+                id: skeleton
+                anchors.fill: parent
+                visible: root.browsing && ["idle", "loading"].includes(root.bankState)
+                interactive: false
+                Accessible.name: "Loading question banks"
+                model: visible ? 4 : 0
+                delegate: AppCard {
+                    width: skeleton.cellWidth - Spacing.sm
+                    height: skeleton.cardHeight
 
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: Spacing.md
-                    spacing: Spacing.sm
-
-                    // Storage summary card
-                    AppCard {
-                        width: parent.width
-                        height: 68
-
-                        Item {
-                            anchors.fill: parent
-                            anchors.margins: Spacing.md
-
-                            Row {
-                                anchors.left: parent.left
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Spacing.md
-
-                                Rectangle {
-                                    width: 38; height: 38; radius: Metrics.radiusSm
-                                    color: Theme.surfaceActive
-                                    border.color: Theme.border
-                                    border.width: 1
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    Image {
-                                        anchors.centerIn: parent
-                                        width: 20; height: 20
-                                        source: Assets.download
-                                        fillMode: Image.PreserveAspectFit
-                                    }
-                                }
-
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-
-                                    Text {
-                                        text: "Raspberry Pi Local Storage"
-                                        color: Theme.textPrimary
-                                        font.pixelSize: Typography.body
-                                        font.family: Typography.fontFamily
-                                        font.bold: true
-                                    }
-
-                                    Text {
-                                        text: settingsController.storageUsedGb + " GB used of " + settingsController.storageTotalGb + " GB storage"
-                                        color: Theme.textSecondary
-                                        font.pixelSize: Typography.caption
-                                        font.family: Typography.fontFamily
-                                    }
-                                }
-                            }
-
-                            ProgressBar {
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 180
-                                height: 10
-                                progress: settingsController.storagePercent / 100.0
-                            }
-                        }
-                    }
-
-                    // Content list header with Quick Add Action
-                    Item {
-                        width: parent.width
-                        height: 38
-
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: Spacing.md
+                        spacing: Spacing.sm
+                        Rectangle { width: parent.width * 0.65; height: 16; radius: 4; color: Theme.borderLight }
+                        Rectangle { width: parent.width * 0.36; height: 12; radius: 4; color: Theme.borderLight }
                         Text {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Downloaded Assessment Packs"
-                            color: Theme.textPrimary
-                            font.pixelSize: Typography.sectionTitle
-                            font.family: Typography.fontSerif
-                            font.bold: true
-                        }
-
-                        SecondaryButton {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            preferredHeight: 36
-                            text: "+ Quick Add Questions"
-                            iconSource: Assets.plus
-                            onClicked: {
-                                quickAddController.startQuickAdd(profileController.activeProfileId);
-                                appController.navigate("quick_add");
-                            }
-                        }
-                    }
-
-                    // Installed packs list
-                    EmptyState {
-                        anchors.centerIn: parent
-                        visible: settingsController.installedPacks.length === 0
-                        title: "No Practice Packs Downloaded"
-                        description: "On the website, choose this Study Profile and use Send to Pi on a pack. Then sync to download it."
-                        actionText: "Open Sync"
-                        onActionClicked: appController.navigate("sync")
-                    }
-
-                    ListView {
-                        width: parent.width
-                        height: parent.height - 68 - 32 - Spacing.sm * 2
-                        clip: true
-                        spacing: Spacing.xs
-                        visible: settingsController.installedPacks.length > 0
-                        model: settingsController.installedPacks
-
-                        delegate: AppCard {
-                            width: parent.width
-                            height: 56
-                            interactive: true
-                            onClicked: {
-                                libraryController.selectPack(modelData.id, modelData.version);
-                            }
-
-                            Item {
-                                anchors.fill: parent
-                                anchors.margins: Spacing.sm
-
-                                Row {
-                                    anchors.left: parent.left
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: Spacing.sm
-
-                                    Rectangle {
-                                        width: 36; height: 36; radius: Metrics.radiusSm
-                                        color: Theme.surfaceWarm
-                                        border.color: Theme.border
-                                        border.width: 1
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        Image {
-                                            anchors.centerIn: parent
-                                            width: 22; height: 22
-                                            source: Theme.subjectIcon(modelData.subject)
-                                            fillMode: Image.PreserveAspectFit
-                                        }
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: 440
-                                        spacing: 2
-                                        Text {
-                                            text: modelData.title
-                                            font.bold: true
-                                            font.pixelSize: Typography.body
-                                            font.family: Typography.fontFamily
-                                            color: Theme.textPrimary
-                                            elide: Text.ElideRight
-                                            width: parent.width
-                                        }
-                                        Text {
-                                            text: modelData.subject + " • " + modelData.questionCount + " questions"
-                                            font.pixelSize: Typography.caption
-                                            font.family: Typography.fontFamily
-                                            color: Theme.textSecondary
-                                        }
-                                    }
-                                }
-
-                                StatusBadge {
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Ready on Pi"
-                                    statusType: "success"
-                                }
-                            }
+                            text: "Loading question banks…"
+                            color: Theme.mutedInk
+                            font.family: Typography.family
+                            font.pixelSize: Typography.caption
+                            visible: index === 0
                         }
                     }
                 }
+            }
+
+            EmptyState {
+                visible: !grid.visible && !skeleton.visible
+                title: {
+                    if (!root.browsing)
+                        return "No practice questions downloaded yet.";
+                    switch (root.bankState) {
+                        case "offline": return "You're offline";
+                        case "auth": return "Connect this Study Profile";
+                        case "unreachable": return "Question banks are unavailable";
+                        default: return root.hasFilters ? "No question banks found" : "No question banks available";
+                    }
+                }
+                description: {
+                    if (!root.browsing)
+                        return "Connect to Wi-Fi to browse and download question banks for offline practice.";
+                    switch (root.bankState) {
+                        case "offline": return "Connect to Wi-Fi to explore and download more question banks.";
+                        case "auth": return "Link a Study Profile to browse and download published question banks.";
+                        case "unreachable": return "The learning portal could not load the question banks. Try again in a moment.";
+                        default: return root.hasFilters ? "Try a different search or clear the filters." : "Check back for published question banks.";
+                    }
+                }
+                actionText: {
+                    if (!root.browsing)
+                        return root.connectionState === "offline" ? "Wi-Fi Settings" : "Browse question banks";
+                    switch (root.bankState) {
+                        case "offline": return "Wi-Fi Settings";
+                        case "auth": return "Account settings";
+                        case "unreachable": return "Try again";
+                        default: return root.hasFilters ? "Clear filters" : "Refresh";
+                    }
+                }
+                onActionClicked: {
+                    if (root.browsing ? root.bankState === "offline" : root.connectionState === "offline")
+                        appController.navigate("wifi");
+                    else if (!root.browsing)
+                        libraryController.setBrowsingBanks(true);
+                    else if (root.bankState === "auth")
+                        appController.navigate("account");
+                    else if (root.bankState === "unreachable")
+                        libraryController.refreshBanks();
+                    else {
+                        search.clear();
+                        subject.clear();
+                        chapter.clear();
+                        libraryController.filterBanks("", "", "");
+                    }
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.browsing && root.bankState === "ready" && grid.count > 0
+
+            LibraryButton {
+                text: "Refresh"
+                onClicked: libraryController.refreshBanks()
+            }
+            Item { Layout.fillWidth: true }
+            LibraryButton {
+                text: "Previous"
+                visible: libraryController.hasPreviousBankPage
+                onClicked: libraryController.previousBankPage()
+            }
+            LibraryButton {
+                text: "Next"
+                visible: libraryController.hasNextBankPage
+                onClicked: libraryController.nextBankPage()
             }
         }
     }

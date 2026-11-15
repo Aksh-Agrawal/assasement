@@ -6,6 +6,7 @@ Rectangle {
     id: root
     anchors.fill: parent
     color: Theme.canvas
+    readonly property bool hasPractice: libraryController.canResume || subjects.count > 0
 
     Row {
         anchors.fill: parent
@@ -41,16 +42,19 @@ Rectangle {
             }
 
             // Scrollable / Responsive Content Body
-            Item {
+            Flickable {
                 width: parent.width
                 height: parent.height - Metrics.headerHeight
+                contentWidth: width
+                contentHeight: body.height + Spacing.md
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
 
                 Column {
-                    anchors.fill: parent
-                    anchors.leftMargin: Spacing.lg
-                    anchors.rightMargin: Spacing.lg
-                    anchors.topMargin: Spacing.xs
-                    anchors.bottomMargin: Spacing.md
+                    id: body
+                    x: Spacing.lg
+                    y: Spacing.xs
+                    width: parent.width - 2 * Spacing.lg
                     spacing: Spacing.md
 
                     // -------------------------------------------------------------
@@ -58,7 +62,7 @@ Rectangle {
                     // -------------------------------------------------------------
                     AppCard {
                         width: parent.width
-                        height: 230
+                        height: 208
                         interactive: false
 
                         // Content row inside Hero
@@ -69,7 +73,7 @@ Rectangle {
 
                             // Left Text & Action Column
                             Column {
-                                width: parent.width - 240
+                                width: parent.width - (art.visible ? art.width + Spacing.lg : 0)
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: Spacing.sm
 
@@ -106,6 +110,7 @@ Rectangle {
 
                                 // Subtext
                                 Text {
+                                    visible: root.hasPractice
                                     text: libraryController.canResume ? (libraryController.resumeAnswered + " of " + libraryController.resumeTotal + " questions complete") : "Ready for today's practice? Choose a topic to begin."
                                     color: Theme.mutedInk
                                     font.pixelSize: Typography.body
@@ -133,12 +138,13 @@ Rectangle {
                                     }
                                 }
 
-                                Item { width: 1; height: Spacing.xs }
+                                Item { width: 1; height: Spacing.xs; visible: root.hasPractice }
 
                                 // ONE Strong Primary Action Button
                                 PrimaryButton {
+                                    visible: root.hasPractice
                                     preferredHeight: Metrics.touchNormal
-                                    buttonColor: libraryController.canResume ? Theme.forest : Theme.forest
+                                    buttonColor: Theme.forest
                                     text: libraryController.canResume ? "Continue Practice →" : "Start Practice →"
                                     onClicked: {
                                         if (libraryController.canResume) {
@@ -152,7 +158,9 @@ Rectangle {
 
                             // Right Hero Artwork
                             Image {
-                                width: 220
+                                id: art
+                                visible: parent.width >= 460
+                                width: 196
                                 height: 180
                                 anchors.verticalCenter: parent.verticalCenter
                                 source: libraryController.canResume ? Assets.home_resume : Assets.home_hero
@@ -162,157 +170,62 @@ Rectangle {
                         }
                     }
 
-                    // -------------------------------------------------------------
-                    // SECONDARY DESTINATIONS: Illustrated Subject Cards
-                    // -------------------------------------------------------------
-                    Row {
+                    LibraryGrid {
+                        id: subjects
                         width: parent.width
-                        spacing: Spacing.md
+                        height: Math.ceil(count / columns) * cellHeight
+                        cardHeight: 112
+                        interactive: false
+                        visible: count > 0
+                        model: libraryController.homeSubjects
 
-                        // Biology
-                        AppCard {
-                            width: (parent.width - Spacing.md * 2) / 3
-                            height: 125
-                            interactive: true
-                            onClicked: libraryController.selectSubject("Biology")
-
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: Spacing.md
-                                spacing: Spacing.md
-
-                                Image {
-                                    width: 48
-                                    height: 48
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    source: Assets.biology
-                                    fillMode: Image.PreserveAspectFit
-                                }
-
-                                Column {
-                                    width: parent.width - 48 - Spacing.md
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 3
-
-                                    Text {
-                                        text: "Biology"
-                                        font.bold: true
-                                        font.pixelSize: Typography.body
-                                        color: Theme.deepInk
-                                        font.family: Typography.family
-                                    }
-                                    Text {
-                                        text: "Cells • Genetics • Physiology"
-                                        font.pixelSize: Typography.caption
-                                        color: Theme.mutedInk
-                                        elide: Text.ElideRight
-                                        width: parent.width
-                                    }
-                                    Text {
-                                        text: "Practice →"
-                                        font.pixelSize: 11
-                                        font.bold: true
-                                        color: Theme.forest
-                                    }
-                                }
-                            }
+                        delegate: LibraryCard {
+                            required property var modelData
+                            width: subjects.cellWidth - Spacing.sm
+                            height: subjects.cardHeight
+                            title: modelData.name
+                            context: modelData.chapters
+                            actionText: "Explore"
+                            iconSource: Theme.subjectIcon(modelData.name)
+                            onClicked: libraryController.selectInstalledSubject(modelData.name)
                         }
+                    }
 
-                        // Chemistry
-                        AppCard {
-                            width: (parent.width - Spacing.md * 2) / 3
-                            height: 125
-                            interactive: true
-                            onClicked: libraryController.selectSubject("Chemistry")
+                    AppCard {
+                        width: parent.width
+                        height: emptyCopy.implicitHeight + 2 * Spacing.md
+                        visible: subjects.count === 0
 
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: Spacing.md
-                                spacing: Spacing.md
+                        Column {
+                            id: emptyCopy
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: Spacing.md
+                            spacing: Spacing.xs
 
-                                Image {
-                                    width: 48
-                                    height: 48
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    source: Assets.chemistry
-                                    fillMode: Image.PreserveAspectFit
-                                }
-
-                                Column {
-                                    width: parent.width - 48 - Spacing.md
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 3
-
-                                    Text {
-                                        text: "Chemistry"
-                                        font.bold: true
-                                        font.pixelSize: Typography.body
-                                        color: Theme.deepInk
-                                        font.family: Typography.family
-                                    }
-                                    Text {
-                                        text: "Atoms • Bonding • Reactions"
-                                        font.pixelSize: Typography.caption
-                                        color: Theme.mutedInk
-                                        elide: Text.ElideRight
-                                        width: parent.width
-                                    }
-                                    Text {
-                                        text: "Practice →"
-                                        font.pixelSize: 11
-                                        font.bold: true
-                                        color: Theme.terracotta
-                                    }
-                                }
+                            Text {
+                                width: parent.width
+                                text: "No subjects downloaded yet."
+                                font.family: Typography.family
+                                font.pixelSize: Typography.body
+                                font.bold: true
+                                color: Theme.deepInk
+                                wrapMode: Text.Wrap
                             }
-                        }
 
-                        // Mathematics
-                        AppCard {
-                            width: (parent.width - Spacing.md * 2) / 3
-                            height: 125
-                            interactive: true
-                            onClicked: libraryController.selectSubject("Mathematics")
+                            Text {
+                                width: parent.width
+                                text: "Connect to Wi-Fi to explore and download practice questions."
+                                font.family: Typography.family
+                                font.pixelSize: Typography.caption
+                                color: Theme.mutedInk
+                                wrapMode: Text.Wrap
+                            }
 
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: Spacing.md
-                                spacing: Spacing.md
-
-                                Image {
-                                    width: 48
-                                    height: 48
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    source: Assets.mathematics
-                                    fillMode: Image.PreserveAspectFit
-                                }
-
-                                Column {
-                                    width: parent.width - 48 - Spacing.md
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 3
-
-                                    Text {
-                                        text: "Mathematics"
-                                        font.bold: true
-                                        font.pixelSize: Typography.body
-                                        color: Theme.deepInk
-                                        font.family: Typography.family
-                                    }
-                                    Text {
-                                        text: "Numbers • Algebra • Geometry"
-                                        font.pixelSize: Typography.caption
-                                        color: Theme.mutedInk
-                                        elide: Text.ElideRight
-                                        width: parent.width
-                                    }
-                                    Text {
-                                        text: "Practice →"
-                                        font.pixelSize: 11
-                                        font.bold: true
-                                        color: Theme.gold
-                                    }
-                                }
+                            SecondaryButton {
+                                text: "Practice Library"
+                                onClicked: libraryController.openQuestionBanks()
                             }
                         }
                     }

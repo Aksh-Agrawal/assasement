@@ -17,6 +17,7 @@ from app.api.transport import FailureState, failure_state
 from app.auth.credentials import CredentialStore
 from app.auth.profile_links import ProfileLinkError
 from app.config import AppConfig
+from app.content.client import ContentSupersededError
 from app.content.sync import _install_one
 from app.data.repo import Repository
 from app.diagnostics import collect_device_status, collect_network_status
@@ -64,6 +65,8 @@ class DeviceConsole:
         self.saved_networks = ()
         self.catalog = ()
         self.catalog_profile_id = None
+        self.bank_page = None
+        self.bank_download_phase = ""
         self.pairing = None
         self.pairing_error = ""
         self.available_update = None
@@ -96,6 +99,8 @@ class DeviceConsole:
             "sync",
             "catalog",
             "download",
+            "browse_banks",
+            "download_bank",
             "update_check",
             "update_download",
             "pair_request",
@@ -128,6 +133,10 @@ class DeviceConsole:
             self.update_phase = "downloading"
         elif operation == "update_install":
             self.update_phase = "installing"
+        elif operation == "browse_banks":
+            self.bank_page = None
+        elif operation == "download_bank":
+            self.bank_download_phase = "Downloading"
         self.message = {
             "profile_claim": "Submitting link...",
             "profile_unlink": "Unlinking profile...",
@@ -135,6 +144,8 @@ class DeviceConsole:
             "unlink_retry": "Retrying unlink...",
             "profile_status": "Checking link status...",
             "download": "Downloading and validating question pack...",
+            "browse_banks": "Looking for question banks...",
+            "download_bank": "Downloading question bank...",
             "update_download": "Downloading, verifying and staging update...",
             "diagnostics": "Checking local device...",
             "sync": "Syncing History, Analytics, and Practice downloads...",
@@ -248,6 +259,10 @@ class DeviceConsole:
                 return True
             elif op == "catalog":
                 self.catalog_profile_id, self.catalog = value
+            elif op == "browse_banks":
+                self.bank_page = value
+                self.message = ""
+                return True
             elif op == "pair_request":
                 self.pairing = value
             elif op == "pair_poll":
@@ -264,7 +279,9 @@ class DeviceConsole:
                     return True
             elif op == "update_download":
                 self.staged = value
-            elif op in {"download", "institute_download"}:
+            elif op in {"download", "institute_download", "download_bank"}:
+                if op == "download_bank":
+                    self.bank_download_phase = value.status.value
                 self.download_state[(value.set_id, value.version)] = value.status.value
                 self.message = {
                     "INSTALLED": "Downloaded and verified.",
@@ -297,6 +314,12 @@ class DeviceConsole:
             )
         except ProfileLinkError as error:
             self.message = str(error)
+        except ContentSupersededError:
+            if self.completed_operation == "download_bank":
+                self.bank_download_phase = "SUPERSEDED"
+                self.message = "This question bank changed. Choose a pack from the refreshed list."
+                return True
+            self.message = "The practice library changed. Refresh it and try again."
         except WifiAuthenticationError:
             self.message = "Connection failed. Check your password and try again."
         except WifiPermissionError:
@@ -317,6 +340,8 @@ class DeviceConsole:
                     FailureState.AUTH_REQUIRED: "Could not verify this connection. Generate a new code to link again.",
                 }.get(self.failure, "Could not connect your account. Try again.")
                 self.message = self.pairing_error
+        if self.completed_operation == "download_bank":
+            self.bank_download_phase = "FAILED"
         if self.completed_operation in {"account_sync", "account_create"} and self.failure == FailureState.AUTH_REQUIRED:
             self.account_verified = False
         return True
@@ -431,6 +456,39 @@ class DeviceConsole:
 
             return connected, net_status, internet, ssid
 
+        if operation in {"browse_banks", "download_bank"}:
+            from contextlib import nullcontext
+
+            from app.content.client import ProfileUnavailableError
+            from app.content.profile_library import download_for_profile
+            from app.sync.locking import file_lock
+
+            profile_id, link_id = args["scope"]
+            # Share the delivery lock with the scheduled sync and account unlink.
+            lock = file_lock(str(self.database_path) + ".sync.lock") if operation == "download_bank" else nullcontext()
+            with lock, Repository(self.database_path) as repository:
+                profile = repository.get_profile(profile_id)
+                context = repository.get_profile_link_context(profile_id)
+                if not profile or profile.link_state != "linked" or not context or context["link_id"] != link_id:
+                    raise ProfileUnavailableError("Study Profile connection changed")
+                try:
+                    with DeviceApi(config, store=self.credentials).content(
+                            local_profile_id=profile_id, link_id=link_id) as client:
+                        if operation == "browse_banks":
+                            return client.browse_question_banks(**args["query"])
+                        pack = client.request_question_bank(args["pack"])
+                        return download_for_profile(
+                            repository, client, profile_id, link_id, pack,
+                            temp_directory=config.content_download_directory,
+                            max_pack_bytes=config.content_max_pack_bytes,
+                            media_directory=config.media_directory,
+                            on_verifying=self._verify_bank_download,
+                        )
+                except ProfileUnavailableError:
+                    if (current := repository.get_profile_link_context(profile_id)) and current["link_id"] == link_id:
+                        repository.retire_profile_link(profile_id, reason="profile_forbidden")
+                    raise
+
         with Repository(self.database_path) as repository:
             if operation == "diagnostics":
                 return collect_device_status(
@@ -519,6 +577,9 @@ class DeviceConsole:
                 finally:
                     client.close()
         raise ValueError("Unsupported device action")
+
+    def _verify_bank_download(self):
+        self.bank_download_phase = "Verifying"
 
     def _prepare_update(self, update, db_schema: int) -> Path:
         config = self.config

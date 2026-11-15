@@ -160,8 +160,7 @@ class ProfileController(QObject):
         self.app._screen_history.clear()
         library = getattr(self.app, "library_controller", None)
         if library:
-            library._selected_subject = library._selected_chapter = library._selected_pack_id = ""
-            library._selected_pack_version = 0
+            library.reset_profile()
             library.refreshLibrary()
         assessment = getattr(self.app, "assessment_controller", None)
         if assessment:

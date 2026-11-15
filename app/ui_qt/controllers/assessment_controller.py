@@ -447,33 +447,15 @@ class AssessmentController(QObject):
             return
 
         profile = self.app.ui_controller.selected_profile
-        if not profile and self.app.ui_controller.profiles:
-            self.app.ui_controller.profile_index = 0
-            profile = self.app.ui_controller.selected_profile
-
         if not profile:
             self.app.showNotification("Please select a profile first.", "warning")
             return
 
-        set_item = None
         lib_ctrl = getattr(self.app, "library_controller", None)
-        target_id = getattr(lib_ctrl, "_selected_pack_id", "") if lib_ctrl else ""
-        target_version = getattr(lib_ctrl, "_selected_pack_version", 1) if lib_ctrl else 1
-
-        if target_id and self.app.repository:
-            set_item = self.app.repository.get_question_set(target_id, target_version)
-
-        if not set_item and self.app.ui_controller:
-            if target_id:
-                for qs in self.app.ui_controller.question_sets:
-                    if qs.id == target_id and qs.version == target_version:
-                        set_item = qs
-                        break
-            if not set_item:
-                set_item = self.app.ui_controller.selected_question_set
+        set_item = lib_ctrl.selected_practice_set() if lib_ctrl else None
 
         if not set_item:
-            self.app.showNotification("No question set selected.", "warning")
+            self.app.showNotification("This practice pack is no longer available. Choose a downloaded pack.", "warning")
             return
 
         try:
@@ -759,7 +741,8 @@ class AssessmentController(QObject):
     def finishAndGoHome(self):
         self._active = False
         self._result_cache = None
-        if self.app.ui_controller:
-            self.app.ui_controller.refresh_catalog()
+        library = getattr(self.app, "library_controller", None)
+        if library:
+            library.refreshLibrary()
         self.historyChanged.emit()
         self.app.navigate("home")

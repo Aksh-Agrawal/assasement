@@ -10,6 +10,8 @@ from app.api.transport import FailureState, create_client, json_object, response
 from app.content.catalog import ContentCatalog, RemotePack
 from app.content.validator import SUPPORTED_SCHEMA_VERSION
 
+QUESTION_BANK_PAGE_SIZE = 24
+
 
 class ContentClientError(RuntimeError):
     pass
@@ -129,6 +131,49 @@ class ContentApiClient:
                 or sha256_bytes(data) != digest):
             raise ContentProtocolError("Cloud figure failed PNG or SHA-256 verification")
         return data
+
+    def browse_question_banks(self, *, search="", subject="", chapter="", offset=0):
+        if not self.profile_scoped or not self._paired:
+            raise ContentAuthError("A linked profile is required")
+        try:
+            response = self._client.get(f"/api/v1/profile-content/{self.link_id}/question-banks",
+                params={"local_profile_id": self.local_profile_id, "search": search, "subject": subject,
+                        "chapter": chapter, "offset": offset, "limit": QUESTION_BANK_PAGE_SIZE,
+                        "pack_schema": SUPPORTED_SCHEMA_VERSION})
+        except httpx.RequestError as error:
+            raise ContentNetworkError("Cloud connection unavailable") from error
+        self._check_response(response)
+        try:
+            body = json_object(response)
+            catalog = ContentCatalog.from_dict(body)
+            following = body["next_offset"]
+            if following is not None and (type(following) is not int or following <= offset):
+                raise ValueError("Invalid next catalog offset")
+            return catalog.packs, following
+        except (ValueError, TypeError, KeyError) as error:
+            raise ContentProtocolError("Invalid question bank catalogue") from error
+
+    def request_question_bank(self, pack: RemotePack) -> RemotePack:
+        if not self.profile_scoped or not self._paired:
+            raise ContentAuthError("A linked profile is required")
+        try:
+            response = self._client.post(
+                f"/api/v1/profile-content/{self.link_id}/question-banks/download",
+                json={"local_profile_id": self.local_profile_id, "set_id": pack.set_id,
+                      "version": pack.version, "pack_schema": SUPPORTED_SCHEMA_VERSION},
+            )
+        except httpx.RequestError as error:
+            raise ContentNetworkError("Cloud connection unavailable") from error
+        if response.status_code == 404:
+            raise ContentSupersededError("Question bank is no longer available")
+        self._check_response(response)
+        try:
+            approved = RemotePack.from_dict(json_object(response))
+            if approved != pack:
+                raise ContentSupersededError("Question bank metadata changed")
+            return approved
+        except (ValueError, TypeError, KeyError) as error:
+            raise ContentProtocolError("Refresh the question bank catalogue before downloading") from error
 
     def _fetch_profile_catalog(self):
         packs, offset = [], 0

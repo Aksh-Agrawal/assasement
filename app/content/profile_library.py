@@ -5,7 +5,12 @@ import os
 from pathlib import Path, PurePosixPath
 
 from app.content.catalog import RemotePack
-from app.content.client import ContentAuthError, ContentProtocolError, ProfileUnavailableError
+from app.content.client import (
+    ContentAuthError,
+    ContentProtocolError,
+    ContentSupersededError,
+    ProfileUnavailableError,
+)
 from app.content.sync import ContentSyncStatus, PackSyncResult, _install_one
 
 
@@ -37,29 +42,17 @@ def refresh_library(repository, client, profile_id, link_id):
 
 
 def download_for_profile(repository, client, profile_id, link_id, pack, *,
-                         temp_directory, max_pack_bytes, media_directory=Path("media")):
+                         temp_directory, max_pack_bytes, media_directory=Path("media"), on_verifying=None):
     # Refresh server eligibility before using either shared cached bytes or downloading.
     remote = refresh_library(repository, client, profile_id, link_id)
     approved = next((p for p in remote if (p.set_id, p.version) == (pack.set_id, pack.version)), None)
-    if approved is None or approved.sha256 != pack.sha256:
-        raise ContentProtocolError("Content is no longer eligible")
+    if approved is None:
+        raise ContentSupersededError("Content is no longer eligible")
+    if approved.sha256 != pack.sha256:
+        raise ContentProtocolError("Approved content hash changed")
     pack = approved  # Fresh desired generation, even when reusing cached physical bytes.
-    existing = repository.get_question_set(pack.set_id, pack.version)
-    if existing is not None:
-        persistence = repository.get_question_set_persistence(pack.set_id, pack.version)
-        if persistence.content_hash != pack.sha256:
-            raise ContentProtocolError("Cached content hash mismatch")
-        result = PackSyncResult(pack.set_id, pack.version, ContentSyncStatus.ALREADY_PRESENT)
-    else:
-        _report(repository, client, profile_id, pack, "downloading")
-        result = _install_one(repository, client, pack, temp_directory=temp_directory,
-                              max_pack_bytes=max_pack_bytes,
-                              on_downloaded=lambda: _report(
-                                  repository, client, profile_id, pack, "downloaded"))
-    if result.status is ContentSyncStatus.AUTH_REQUIRED:
-        repository.revoke_profile_library(profile_id)
-    if result.status in {ContentSyncStatus.INSTALLED, ContentSyncStatus.ALREADY_PRESENT}:
-        question_set = repository.get_question_set(pack.set_id, pack.version)
+
+    def verify_figures(question_set):
         references = {ref for question in question_set.questions
                       for ref in (question.media_ref, question.solution_ref) if ref}
         for reference in references:
@@ -75,6 +68,24 @@ def download_for_profile(repository, client, profile_id, link_id, pack, *,
                 os.replace(temporary, target)
             finally:
                 temporary.unlink(missing_ok=True)
+        _report(repository, client, profile_id, pack, "downloaded")
+
+    existing = repository.get_question_set(pack.set_id, pack.version)
+    if existing is not None:
+        persistence = repository.get_question_set_persistence(pack.set_id, pack.version)
+        if persistence.content_hash != pack.sha256:
+            raise ContentProtocolError("Cached content hash mismatch")
+        if on_verifying:
+            on_verifying()
+        verify_figures(existing)
+        result = PackSyncResult(pack.set_id, pack.version, ContentSyncStatus.ALREADY_PRESENT)
+    else:
+        _report(repository, client, profile_id, pack, "downloading")
+        result = _install_one(repository, client, pack, temp_directory=temp_directory,
+                              max_pack_bytes=max_pack_bytes, before_import=verify_figures,
+                              on_verifying=on_verifying)
+    if result.status is ContentSyncStatus.AUTH_REQUIRED:
+        repository.revoke_profile_library(profile_id)
     # Delivery acknowledgement is distinct from the durable installation and local grant.
     try:
         client.acknowledge(pack, "installed" if result.status in {

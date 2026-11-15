@@ -415,6 +415,8 @@ class AppController(QObject):
                     self.showNotification(message, "info")
             if completed:
                 self.deviceOperationFinished.emit(completed)
+        if getattr(self, "library_controller", None):
+            self.library_controller.tick()
 
     def _clear_active_profile(self):
         from app.assessment import AssessmentApplication
@@ -429,8 +431,7 @@ class AppController(QObject):
         self._active_profile_id = None
         library = getattr(self, "library_controller", None)
         if library:
-            library._selected_subject = library._selected_chapter = library._selected_pack_id = ""
-            library._selected_pack_version = 0
+            library.reset_profile()
         if getattr(self, "profile_controller", None):
             self.profile_controller.resetSelection()
         if getattr(self, "assessment_controller", None):

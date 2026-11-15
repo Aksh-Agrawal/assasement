@@ -292,8 +292,8 @@ class QuickAddController(QObject):
     @Slot()
     def practiceNow(self):
         if self._result_set_id and self.app.library_controller:
+            self.app.library_controller.refreshLibrary()
             self.app.library_controller.selectPack(self._result_set_id, 1)
-            self.app.navigate("test_setup")
         else:
             self.app.navigate("content")
 

@@ -138,7 +138,8 @@ def _install_one(
     *,
     temp_directory: Path,
     max_pack_bytes: int,
-    on_downloaded=None,
+    before_import=None,
+    on_verifying=None,
 ) -> PackSyncResult:
     temporary: Path | None = None
     LOGGER.info("pack download started set_id=%s version=%d", pack.set_id, pack.version)
@@ -147,6 +148,8 @@ def _install_one(
             client, pack, temp_directory=temp_directory, max_bytes=max_pack_bytes
         )
         LOGGER.info("pack download complete set_id=%s version=%d", pack.set_id, pack.version)
+        if on_verifying is not None:
+            on_verifying()
         if sha256_file(temporary) != pack.sha256:
             LOGGER.warning("pack hash mismatch set_id=%s version=%d", pack.set_id, pack.version)
             return PackSyncResult(pack.set_id, pack.version, ContentSyncStatus.HASH_MISMATCH)
@@ -155,6 +158,9 @@ def _install_one(
         if (
             question_set.id != pack.set_id
             or question_set.version != pack.version
+            or question_set.title != pack.title
+            or question_set.subject != pack.subject
+            or question_set.chapter != pack.chapter
             or len(question_set.questions) != pack.question_count
         ):
             LOGGER.warning("pack metadata mismatch set_id=%s version=%d", pack.set_id, pack.version)
@@ -165,8 +171,8 @@ def _install_one(
                 "catalog metadata does not match pack",
             )
         current = repository.get_active_question_set(pack.set_id)
-        if on_downloaded is not None:
-            on_downloaded()
+        if before_import is not None:
+            before_import(question_set)
         make_active = current is None or pack.version > current.version
         import_pack(
             temporary,

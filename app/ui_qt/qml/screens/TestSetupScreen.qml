@@ -23,10 +23,20 @@ Rectangle {
         syncText: appController.syncLabel
         isOnline: appController.isOnline
         showBack: true
-        onBackClicked: appController.navigate("packs")
+        onBackClicked: appController.goBack()
+    }
+
+    EmptyState {
+        anchors.topMargin: header.height
+        visible: libraryController.practiceQuestionTotal === 0
+        title: "Practice pack unavailable"
+        description: "Choose a downloaded pack to start practice."
+        actionText: "Open Practice Library"
+        onActionClicked: appController.navigate("subjects")
     }
 
     Item {
+        visible: libraryController.practiceQuestionTotal > 0
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -81,7 +91,7 @@ Rectangle {
                     Row {
                         spacing: Spacing.sm
                         Text { text: "Questions:"; color: Theme.mutedInk; font.pixelSize: Typography.body }
-                        Text { text: (libraryController.selectedPack.questionCount || 10) + " items"; font.bold: true; color: Theme.deepInk; font.pixelSize: Typography.body }
+                        Text { text: libraryController.practiceQuestionTotal + " items"; font.bold: true; color: Theme.deepInk; font.pixelSize: Typography.body }
                     }
 
                     Row {
@@ -328,7 +338,7 @@ Rectangle {
                         SecondaryButton {
                             text: "Back"
                             preferredHeight: Metrics.touchNormal
-                            onClicked: appController.navigate("packs")
+                            onClicked: appController.goBack()
                         }
 
                         PrimaryButton {

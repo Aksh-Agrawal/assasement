@@ -411,8 +411,10 @@ def test_library_and_assessment_properties(qapp, tmp_path, mock_repo):
     app_ctrl._initialize_runtime()
 
     lib_ctrl = LibraryController(app_ctrl)
-    assert len(lib_ctrl.subjects) >= 1
-    assert len(lib_ctrl.chapters) >= 1
+    assert lib_ctrl.subjects == ["Biology"]
+    assert lib_ctrl.chapters == []
+    lib_ctrl.selectInstalledSubject("Biology")
+    assert lib_ctrl.chapters == ["Cells"]
 
     assess_ctrl = AssessmentController(app_ctrl)
     assert assess_ctrl.questionIndex == 1
@@ -443,6 +445,7 @@ def test_assessment_flow_full(qapp, tmp_path, mock_repo):
     mock_app.current_question.return_value = mock_question
     mock_app.current_response.return_value = Mock(selected_key="A", marked_review=False)
 
+    LibraryController(app_ctrl).selectPack("bio-pack-01", 1)
     assess_ctrl.startTest("practice", 10)
     assert assess_ctrl.isActive
     assert assess_ctrl.timerEnabled
@@ -1700,7 +1703,7 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     qapp.processEvents()
     QTest.qWait(100)
     assert window.grabWindow().save(str(capture_dir / "recovery-practice-screen-800x480.png"))
-    QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(400, 266))
+    QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(592, 164))
     qapp.processEvents()
     assert app_ctrl.screen == "test_setup"
     assert library_ctrl._selected_pack_id == recovery_pack.id
@@ -1806,6 +1809,8 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
 def test_practice_filters_expose_count_presets_and_allow_empty_matches(qapp, mock_repo):
     app = Mock()
     app.repository = mock_repo
+    app.ui_controller.question_sets = mock_repo.visible_question_sets.return_value
+    app.ui_controller.selected_profile = mock_repo.list_profiles.return_value[0]
     controller = LibraryController(app)
     controller._selected_pack_id = "bio-pack-01"
     controller._selected_pack_version = 1
@@ -1814,3 +1819,257 @@ def test_practice_filters_expose_count_presets_and_allow_empty_matches(qapp, moc
     assert controller.practiceCountPresets("All topics", "Any difficulty") == ["All questions", "Custom"]
     assert controller.practiceQuestionCount("Fractions", "Standard") == 0
     assert controller.practiceCountPresets("Fractions", "Standard") == []
+
+
+def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path, monkeypatch):
+    from threading import Event
+
+    import httpx
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtGui import QFont, QFontDatabase
+    from PySide6.QtTest import QTest
+
+    from app.api.client import DeviceApi
+    from app.auth.credentials import DeviceCredential
+    from app.content.client import ContentApiClient
+    from app.content.importer import import_pack
+    from app.data.repo import Repository
+    from tests.content.test_profile_library import metadata, setup
+
+    for name in ("segoeui.ttf", "segoeuib.ttf", "arial.ttf", "arialbd.ttf", "georgia.ttf", "georgiab.ttf"):
+        font_path = Path("C:/Windows/Fonts") / name
+        if font_path.exists():
+            QFontDatabase.addApplicationFont(str(font_path))
+    if os.name == "nt":
+        qapp.setFont(QFont("Segoe UI", 11))
+
+    database = tmp_path / "library.db"
+    config = AppConfig(database_path=database, api_base_url="https://cloud.test",
+                       content_download_directory=tmp_path / "downloads",
+                       media_directory=tmp_path / "media")
+    credentials = CredentialStore(tmp_path / "creds.json")
+    sample = Path("content/sample_biology.json").read_bytes()
+    biology = metadata(sample)
+    bank_requested = Event()
+    hold_download = Event()
+    verifying = Event()
+    hold_verification = Event()
+    state = {"grants": [], "requests": [], "fail": False, "superseded": False}
+
+    def content_bytes(identifier, subject, chapter, title):
+        bank = json.loads(sample)
+        bank["set"].update(id=identifier, subject=subject, chapter=chapter, title=title)
+        return json.dumps(bank).encode()
+
+    with Repository(database) as seed:
+        link_a = setup(seed)
+        link_b = seed.get_profile_link_context("b")["link_id"]
+        chemistry = [
+            content_bytes("chem-bonding", "Chemistry", "Chemical Bonding",
+                          "Chemical bonding and molecular structure across ionic and covalent compounds"),
+            content_bytes("chem-shapes", "Chemistry", "Chemical Bonding", "Molecular shapes and geometry"),
+            content_bytes("chem-periodic", "Chemistry", "Periodic Table", "Periodic trends"),
+            content_bytes("chem-carbon", "Chemistry", "Organic Chemistry", "Carbon and its compounds"),
+        ]
+        maths = content_bytes("math-algebra", "Mathematics", "Algebra", "Linear equations")
+        for raw in (*chemistry, maths):
+            pack_path = tmp_path / "pack.json"
+            pack_path.write_bytes(raw)
+            import_pack(pack_path, seed, profile_only=True)
+        state["grants"] = [metadata(raw) for raw in chemistry]
+        seed.cache_profile_library("a", link_a, state["grants"])
+        seed.cache_profile_library("b", link_b, [metadata(maths)])
+
+    public = [biology, metadata(maths), *state["grants"]]
+    scope_requests = []
+
+    def handle(request):
+        path = request.url.path
+        assert request.headers["Authorization"] == "Bearer test-device-token"
+        assert path.startswith(f"/api/v1/profile-content/{link_a}/")
+        if path.endswith("/question-banks"):
+            assert request.url.params["local_profile_id"] == "a"
+            filters = dict(request.url.params)
+            state["requests"].append(filters)
+            matches = public if not filters["search"] else [p for p in public if
+                filters["search"].casefold() in p["title"].casefold()]
+            return httpx.Response(200, json={"schema_version": 1, "packs": matches, "next_offset": None})
+        if path.endswith("/question-banks/download"):
+            body = json.loads(request.content)
+            assert (body["local_profile_id"], body["set_id"], body["version"]) == ("a", biology["set_id"], 1)
+            if state["superseded"]:
+                public.remove(biology)
+                return httpx.Response(409, json={"detail": {"code": "operation_superseded"}})
+            if biology not in state["grants"]:
+                state["grants"].append(biology)
+            return httpx.Response(200, json=biology)
+        if path.endswith("/catalog"):
+            return httpx.Response(200, json={"schema_version": 1, "packs": state["grants"], "next_offset": None})
+        if path.endswith("/status"):
+            status = json.loads(request.content)["status"]
+            if status == "downloaded":
+                verifying.set()
+                assert hold_verification.wait(8)
+            return httpx.Response(200, json={"status": status})
+        assert path.endswith(f"/packs/{biology['set_id']}/1")
+        if state["fail"]:
+            return httpx.Response(503)
+        bank_requested.set()
+        assert hold_download.wait(8)
+        return httpx.Response(200, content=sample)
+
+    def fake_content(_api, **kwargs):
+        scope_requests.append(kwargs)
+        return ContentApiClient(config.api_base_url, auth_token="test-device-token",
+                                transport=httpx.MockTransport(handle), **kwargs)
+
+    monkeypatch.setattr(DeviceApi, "content", fake_content)
+    ctrl = AppController(database, config, credentials)
+    ctrl.startup_session.repository = Repository(database)
+    ctrl.startup_session.complete = True
+    ctrl._initialize_runtime()
+    ctrl._poll_timer.stop()
+    ctrl._initial_probe_started = True
+    ctrl._next_connectivity_check = float("inf")
+    credentials.save(DeviceCredential("test-device", "test-device-token"))
+    profile = ProfileController(ctrl, parent=ctrl)
+    library = LibraryController(ctrl, parent=ctrl)
+    assessment = AssessmentController(ctrl, parent=ctrl)
+    engine = QQmlApplicationEngine()
+    qml_dir = Path("app/ui_qt/qml").resolve()
+    engine.addImportPath(str(qml_dir))
+    for name, instance in (
+        ("appController", ctrl), ("libraryController", library), ("profileController", profile),
+        ("assessmentController", assessment), ("settingsController", SettingsController(ctrl, parent=ctrl)),
+        ("quickAddController", QuickAddController(ctrl, parent=ctrl)),
+    ):
+        engine.rootContext().setContextProperty(name, instance)
+    warnings = []
+    engine.warnings.connect(lambda problems: warnings.extend(p.toString() for p in problems))
+    engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
+    assert engine.rootObjects()
+    window = engine.rootObjects()[0]
+    capture_dir = Path(os.environ.get("QUESTRAA_LIBRARY_CAPTURES", str(tmp_path / "captures")))
+    capture_dir.mkdir(parents=True, exist_ok=True)
+
+    def save(name):
+        ctrl.clearMessage()
+        qapp.processEvents()
+        QTest.qWait(70)
+        frame = window.grabWindow()
+        assert (frame.width(), frame.height()) == (800, 480)
+        assert frame.save(str(capture_dir / (name + "-800x480.png")))
+
+    def ready():
+        for _ in range(200):
+            ctrl._on_tick()
+            qapp.processEvents()
+            if not ctrl.device.busy and library.bankState != "loading":
+                return
+            QTest.qWait(25)
+        pytest.fail("Timed out waiting for Practice Library")
+
+    def connectivity(cloud, internet):
+        ctrl.repository.set_setting("connectivity_cloud", json.dumps({"state": cloud}))
+        ctrl.repository.set_setting("connectivity_internet", json.dumps({"state": internet}))
+        ctrl.statusChanged.emit()
+        library.refreshLibrary()
+        library.tick()
+
+    try:
+        profile.selectProfileId("a")
+        assert [r["name"] for r in library.homeSubjects] == ["Chemistry"]
+        save("01-home-chemistry-only")
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(254, 299))
+        assert ctrl.screen == "chapters"
+        assert library.selectedSubject == "Chemistry"
+        save("03-chapters")
+        library.selectChapter("Chemical Bonding")
+        assert len(library.packs) == 2 and all(p["subject"] == "Chemistry" for p in library.packs)
+        save("04-packs")
+        library.selectInstalledSubject("Mathematics")
+        assert library.selectedSubject == "Mathematics" and library.chapters == [] and library.packs == []
+        library.selectPack("math-algebra", 1)
+        assert library.selectedPack == {} and library.practiceQuestionTotal == 0
+        assessment.startTest()
+        assert not assessment.isActive
+        ctrl.navigate("subjects")
+        save("02-subject-library")
+        ctrl.navigate("content")
+        connectivity("Offline", "Unavailable")
+        save("05-downloaded-offline")
+        library.setBrowsingBanks(True)
+        library.tick()
+        assert library.bankState == "offline"
+        save("06-browse-offline")
+
+        connectivity("Online", "Available")
+        save("07-catalog-loading")
+        ready()
+        assert library.bankState == "ready"
+        assert {p["subject"] for p in library.questionBanks} == {"Biology", "Chemistry", "Mathematics"}
+        assert [r["name"] for r in library.homeSubjects] == ["Chemistry"]
+        save("08-catalog")
+        catalog_grid = window.findChild(QObject, "questionBankGrid")
+        assert catalog_grid.property("contentHeight") > catalog_grid.property("height")
+        assert catalog_grid.property("cellWidth") * catalog_grid.property("columns") <= catalog_grid.property("width")
+        catalog_grid.setProperty("contentY", catalog_grid.property("contentHeight") - catalog_grid.property("height"))
+        qapp.processEvents()
+        assert catalog_grid.property("contentY") > 0
+        library.filterBanks("Cell", "Biology", "")
+        ready()
+        assert [p["id"] for p in library.questionBanks] == [biology["set_id"]]
+        assert state["requests"][-1]["subject"] == "Biology"
+
+        state["superseded"] = True
+        library.downloadBank(biology["set_id"], 1)
+        ready()
+        assert library.bankState == "ready" and library.questionBanks == []
+        assert [r["name"] for r in library.homeSubjects] == ["Chemistry"]
+        state["superseded"] = False
+        public.insert(0, biology)
+        library.refreshBanks()
+        ready()
+
+        state["fail"] = True
+        QTest.qWait(70)
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(261, 215))
+        ready()
+        assert library.questionBanks[0]["retry"]
+        assert [r["name"] for r in library.homeSubjects] == ["Chemistry"]
+        state["fail"] = False
+        library.downloadBank(biology["set_id"], 1)
+        assert bank_requested.wait(5)
+        save("09-download-in-progress")
+        hold_download.set()
+        assert verifying.wait(5)
+        ctrl._on_tick()
+        assert library.questionBanks[0]["status"] == "Verifying"
+        save("10-download-verifying")
+        hold_verification.set()
+        ready()
+        assert library.questionBanks[0]["isInstalled"]
+        assert [r["name"] for r in library.homeSubjects] == ["Biology", "Chemistry"]
+        assert len(ctrl.repository.list_question_set_versions(biology["set_id"])) == 1
+        save("11-download-ready")
+        assert all(scope == {"local_profile_id": "a", "link_id": link_a} for scope in scope_requests)
+
+        profile.selectProfileId("b")
+        assert [r["name"] for r in library.homeSubjects] == ["Mathematics"]
+        assert library.questionBanks == []
+        library.selectInstalledSubject("Mathematics")
+        assert library.chapters == ["Algebra"]
+        library.selectChapter("Algebra")
+        assert [p["id"] for p in library.packs] == ["math-algebra"]
+        ctrl.repository.cache_profile_library("b", link_b, [])
+        library.refreshLibrary()
+        ctrl.navigate("home")
+        assert library.homeSubjects == []
+        save("12-home-no-downloads")
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(196, 347))
+        assert ctrl.screen == "content" and library.browsingBanks
+    finally:
+        hold_download.set()
+        hold_verification.set()
+        close_qml(engine, ctrl)
+    assert not warnings, "\n".join(warnings)

@@ -72,3 +72,44 @@ def test_profile_operations_catalog_and_download_request_supported_pack_schema()
     ]
     assert all(request.url.params.get("local_profile_id") == "local-profile"
                for request in requests)
+
+
+def test_profile_pack_becomes_playable_only_after_figures_verify(tmp_path):
+    from app.content.profile_library import download_for_profile
+    from app.content.sync import ContentSyncStatus
+    from app.data.repo import Repository
+    from tests.content.test_profile_library import metadata, setup
+
+    image = b"\x89PNG\r\n\x1a\nfigure"
+    reference = f"media/{sha256(image).hexdigest()}.png"
+    pack = json.loads(Path("content/sample_biology.json").read_bytes())
+    pack["questions"][0]["media_ref"] = reference
+    data = json.dumps(pack).encode()
+    item = metadata(data)
+    figure_ready = False
+
+    def handle(request):
+        if request.url.path.endswith("/catalog"):
+            return httpx.Response(200, json={"schema_version": 1, "packs": [item], "next_offset": None})
+        if request.url.path.endswith("/status"):
+            return httpx.Response(200, json={})
+        if "/figures/" in request.url.path:
+            assert not repo.visible_question_sets("a")
+            return httpx.Response(200, content=image if figure_ready else b"corrupt")
+        return httpx.Response(200, content=data)
+
+    with Repository(tmp_path / "figures.db") as repo:
+        link = setup(repo)
+        with ContentApiClient("https://cloud.test", auth_token="device", link_id=link,
+                              local_profile_id="a", transport=httpx.MockTransport(handle)) as client:
+            remote = RemotePack.from_dict(item)
+            options = {"temp_directory": tmp_path, "max_pack_bytes": 10**6, "media_directory": tmp_path}
+            assert download_for_profile(repo, client, "a", link, remote,
+                                        **options).status is ContentSyncStatus.FAILED_DOWNLOAD
+            assert not repo.visible_question_sets("a")
+            assert repo.get_question_set(remote.set_id, remote.version) is None
+            figure_ready = True
+            assert download_for_profile(repo, client, "a", link, remote,
+                                        **options).status is ContentSyncStatus.INSTALLED
+            assert (tmp_path / reference).read_bytes() == image
+            assert len(repo.visible_question_sets("a")) == 1
