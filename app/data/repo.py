@@ -1058,6 +1058,17 @@ class Repository:
         ).fetchall()
         return tuple(self._attempt_from_row(row) for row in rows)
 
+    def completed_attempt_times(self, profile_id: str) -> tuple[datetime, ...]:
+        """Return the timestamps needed for streaks without loading question or answer data."""
+        rows = self._connection.execute(
+            "SELECT DISTINCT completed_at FROM attempts "
+            "WHERE profile_id = ? AND status = ? AND completed_at IS NOT NULL",
+            (profile_id, AttemptStatus.COMPLETED.value),
+        )
+        timestamps = [row["completed_at"] for row in rows]
+        timestamps.extend(result.get("completed_at") for result in self.completed_results(profile_id))
+        return tuple(when for value in timestamps if (when := datetime_from_text(value)) is not None)
+
     @staticmethod
     def _attempt_from_row(row: sqlite3.Row) -> Attempt:
         return Attempt(

@@ -42,7 +42,7 @@ class LibraryController(QObject):
         self._browsing = False
         self._bank_scope = None
         self._bank_connectivity = ""
-        self._bank_filters = ("", "", "")
+        self._bank_filters = ("", "", "", "")
         self._bank_offset = 0
         self._bank_next = None
         self._bank_packs = ()
@@ -303,9 +303,9 @@ class LibraryController(QObject):
         self.downloadsChanged.emit()
         self.app.navigate("content")
 
-    @Slot(str, str, str)
-    def filterBanks(self, search, subject, chapter):
-        self._bank_filters = tuple(value.strip()[:200] for value in (search, subject, chapter))
+    @Slot(str, str, str, str)
+    def filterBanks(self, search, subject, chapter, exam=""):
+        self._bank_filters = (*[value.strip()[:200] for value in (search, subject, chapter)], exam)
         self._load_bank_page(0)
 
     @Slot()
@@ -367,8 +367,9 @@ class LibraryController(QObject):
                 self.bankCatalogChanged.emit()
             return
         if self._bank_state == "loading" and not device.busy:
-            search, subject, chapter = self._bank_filters
-            query = {"search": search, "subject": subject, "chapter": chapter, "offset": self._bank_offset}
+            search, subject, chapter, exam = self._bank_filters
+            query = {"search": search, "subject": subject, "chapter": chapter, "exam": exam,
+                     "offset": self._bank_offset}
             device.start("browse_banks", scope=scope, query=query)
             self._bank_request = scope, self._bank_filters, self._bank_offset
 
@@ -526,7 +527,7 @@ class LibraryController(QObject):
         self._browsing = False
         self._show_download_queue = False
         self._bank_scope = self._bank_request = None
-        self._bank_filters = ("", "", "")
+        self._bank_filters = ("", "", "", "")
         self._load_bank_page(0)
         self.downloadsChanged.emit()
 

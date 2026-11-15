@@ -42,7 +42,7 @@ Rectangle {
 
             AppHeader {
                 width: parent.width
-                title: "Progress & Analytics"
+                title: "Analytics"
                 profileText: appController.activeProfileName
                 networkText: appController.networkLabel
                 syncText: appController.syncLabel

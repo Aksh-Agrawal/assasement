@@ -51,7 +51,7 @@ Rectangle {
                 { id: "home", label: "Home", icon: Assets.home },
                 { id: "library", label: "Library", icon: Assets.library },
                 { id: "practice", label: "Practice", icon: Assets.practice },
-                { id: "progress", label: "Progress", icon: Assets.history },
+                { id: "progress", label: "Analytics", icon: Assets.analytics },
                 { id: "history", label: "History", icon: Assets.history },
                 { id: "settings", label: "Settings", icon: Assets.settings }
             ]
@@ -85,6 +85,7 @@ Rectangle {
                     spacing: 3
 
                     Image {
+                        objectName: "navIcon-" + modelData.id
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: 22
                         height: 22
@@ -93,6 +94,7 @@ Rectangle {
                     }
 
                     Text {
+                        objectName: "navLabel-" + modelData.id
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: modelData.label
                         color: root.currentTab === modelData.id ? Theme.forest : Theme.mutedInk

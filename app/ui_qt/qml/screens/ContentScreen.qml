@@ -14,6 +14,13 @@ Rectangle {
     readonly property string bankState: libraryController.bankState
     readonly property string connectionState: libraryController.libraryConnection
     readonly property bool hasFilters: libraryController.bankFilters.some(function(value) { return value.length > 0; })
+    readonly property string subjectFilter: libraryController.bankFilters[1]
+    readonly property string examFilter: libraryController.bankFilters[3]
+    readonly property bool filtersEnabled: !["offline", "auth"].includes(bankState)
+
+    function applyFilters(subject, exam) {
+        libraryController.filterBanks(search.text, subject, chapter.text, exam);
+    }
 
     component LibraryButton: Button {
         id: button
@@ -70,6 +77,23 @@ Rectangle {
                 if (appController.keyboardTarget === input.field)
                     input.text = value;
             }
+        }
+    }
+
+    component BankChoice: ComboBox {
+        id: choice
+        required property string selection
+        readonly property int selectionIndex: model.findIndex(option => option.value === selection)
+        Layout.preferredHeight: Metrics.touchMin
+        font.family: Typography.family
+        font.pixelSize: Typography.caption
+        textRole: "label"
+        valueRole: "value"
+        currentIndex: selectionIndex
+        displayText: selectionIndex >= 0 ? model[selectionIndex].label : selection
+        background: AppCard {
+            customBorderColor: choice.activeFocus ? Theme.borderFocus : "transparent"
+            highlighted: choice.down || choice.hovered
         }
     }
 
@@ -142,7 +166,7 @@ Rectangle {
 
         GridLayout {
             Layout.fillWidth: true
-            columns: width >= 520 ? 4 : 2
+            columns: width >= 540 ? 5 : 2
             visible: root.browsing
             columnSpacing: Spacing.sm
             rowSpacing: Spacing.xs
@@ -154,12 +178,52 @@ Rectangle {
                 placeholderText: "Search question banks"
                 onAccepted: apply.clicked()
             }
-            BankFilter {
-                id: subject
-                field: "bank_subject"
-                text: libraryController.bankFilters[1]
-                placeholderText: "Subject"
-                onAccepted: apply.clicked()
+            BankChoice {
+                id: examChoice
+                objectName: "questionBankExamFilter"
+                Accessible.name: "Exam"
+                Layout.preferredWidth: 105
+                enabled: root.filtersEnabled
+                selection: root.examFilter
+                model: [
+                    { label: "All exams", value: "" },
+                    { label: "JEE", value: "jee" },
+                    { label: "IAT", value: "iat" }
+                ]
+                onActivated: function(index) {
+                    root.applyFilters(root.subjectFilter, model[index].value);
+                }
+            }
+            BankChoice {
+                id: subjectChoice
+                objectName: "questionBankSubjectFilter"
+                Accessible.name: "Subject"
+                Layout.preferredWidth: 132
+                enabled: root.filtersEnabled
+                selection: root.subjectFilter
+                model: [
+                    { label: "All subjects", value: "" },
+                    { label: "Mathematics", value: "math" },
+                    { label: "Physics", value: "Physics" },
+                    { label: "Chemistry", value: "Chemistry" },
+                    { label: "Biology", value: "Biology" },
+                    { label: "Other subject…", value: "__custom__" }
+                ]
+                onActivated: function(index) {
+                    const value = model[index].value;
+                    if (value === "__custom__")
+                        appController.openKeyboard("bank_subject", root.subjectFilter, false, "Subject");
+                    else
+                        root.applyFilters(value, root.examFilter);
+                }
+
+                Connections {
+                    target: appController
+                    function onKeyboardSubmitted(value) {
+                        if (appController.keyboardTarget === "bank_subject")
+                            root.applyFilters(value, root.examFilter);
+                    }
+                }
             }
             BankFilter {
                 id: chapter
@@ -171,8 +235,8 @@ Rectangle {
             LibraryButton {
                 id: apply
                 text: "Search"
-                enabled: !["offline", "auth"].includes(root.bankState)
-                onClicked: libraryController.filterBanks(search.text, subject.text, chapter.text)
+                enabled: root.filtersEnabled
+                onClicked: root.applyFilters(root.subjectFilter, root.examFilter)
             }
         }
 
@@ -291,9 +355,8 @@ Rectangle {
                         libraryController.refreshBanks();
                     else {
                         search.clear();
-                        subject.clear();
                         chapter.clear();
-                        libraryController.filterBanks("", "", "");
+                        libraryController.filterBanks("", "", "", "");
                     }
                 }
             }

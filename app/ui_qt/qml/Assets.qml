@@ -5,7 +5,9 @@ QtObject {
     id: assets
 
     readonly property url account: Qt.resolvedUrl("icons/account.svg")
+    readonly property url analytics: Qt.resolvedUrl("icons/analytics.svg")
     readonly property url arrow_back: Qt.resolvedUrl("icons/arrow_back.svg")
+    readonly property url battery: Qt.resolvedUrl("icons/battery.svg")
     readonly property url biology: Qt.resolvedUrl("icons/biology.svg")
     readonly property url book_spine: Qt.resolvedUrl("icons/book_spine.svg")
     readonly property url calculator: Qt.resolvedUrl("icons/calculator.svg")
@@ -23,6 +25,7 @@ QtObject {
     readonly property url download: Qt.resolvedUrl("icons/download.svg")
     readonly property url empty_shelf: Qt.resolvedUrl("icons/empty_shelf.svg")
     readonly property url english: Qt.resolvedUrl("icons/english.svg")
+    readonly property url fire: Qt.resolvedUrl("icons/fire.svg")
     readonly property url flag: Qt.resolvedUrl("icons/flag.svg")
     readonly property url flag_filled: Qt.resolvedUrl("icons/flag_filled.svg")
     readonly property url flask: Qt.resolvedUrl("icons/flask.svg")

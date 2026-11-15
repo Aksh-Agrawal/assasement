@@ -3,6 +3,7 @@
 import json
 import logging
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
@@ -10,6 +11,7 @@ from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 from app.auth.credentials import CredentialStore
 from app.config import AppConfig
 from app.data.repo import Repository
+from app.system.power import battery_label
 from app.ui.controller import UIController, UIScreen
 from app.ui.device import DeviceConsole
 from app.ui.startup import StartupSession
@@ -22,6 +24,8 @@ class AppController(QObject):
     deviceOperationFinished = Signal(str)
     activeProfileChanged = Signal()
     statusChanged = Signal()
+    clockChanged = Signal()
+    practiceStreakChanged = Signal()
     messageChanged = Signal()
     startupProgressChanged = Signal()
     keyboardVisibilityChanged = Signal()
@@ -63,6 +67,15 @@ class AppController(QObject):
         self.device = DeviceConsole(self.database_path, self.config, self.credentials)
         self.ui_controller: UIController | None = None
         self.repository: Repository | None = None
+
+        self._local_time = datetime.now().astimezone().replace(second=0, microsecond=0)
+        self._battery_label = battery_label()
+        self._practice_streak = 0
+        self.activeProfileChanged.connect(self._refresh_practice_streak)
+        self._clock_timer = QTimer(self)
+        self._clock_timer.setInterval(1000)
+        self._clock_timer.timeout.connect(self._refresh_clock)
+        self._clock_timer.start()
 
         # Background polling timer (100 ms)
         self._poll_timer = QTimer(self)
@@ -123,6 +136,55 @@ class AppController(QObject):
         if self.ui_controller:
             return self.ui_controller.sync_label
         return "Offline"
+
+    @Property(str, notify=clockChanged)
+    def localDate(self) -> str:
+        return self._local_time.strftime("%d %b %Y")
+
+    @Property(str, notify=clockChanged)
+    def localTime(self) -> str:
+        return self._local_time.strftime("%H:%M")
+
+    @Property(str, notify=clockChanged)
+    def greeting(self) -> str:
+        hour = self._local_time.hour
+        return "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
+
+    @Property(str, notify=clockChanged)
+    def batteryLabel(self) -> str:
+        return self._battery_label
+
+    @Property(int, notify=practiceStreakChanged)
+    def practiceStreak(self) -> int:
+        return self._practice_streak
+
+    def _refresh_clock(self):
+        local_time = datetime.now().astimezone().replace(second=0, microsecond=0)
+        if local_time.replace(tzinfo=None) == self._local_time.replace(tzinfo=None):
+            return
+        new_day = local_time.date() != self._local_time.date()
+        self._local_time = local_time
+        self._battery_label = battery_label()
+        self.clockChanged.emit()
+        if new_day:
+            self._refresh_practice_streak()
+
+    def _refresh_practice_streak(self):
+        ui = self.ui_controller
+        profile = ui.selected_profile if ui else None
+        streak = 0
+        if self.repository and profile and ui.authorized_profile == profile.id:
+            practice_days = {timestamp.astimezone().date()
+                             for timestamp in self.repository.completed_attempt_times(profile.id)}
+            day = self._local_time.date()
+            if day not in practice_days:
+                day -= timedelta(days=1)
+            while day in practice_days:
+                streak += 1
+                day -= timedelta(days=1)
+        if self._practice_streak != streak:
+            self._practice_streak = streak
+            self.practiceStreakChanged.emit()
 
     @Property(str, notify=messageChanged)
     def message(self) -> str:
@@ -439,6 +501,7 @@ class AppController(QObject):
 
     def close(self):
         self._poll_timer.stop()
+        self._clock_timer.stop()
         if self.ui_controller:
             try:
                 self.ui_controller.close()

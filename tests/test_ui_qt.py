@@ -104,6 +104,7 @@ def mock_repo(tmp_path):
     repo.institute_work.return_value = ()
     repo.find_in_progress_attempt.return_value = None
     repo.list_attempts.return_value = ()
+    repo.completed_attempt_times.return_value = ()
     repo.completed_results.return_value = []
     repo.save_response.side_effect = lambda resp, *args, **kwargs: resp
     repo.create_attempt.return_value = Mock(id="att-01", profile_id="prof-01", set_id="bio-pack-01", set_version=1)
@@ -1853,10 +1854,12 @@ def test_practice_filters_expose_count_presets_and_allow_empty_matches(qapp, moc
 
 
 def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path, monkeypatch):
+    from datetime import datetime, timedelta
     from threading import Event
+    from uuid import uuid4
 
     import httpx
-    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtCore import Q_ARG, QMetaObject, QPoint, Qt
     from PySide6.QtGui import QFont, QFontDatabase
     from PySide6.QtTest import QTest
 
@@ -1865,6 +1868,7 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
     from app.content.client import ContentApiClient
     from app.content.importer import import_pack
     from app.data.repo import Repository
+    from app.system.power import battery_label
     from tests.content.test_profile_library import metadata, setup
 
     for name in ("segoeui.ttf", "segoeuib.ttf", "arial.ttf", "arialbd.ttf", "georgia.ttf", "georgiab.ttf"):
@@ -1886,6 +1890,13 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
     verifying = Event()
     hold_verification = Event()
     state = {"grants": [], "requests": [], "downloads": [], "fail": False, "superseded": False}
+    clock = SimpleNamespace(now=datetime(2026, 11, 15, 9).astimezone())
+    monkeypatch.setattr("app.ui_qt.controllers.app_controller.datetime", SimpleNamespace(now=lambda: clock.now))
+    power = tmp_path / "power_supply"
+    (power / "AC").mkdir(parents=True)
+    (power / "AC" / "type").write_text("Mains", encoding="ascii")
+    (power / "AC" / "online").write_text("1", encoding="ascii")
+    monkeypatch.setattr("app.ui_qt.controllers.app_controller.battery_label", lambda: battery_label(power))
 
     def content_bytes(identifier, subject, chapter, title):
         bank = json.loads(sample)
@@ -1910,10 +1921,19 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         state["grants"] = [metadata(raw) for raw in chemistry]
         seed.cache_profile_library("a", link_a, state["grants"])
         seed.cache_profile_library("b", link_b, [metadata(maths)])
+        previous_day = clock.now - timedelta(days=1)
+        for offset in (1, 2):
+            finished = previous_day + timedelta(hours=offset)
+            attempt_id = str(uuid4())
+            seed.create_attempt(Attempt(attempt_id, "a", "chem-bonding", 1,
+                                        AttemptStatus.IN_PROGRESS, finished - timedelta(minutes=1)))
+            seed.complete_attempt(attempt_id, completed_at=finished, duration_ms=60000, score=0)
 
     extra_sample = content_bytes("biology-genetics", "Biology", "Genetics", "Molecular genetics")
     extra = metadata(extra_sample)
-    public = [biology, metadata(maths), *state["grants"], extra]
+    jee = metadata(content_bytes("jee-main-motion", "Physics", "Kinematics", "JEE Main: Motion"))
+    iat = metadata(content_bytes("iat-motion", "Physics", "Kinematics", "IAT: Motion"))
+    public = [biology, metadata(maths), *state["grants"], extra, jee, iat]
     banks = {pack["set_id"]: pack for pack in (biology, extra)}
     scope_requests = []
 
@@ -1933,9 +1953,12 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
             assert request.url.params["local_profile_id"] == "a"
             filters = dict(request.url.params)
             state["requests"].append(filters)
-            matches = public if not filters["search"] else [p for p in public if
-                filters["search"].casefold() in p["title"].casefold()]
-            return httpx.Response(200, json={"schema_version": 1, "packs": matches, "next_offset": None})
+            exam = filters.get("exam", "")
+            matches = [p for p in public if (not exam or p["set_id"].startswith(exam + "-"))
+                       and filters["subject"].casefold() in p["subject"].casefold()
+                       and filters["chapter"].casefold() in p["chapter"].casefold()
+                       and filters["search"].casefold() in p["title"].casefold()]
+            return httpx.Response(200, json={"schema_version": 1, "exam": exam, "packs": matches, "next_offset": None})
         if path.endswith("/question-banks/download"):
             body = json.loads(request.content)
             assert (body["local_profile_id"], body["version"]) == ("a", 1)
@@ -2021,9 +2044,55 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         library.refreshLibrary()
         library.tick()
 
+    def visual_item(parent, name):
+        if parent.objectName() == name:
+            return parent
+        for child in parent.childItems():
+            if item := visual_item(child, name):
+                return item
+        return None
+
+    def header_text(name):
+        return visual_item(window.contentItem(), name).property("text")
+
     try:
         profile.selectProfileId("a")
         assert [r["name"] for r in library.homeSubjects] == ["Chemistry"]
+        assert window.findChild(QObject, "homeGreeting").property("text") == "Good morning, Student A"
+        assert header_text("headerClock") == "15 Nov 2026 · 09:00"
+        assert header_text("headerBattery") == "Cable power"
+        assert ctrl.practiceStreak == 1
+        assert header_text("headerStreak") == "Streak 0"
+        assert not visual_item(window.contentItem(), "headerStreakGlow").property("visible")
+        assert visual_item(window.contentItem(), "navLabel-progress").property("text") == "Analytics"
+        assert visual_item(window.contentItem(), "navIcon-progress").property("source").fileName() == "analytics.svg"
+
+        battery = power / "BAT0"
+        battery.mkdir()
+        (battery / "type").write_text("Battery", encoding="ascii")
+        (battery / "capacity").write_text("73", encoding="ascii")
+        assert battery_label(power) == "73%"
+        clock.now = clock.now.replace(hour=12)
+        ctrl._refresh_clock()
+        qapp.processEvents()
+        assert ctrl.batteryLabel == "73%"
+        assert window.findChild(QObject, "homeGreeting").property("text") == "Good afternoon, Student A"
+        assert header_text("headerBattery") == "73%"
+        ctrl.repository.cache_completed_results("a", link_a, [{
+            "attempt_id": str(uuid4()), "study_profile_id": ctrl.repository.get_profile("a").cloud_profile_id,
+            "source": "web", "status": "completed", "title": "Chemistry practice",
+            "started_at": (clock.now - timedelta(minutes=1)).isoformat(),
+            "completed_at": clock.now.isoformat(), "result": {"score": 0, "maximum_score": 4},
+        }])
+        ctrl._on_tick()
+        clock.now = clock.now.replace(hour=17)
+        ctrl._refresh_clock()
+        assert window.findChild(QObject, "homeGreeting").property("text") == "Good evening, Student A"
+        assert header_text("headerStreak") == "Streak 2"
+        assert visual_item(window.contentItem(), "headerStreakGlow").property("visible")
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(45, 271))
+        assert ctrl.screen == "progress"
+        ctrl.navigate("home")
         save("01-home-chemistry-only")
         QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(254, 299))
         assert ctrl.screen == "chapters"
@@ -2052,7 +2121,7 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         save("07-catalog-loading")
         ready()
         assert library.bankState == "ready"
-        assert {p["subject"] for p in library.questionBanks} == {"Biology", "Chemistry", "Mathematics"}
+        assert {p["subject"] for p in library.questionBanks} == {"Biology", "Chemistry", "Mathematics", "Physics"}
         assert [r["name"] for r in library.homeSubjects] == ["Chemistry"]
         save("08-catalog")
         catalog_grid = window.findChild(QObject, "questionBankGrid")
@@ -2061,6 +2130,19 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         catalog_grid.setProperty("contentY", catalog_grid.property("contentHeight") - catalog_grid.property("height"))
         qapp.processEvents()
         assert catalog_grid.property("contentY") > 0
+        exam = window.findChild(QObject, "questionBankExamFilter")
+        subject = window.findChild(QObject, "questionBankSubjectFilter")
+        assert exam.property("displayText") == "All exams"
+        assert subject.property("displayText") == "All subjects"
+        assert QMetaObject.invokeMethod(subject, "activated", Qt.ConnectionType.DirectConnection, Q_ARG(int, 2))
+        ready()
+        assert [p["id"] for p in library.questionBanks] == [jee["set_id"], iat["set_id"]]
+        assert QMetaObject.invokeMethod(exam, "activated", Qt.ConnectionType.DirectConnection, Q_ARG(int, 1))
+        ready()
+        assert [p["id"] for p in library.questionBanks] == [jee["set_id"]]
+        assert state["requests"][-1]["offset"] == "0"
+        assert exam.property("displayText") == "JEE" and subject.property("displayText") == "Physics"
+        save("13-jee-physics")
         library.filterBanks("Cell", "Biology", "")
         ready()
         assert [p["id"] for p in library.questionBanks] == [biology["set_id"]]
@@ -2099,6 +2181,10 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         queue_view = window.findChild(QObject, "practiceDownloadQueue")
         assert queue_view.property("visible") and queue_view.property("count") == 2
         save("09-download-in-progress")
+        queued_bar = visual_item(queue_view, "practiceQueuedProgress")
+        active_bar = visual_item(queue_view, "practiceDownloadProgress")
+        assert queued_bar.property("visible") and queued_bar.property("progress") == 0
+        assert active_bar.property("visible") and active_bar.property("progress") == library.downloadPercent / 100
         hold_download.set()
         assert verifying.wait(5)
         ctrl._on_tick()
@@ -2122,8 +2208,12 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         save("11-download-ready")
         assert all(scope == {"local_profile_id": "a", "link_id": link_a} for scope in scope_requests)
 
+        clock.now += timedelta(days=2)
+        ctrl._refresh_clock()
+        assert ctrl.practiceStreak == 0 and ctrl.localDate == "17 Nov 2026"
         profile.selectProfileId("b")
         assert [r["name"] for r in library.homeSubjects] == ["Mathematics"]
+        assert header_text("headerStreak") == "Streak 0"
         assert library.questionBanks == []
         assert library.downloadQueue == []
         library.selectInstalledSubject("Mathematics")

@@ -19,7 +19,7 @@ Item {
         delegate: AppCard {
             id: card
             required property var modelData
-            readonly property bool transferring: modelData.active && modelData.state === "Downloading"
+            readonly property bool queued: modelData.state === "Queued"
             width: queue.width - Spacing.sm
             height: details.implicitHeight + 2 * Spacing.md
             interactive: false
@@ -53,9 +53,9 @@ Item {
                             case "Verifying": return "Verifying and installing…";
                             case "Preparing": return "Preparing download…";
                             case "Queued":
-                                if (libraryController.libraryConnection === "offline") return "Queued · Waiting for Wi-Fi";
-                                if (libraryController.libraryConnection === "auth") return "Queued · Waiting for account connection";
-                                return "Queued";
+                                if (libraryController.libraryConnection === "offline") return "Queued (0%) · Waiting for Wi-Fi";
+                                if (libraryController.libraryConnection === "auth") return "Queued (0%) · Waiting for account connection";
+                                return "Queued · 0%";
                             default: return card.modelData.state;
                             }
                         }
@@ -66,10 +66,11 @@ Item {
                     }
 
                     ProgressBar {
-                        objectName: "practiceDownloadProgress"
-                        visible: card.transferring
+                        objectName: card.queued ? "practiceQueuedProgress" : "practiceDownloadProgress"
+                        visible: card.queued || card.modelData.active
                         Layout.fillWidth: true
-                        progress: libraryController.downloadPercent / 100
+                        progress: card.queued ? 0 : libraryController.downloadPercent / 100
+                        indeterminate: card.modelData.state === "Preparing"
                         Accessible.role: Accessible.ProgressBar
                         Accessible.name: "Download progress for " + card.modelData.title
                     }

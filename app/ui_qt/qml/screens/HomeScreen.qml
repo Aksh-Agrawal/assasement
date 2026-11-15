@@ -99,7 +99,8 @@ Rectangle {
 
                                 // Greeting / Resume Title
                                 Text {
-                                    text: libraryController.canResume ? ("Continue " + libraryController.resumeTitle) : ("Good morning, " + appController.activeProfileName)
+                                    objectName: "homeGreeting"
+                                    text: libraryController.canResume ? ("Continue " + libraryController.resumeTitle) : (appController.greeting + ", " + appController.activeProfileName)
                                     color: Theme.deepInk
                                     font.pixelSize: Typography.pageTitle
                                     font.bold: true

@@ -132,20 +132,24 @@ class ContentApiClient:
             raise ContentProtocolError("Cloud figure failed PNG or SHA-256 verification")
         return data
 
-    def browse_question_banks(self, *, search="", subject="", chapter="", offset=0):
+    def browse_question_banks(self, *, search="", subject="", chapter="", exam="", offset=0):
         if not self.profile_scoped or not self._paired:
             raise ContentAuthError("A linked profile is required")
+        params = {"local_profile_id": self.local_profile_id, "search": search, "subject": subject,
+                  "chapter": chapter, "offset": offset, "limit": QUESTION_BANK_PAGE_SIZE,
+                  "pack_schema": SUPPORTED_SCHEMA_VERSION}
+        if exam:
+            params["exam"] = exam
         try:
-            response = self._client.get(f"/api/v1/profile-content/{self.link_id}/question-banks",
-                params={"local_profile_id": self.local_profile_id, "search": search, "subject": subject,
-                        "chapter": chapter, "offset": offset, "limit": QUESTION_BANK_PAGE_SIZE,
-                        "pack_schema": SUPPORTED_SCHEMA_VERSION})
+            response = self._client.get(f"/api/v1/profile-content/{self.link_id}/question-banks", params=params)
         except httpx.RequestError as error:
             raise ContentNetworkError("Cloud connection unavailable") from error
         self._check_response(response)
         try:
             body = json_object(response)
             catalog = ContentCatalog.from_dict(body)
+            if exam and body.get("exam") != exam:
+                raise ContentProtocolError("The learning portal does not support this exam filter")
             following = body["next_offset"]
             if following is not None and (type(following) is not int or following <= offset):
                 raise ValueError("Invalid next catalog offset")
