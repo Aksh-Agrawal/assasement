@@ -3,6 +3,7 @@
 import json
 import logging
 import shutil
+import stat
 import tarfile
 import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -25,12 +26,27 @@ def _safe_member(name: str) -> bool:
     )
 
 
-def stage_update(update: VerifiedUpdate, root: Path) -> Path:
+def _matching_file(path: Path, expected: bytes) -> bool:
+    metadata = path.lstat()
+    return (stat.S_ISREG(metadata.st_mode) and metadata.st_size == len(expected)
+            and path.read_bytes() == expected)
+
+
+def stage_update(update: VerifiedUpdate, root: Path, *, reuse_for_service: bool = False) -> Path:
     LOGGER.info("update staging started: version=%s", update.manifest.version)
     staged_root = root / "staged"
     staged_root.mkdir(parents=True, exist_ok=True)
     target = staged_root / str(update.manifest.version)
-    if target.exists():
+    if target.exists() or target.is_symlink():
+        if reuse_for_service:
+            # The system service uses only these signed files and re-extracts the verified archive.
+            try:
+                if (stat.S_ISDIR(target.lstat().st_mode)
+                        and _matching_file(target / "update-manifest.json", update.manifest.canonical_bytes)
+                        and _matching_file(target / "update-manifest.sig", update.signature)):
+                    return target
+            except OSError as error:
+                raise StagingError("Existing staged update metadata could not be read") from error
         raise StagingError("Release version is already staged")
     temporary = Path(tempfile.mkdtemp(prefix="incoming-", dir=root))
     try:

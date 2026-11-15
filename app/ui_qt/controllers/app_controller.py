@@ -19,6 +19,7 @@ LOGGER = logging.getLogger(__name__)
 
 class AppController(QObject):
     screenChanged = Signal()
+    deviceOperationFinished = Signal(str)
     activeProfileChanged = Signal()
     statusChanged = Signal()
     messageChanged = Signal()
@@ -412,6 +413,8 @@ class AppController(QObject):
                 message = self.repository.get_setting("unlink_message") or ""
                 if message.startswith("Account unlinked."):
                     self.showNotification(message, "info")
+            if completed:
+                self.deviceOperationFinished.emit(completed)
 
     def _clear_active_profile(self):
         from app.assessment import AssessmentApplication

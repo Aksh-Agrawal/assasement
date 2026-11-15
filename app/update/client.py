@@ -13,6 +13,7 @@ from app.update.errors import IntegrityError, UpdateError
 from app.update.manifest import UpdateManifest, canonical_manifest_bytes
 
 LOGGER = logging.getLogger(__name__)
+MAX_DOWNLOAD_BYTES = 100_000_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +70,7 @@ class UpdateClient:
         update: AvailableUpdate,
         destination: Path,
         *,
-        hard_max_bytes: int = 100_000_000,
+        hard_max_bytes: int = MAX_DOWNLOAD_BYTES,
         progress: Callable[[int, int], None] | None = None,
     ) -> Path:
         expected = update.manifest.data["artifact"]["size_bytes"]

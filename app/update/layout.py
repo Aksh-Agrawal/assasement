@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import sqlite3
 import stat
+import sys
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+
+from packaging.version import Version
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +94,41 @@ def configured_installation_paths(environ: Mapping[str, str] | None = None) -> I
         service_user=service_user,
         service_group=service_group,
     )
+
+
+def active_release_version() -> Version | None:
+    """Read the selected release only from the root-owned, immutable install layout."""
+    if sys.platform != "linux":
+        return None
+    try:
+        root = configured_installation_paths().app_root
+        releases = root / "releases"
+        current = root / "current"
+        link_info = current.lstat()
+        if not stat.S_ISLNK(link_info.st_mode) or link_info.st_uid != 0:
+            return None
+        release = current.resolve(strict=True)
+        if release.parent != releases or root / current.readlink() != release:
+            return None
+        for path in (release, releases, root, *root.parents):
+            info = path.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+                return None
+        metadata = release / "release.json"
+        info = metadata.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            return None
+        if info.st_size > 4096:
+            return None
+        data = json.loads(metadata.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or data.get("version") != release.name:
+            return None
+        version = Version(release.name)
+        if len(version.release) != 3 or ".".join(map(str, version.release)) != release.name:
+            return None
+        return version
+    except (OSError, RuntimeError, ValueError):
+        return None
 
 
 def validate_existing_database(database: Path) -> None:

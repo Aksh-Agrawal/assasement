@@ -6,6 +6,7 @@ Rectangle {
     id: root
     anchors.fill: parent
     color: Theme.background
+    Component.onCompleted: settingsController.refreshUpdateState()
 
     AppHeader {
         id: header
@@ -51,7 +52,11 @@ Rectangle {
                 }
 
                 Text {
+                    objectName: "softwareUpdateStatus"
                     anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
                     text: settingsController.updateStatus
                     color: Theme.textPrimary
                     font.pixelSize: Typography.pageTitle
@@ -63,17 +68,24 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: 4
                     Text {
+                        objectName: "softwareCurrentVersion"
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Current version  ·  v" + settingsController.appVersion
+                        text: "Current version · v" + settingsController.appVersion
                         color: Theme.textSecondary
                         font.pixelSize: Typography.body
                         font.family: Typography.fontFamily
                     }
                     Text {
+                        objectName: "softwareAvailableVersion"
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: settingsController.hasUpdate
-                              ? "Available version  ·  v" + settingsController.availableVersion
-                              : "Raspberry Pi OS  ·  64-bit"
+                        text: {
+                            const active = settingsController.activeReleaseVersion
+                            if (active && active !== settingsController.appVersion)
+                                return "Active release · v" + active
+                            return settingsController.hasUpdate
+                                ? "Available version · v" + settingsController.availableVersion
+                                : "Raspberry Pi OS · 64-bit"
+                        }
                         color: Theme.textSecondary
                         font.pixelSize: Typography.caption
                         font.family: Typography.fontFamily
@@ -93,6 +105,7 @@ Rectangle {
                 }
 
                 Text {
+                    objectName: "softwareCompatibilityWarning"
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
@@ -138,6 +151,7 @@ Rectangle {
                     }
 
                     PrimaryButton {
+                        objectName: "softwareInstallButton"
                         visible: settingsController.hasUpdate && !settingsController.updatePendingInstall
                         text: settingsController.updateBusy
                               ? (settingsController.updateStatus === "Restarting to install update"

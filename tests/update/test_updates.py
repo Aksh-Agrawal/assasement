@@ -8,14 +8,20 @@ import stat
 import tarfile
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import httpx
 import pytest
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from packaging.version import Version
 
 from app.config import AppConfig
 from app.data.db import run_migrations
 from app.data.repo import Repository
+from app.ui.device import DeviceConsole
+from app.update import layout
 from app.update.activation import ActivationManager
 from app.update.client import AvailableUpdate, UpdateClient
 from app.update.errors import (
@@ -212,6 +218,90 @@ def test_atomic_staging_success_activation_and_rollback(tmp_path: Path) -> None:
     assert manager.metadata()["current"] == "0.2.0"
     assert manager.metadata()["previous"] == "0.3.0"
     assert manager.metadata()["status"] == "rolled_back"
+
+
+def test_device_retry_reuses_staging_only_after_reverification(tmp_path, monkeypatch):
+    downloads = tmp_path / "downloads"
+    raw, signature, artifact, private = _bundle(downloads)
+    verified = _verify(raw, signature, artifact, private)
+    staged = stage_update(verified, tmp_path)
+    key = tmp_path / "public.pem"
+    key.write_bytes(private.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo,
+    ))
+    config = AppConfig(
+        update_root=tmp_path, application_version="0.1.0", update_platform="development",
+        update_architecture="any", trusted_update_public_key_path=key, trusted_update_key_id="test-key",
+    )
+    device = DeviceConsole(tmp_path / "device.db", config)
+    release = AvailableUpdate(raw, signature, verified.manifest)
+    api = Mock()
+    monkeypatch.setattr("app.ui.device.DeviceApi", api)
+
+    assert device._prepare_update(release, 2) == staged
+    api.assert_not_called()
+    with pytest.raises(CompatibilityError):
+        device._prepare_update(release, 1)
+    with pytest.raises(SignatureError):
+        device._prepare_update(AvailableUpdate(raw, bytes(64), verified.manifest), 2)
+    api.assert_not_called()
+
+    intact = artifact.read_bytes()
+    artifact.write_bytes(b"corrupt")
+    client = api.return_value.updates.return_value
+    client.download_update.side_effect = lambda _update, target, **_kwargs: target.write_bytes(intact)
+    assert device._prepare_update(release, 2) == staged
+    client.download_update.assert_called_once()
+
+    (staged / "update-manifest.sig").write_bytes(bytes(64))
+    with pytest.raises(StagingError):
+        device._prepare_update(release, 2)
+
+
+@pytest.mark.parametrize(
+    ("metadata", "owner", "mode", "expected"),
+    [
+        ('{"version":"0.1.1"}', 0, 0o640, Version("0.1.1")),
+        (None, 0, 0o640, None),
+        ("broken JSON", 0, 0o640, None),
+        ('{"version":"0.1.2"}', 0, 0o640, None),
+        ('{"version":"0.1.1"}', 1000, 0o640, None),
+        ('{"version":"0.1.1"}', 0, 0o660, None),
+    ],
+)
+def test_active_release_requires_trusted_matching_metadata(
+    tmp_path, monkeypatch, metadata, owner, mode, expected
+):
+    root = tmp_path / "install"
+    current = root / "current"
+    release = root / "releases" / "0.1.1"
+    release.mkdir(parents=True)
+    metadata_path = release / "release.json"
+    if metadata is not None:
+        metadata_path.write_text(metadata, encoding="utf-8")
+    monkeypatch.setattr(layout, "sys", SimpleNamespace(platform="linux"))
+    monkeypatch.setattr(layout, "configured_installation_paths", lambda: SimpleNamespace(app_root=root))
+    original_resolve = Path.resolve
+    monkeypatch.setattr(
+        Path, "resolve",
+        lambda path, *args, **kwargs: release if path == current else original_resolve(path, *args, **kwargs),
+    )
+    original_lstat = Path.lstat
+
+    def lstat(path):
+        if path == current:
+            return SimpleNamespace(st_mode=stat.S_IFLNK | 0o777, st_uid=0)
+        if path == metadata_path:
+            return SimpleNamespace(
+                st_mode=stat.S_IFREG | mode, st_uid=owner, st_size=original_lstat(path).st_size,
+            )
+        return SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
+
+    monkeypatch.setattr(Path, "lstat", lstat)
+    monkeypatch.setattr(Path, "readlink", lambda _path: Path("releases") / "0.1.1")
+    assert layout.active_release_version() == expected
+    monkeypatch.setattr(Path, "readlink", lambda _path: Path("external") / "0.1.1")
+    assert layout.active_release_version() is None
 
 
 class InterruptedStream(httpx.SyncByteStream):

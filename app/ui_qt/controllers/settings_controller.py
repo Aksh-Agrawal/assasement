@@ -1,9 +1,12 @@
 """Settings Controller managing Wi-Fi, Sync, Account Pairing, Updates, and Diagnostics."""
 
 import json
+import os
 import shutil
+import stat
 from datetime import UTC, datetime
 
+from packaging.version import Version
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from app.connectivity import (
@@ -12,7 +15,13 @@ from app.connectivity import (
     wifi_state,
 )
 from app.ui_qt.controllers.app_controller import AppController
-from app.version import __version__
+from app.update.layout import active_release_version
+
+UPDATE_OPERATIONS = {
+    "update_check": "Checking for updates",
+    "update_download": "Downloading update",
+    "update_install": "Restarting to install update",
+}
 
 
 class SettingsController(QObject):
@@ -40,16 +49,23 @@ class SettingsController(QObject):
         self._sync_countdown.start()
         self._diagnostics_data = None
         self._unlink_start_error = ""
+        self._running_version = Version(self.app.config.application_version)
+        self._active_version = None
+        self._release_status_path = self.app.config.update_root / "status.json"
+        self._release_status_revision = None
+        self._ignored_status_revision = None
+        self._release_state = ""
+        self._update_requested = False
         self._update_error = ""
-        self._ignore_release_status = False
-        self._update_idle_status = "Check for a software update"
-        self._update_was_rolled_back = False
+        self._checked_for_update = False
         self._install_deferred = False
+        self._update_view = None
+        self.app.deviceOperationFinished.connect(self._updateOperationFinished)
         self._update_timer = QTimer(self)
         self._update_timer.setInterval(250)
-        self._update_timer.timeout.connect(self._refreshUpdateState)
+        self._update_timer.timeout.connect(self._pollUpdateState)
         self._update_timer.start()
-        self._release_status_path = self.app.config.update_root / "status.json"
+        self.refreshUpdateState()
 
     # -------------------------------------------------------------------------
     # Wi-Fi & Network Properties
@@ -363,33 +379,40 @@ class SettingsController(QObject):
     # -------------------------------------------------------------------------
     @Property(str, notify=updateChanged)
     def appVersion(self) -> str:
-        return __version__
+        # A symlink switch cannot change which Python code this process imported.
+        return str(self._running_version)
+
+    @Property(str, notify=updateChanged)
+    def activeReleaseVersion(self) -> str:
+        return str(self._active_version) if self._active_version is not None else ""
+
+    @property
+    def _restart_required(self) -> bool:
+        return self._active_version is not None and self._active_version != self._running_version
+
+    def _availableUpdate(self):
+        update = getattr(self.app.device, "available_update", None)
+        installed = self._active_version or self._running_version
+        if not self._restart_required and update and update.manifest.version > installed:
+            return update
+        return None
 
     @Property(bool, notify=updateChanged)
     def hasUpdate(self) -> bool:
-        if self.app.device:
-            update = self.app.device.available_update
-            if update is not None:
-                from packaging.version import Version
-                try:
-                    return Version(str(update.manifest.version)) > Version(__version__)
-                except Exception:
-                    return False
-        return False
+        return self._availableUpdate() is not None
 
     @Property(str, notify=updateChanged)
     def updateVersion(self) -> str:
-        if self.app.device and self.app.device.available_update:
-            return str(self.app.device.available_update.manifest.version)
-        return "Up to date"
+        update = self._availableUpdate()
+        return str(update.manifest.version) if update else ""
 
     @Property(str, notify=updateChanged)
     def availableVersion(self) -> str:
-        return self.updateVersion if self.hasUpdate else ""
+        return self.updateVersion
 
     @Property(str, notify=updateChanged)
     def updateNotes(self) -> str:
-        update = getattr(self.app.device, "available_update", None)
+        update = self._availableUpdate()
         return update.manifest.data["release"].get("notes", "") if update else ""
 
     @Property(str, notify=updateChanged)
@@ -402,14 +425,14 @@ class SettingsController(QObject):
 
     @Property(bool, notify=updateChanged)
     def updateBusy(self) -> bool:
-        return bool(self.app.device and self.app.device.busy and self.app.device.operation in {
-            "update_check", "update_download", "update_install"
-        })
+        device = self.app.device
+        return bool((device and device.busy and device.operation in UPDATE_OPERATIONS)
+                    or self._update_requested or self._release_state == "installing")
 
     @Property(bool, notify=updateChanged)
     def updateCompatible(self) -> bool:
-        update = getattr(self.app.device, "available_update", None)
-        if not update or not self.app.repository or not self.app.config:
+        update = self._availableUpdate()
+        if not update or not self.app.repository:
             return False
         try:
             return (
@@ -418,72 +441,109 @@ class SettingsController(QObject):
                     "architecture": self.app.config.update_architecture,
                 }
                 and update.manifest.data["release"]["required_db_schema"] <= self.app.repository.schema_version
-                and update.manifest.version > __import__("packaging.version", fromlist=["Version"]).Version(__version__)
+                and self._running_version >= Version(update.manifest.data["release"]["min_supported_version"])
             )
         except (KeyError, ValueError):
             return False
 
     @Property(bool, notify=updateChanged)
     def updatePendingInstall(self) -> bool:
-        return bool(self.app.device and self.app.device.staged)
+        return self._install_deferred or self._update_requested or self._release_state == "installing"
 
     @Property(str, notify=updateChanged)
     def updateStatus(self) -> str:
         device = self.app.device
-        if device and device.busy and device.operation in {"update_check", "update_download", "update_install"}:
+        if device and device.busy and device.operation in UPDATE_OPERATIONS:
             if device.operation == "update_download" and getattr(device, "update_phase", "") == "verifying":
                 return "Verifying update"
-            return {"update_check": "Checking for updates", "update_download": "Downloading update",
-                    "update_install": "Restarting to install update"}[device.operation]
-        if self._update_error:
-            return self._update_error
-        state = None if self._ignore_release_status else self._readReleaseStatus()
-        if state and state.get("version") == __version__ and state.get("state") == "successful":
-            return "Update successful"
-        if state and state.get("state") == "installing":
+            return UPDATE_OPERATIONS[device.operation]
+        if self._update_requested or self._release_state == "installing":
             return "Installing update"
-        if state and state.get("state") == "failed":
+        if self._restart_required:
+            return "Restart required to load the active release"
+        if self._update_error:
             return "Update failed. Try again"
-        if self._update_was_rolled_back:
+        if self._release_state == "rolled_back":
             return "Update failed. Previous version restored"
-        if state and state.get("state") == "rolled_back":
-            return "Update failed. Previous version restored"
-        if self.app.device and self.app.device.staged:
-            if self.app.isAssessmentActive:
-                return "Ready to install after this assessment"
-            return "Preparing installation"
+        if self._release_state == "failed":
+            return "Update failed. Try again"
+        if self._install_deferred:
+            return "Ready to install after this assessment"
         if self.hasUpdate:
             return "New version available"
-        return self._update_idle_status
+        if self._checked_for_update or self._active_version or self._release_state == "successful":
+            return "Software is up to date"
+        return "Check for a software update"
+
+    def _pollUpdateState(self):
+        if self.app.screen == "software_update" or self.updatePendingInstall:
+            self.refreshUpdateState()
 
     @Slot()
-    def _refreshUpdateState(self):
+    def refreshUpdateState(self):
+        self._active_version = active_release_version()
+        self._refreshReleaseStatus()
+        self._update_requested = (
+            self._release_state not in {"successful", "failed", "rolled_back"}
+            and (self.app.config.update_inbox / "request.json").is_file()
+        )
         device = self.app.device
-        if not device:
-            return
-        if device.failure and device.operation in {"update_check", "update_download", "update_install"}:
-            self._update_error = "Internet unavailable. Your saved work is safe" if not self.app.isOnline else "Update failed. Try again"
-            device.failure = None
+        if self._install_deferred and device and not device.busy and not self.app.isAssessmentActive:
             self._install_deferred = False
-        elif device.operation == "update_check" and not device.busy:
-            self._update_idle_status = "Your software is up to date" if not device.available_update else "New version available"
-        elif device.operation == "update_download" and not device.busy and device.staged:
-            self._update_error = ""
-            self._update_was_rolled_back = False
-            if self.app.isAssessmentActive:
-                self._install_deferred = True
-            else:
-                self._startInstall()
-        elif self._install_deferred and not self.app.isAssessmentActive and not device.busy:
-            self._install_deferred = False
-            self._startInstall()
-        self.updateChanged.emit()
+            if (not self.updatePendingInstall and device.staged
+                    and self.updateCompatible and device.staged.name == self.availableVersion):
+                device.start("update_install", staged=str(device.staged))
+        view = (self.appVersion, self.activeReleaseVersion, self.availableVersion,
+                self.updateNotes, self.updateCompatible,
+                self.updateStatus, self.updateError, self.updateBusy,
+                self.updateProgress, self.updatePendingInstall)
+        if view != self._update_view:
+            self._update_view = view
+            self.updateChanged.emit()
 
-    def _readReleaseStatus(self):
+    @Slot(str)
+    def _updateOperationFinished(self, operation):
+        if operation not in UPDATE_OPERATIONS:
+            return
+        device = self.app.device
+        if device.failure:
+            self._update_error = device.message
+            self._install_deferred = False
+        elif operation == "update_check":
+            self._checked_for_update = True
+        elif operation == "update_download":
+            self._install_deferred = True
+        self.refreshUpdateState()
+
+    def _refreshReleaseStatus(self):
+        self._release_state = ""
+        self._release_status_revision = None
         try:
-            return json.loads(self._release_status_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
+            if not stat.S_ISREG(self._release_status_path.lstat().st_mode):
+                return
+            with self._release_status_path.open(encoding="utf-8") as status:
+                info = os.fstat(status.fileno())
+                self._release_status_revision = (info.st_ino, info.st_mtime_ns, info.st_ctime_ns)
+                if info.st_size > 4096 or self._release_status_revision == self._ignored_status_revision:
+                    return
+                data = json.load(status)
+            if not isinstance(data, dict):
+                return
+            state = data.get("state")
+            version_text = data.get("version")
+            version = Version(version_text) if isinstance(version_text, str) and version_text else None
+        except (OSError, ValueError):
+            return
+        installed = self._active_version or self._running_version
+        if state == "successful" and version == installed:
+            self._release_state = state
+            self._update_error = ""
+        elif state == "installing" and version is not None and version >= installed:
+            self._release_state = state
+        elif state == "failed" and (version_text == "" or (version is not None and version > installed)):
+            self._release_state = state
+        elif state == "rolled_back" and version is not None and version > installed:
+            self._release_state = state
 
     # -------------------------------------------------------------------------
     # Diagnostics Properties
@@ -650,29 +710,27 @@ class SettingsController(QObject):
 
     @Slot()
     def checkUpdate(self):
-        self._update_error = ""
-        self._ignore_release_status = True
-        self._update_idle_status = "Checking for updates"
-        if self.app.device:
-            self.app.device.start("update_check")
-            self.app.showNotification("Checking for updates...", "info")
-            if not self.app.device.busy and not self.app.device.available_update:
-                self._update_error = self.app.device.message or "Internet unavailable. Your saved work is safe"
-            self.updateChanged.emit()
+        self.refreshUpdateState()
+        device = self.app.device
+        if device and not device.busy and not self.updatePendingInstall:
+            self._beginUpdateOperation("update_check")
+            if device.busy:
+                self.app.showNotification("Checking for updates...", "info")
 
     @Slot()
     def downloadUpdate(self):
-        if self.app.device and self.app.device.available_update and not self.app.device.busy:
-            self._update_error = ""
-            self.app.device.update_progress = 0.0
-            self.app.device.start("update_download", update=self.app.device.available_update)
-            self.updateChanged.emit()
-
-    def _startInstall(self):
+        self.refreshUpdateState()
         device = self.app.device
-        if device and device.staged and not device.busy:
-            device.start("update_install", staged=str(device.staged))
-            self.updateChanged.emit()
+        if device and not device.busy and not self.updatePendingInstall and self.updateCompatible:
+            self._beginUpdateOperation("update_download", update=self._availableUpdate())
+
+    def _beginUpdateOperation(self, operation, **arguments):
+        device = self.app.device
+        # A prior status must not override this attempt, but a replacement file can.
+        self._ignored_status_revision = self._release_status_revision
+        device.start(operation, **arguments)
+        self._update_error = "" if device.busy else device.message
+        self.refreshUpdateState()
 
     @Slot()
     def runDiagnostics(self):

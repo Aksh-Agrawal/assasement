@@ -30,6 +30,8 @@ from app.system.wifi import (
     WifiTimeoutError,
 )
 from app.update.activation import ActivationManager
+from app.update.client import MAX_DOWNLOAD_BYTES
+from app.update.errors import IntegrityError
 from app.update.staging import stage_update
 from app.update.verifier import verify_update
 from tools.create_support_bundle import create_support_bundle
@@ -121,6 +123,8 @@ class DeviceConsole:
         self.failure = None
         self.operation = operation
         if operation == "update_download":
+            self.staged = None
+            self.update_progress = 0.0
             self.update_phase = "downloading"
         elif operation == "update_install":
             self.update_phase = "installing"
@@ -507,37 +511,54 @@ class DeviceConsole:
             if operation in {"update_check", "update_download"}:
                 if not token:
                     raise RuntimeError("Pairing required")
+                if operation == "update_download":
+                    return self._prepare_update(args["update"], repository.schema_version)
                 client = DeviceApi(config, store=self.credentials).updates()
                 try:
-                    if operation == "update_check":
-                        return client.check_for_update()
-                    update = args["update"]
-                    # Pin the filename locally. Never accept a server path.
-                    filename = update.manifest.data["artifact"]["filename"]
-                    if Path(filename).name != filename or "/" in filename or "\\" in filename:
-                        raise ValueError("Unsafe artifact filename")
-                    artifact = client.download_update(
-                        update, config.update_root / "downloads" / filename,
-                        progress=lambda done, total: setattr(
-                            self, "update_progress", done / total if total else 0.0
-                        ),
-                    )
-                    self.update_phase = "verifying"
-                    key = load_pem_public_key(config.trusted_update_public_key_path.read_bytes())
-                    verified = verify_update(
-                        update.manifest_bytes,
-                        update.signature,
-                        artifact,
-                        trusted_keys={config.trusted_update_key_id: key},
-                        current_version=config.application_version,
-                        platform=config.update_platform,
-                        architecture=config.update_architecture,
-                        db_schema=repository.schema_version,
-                    )
-                    return stage_update(verified, config.update_root)
+                    return client.check_for_update()
                 finally:
                     client.close()
         raise ValueError("Unsupported device action")
+
+    def _prepare_update(self, update, db_schema: int) -> Path:
+        config = self.config
+        expected = update.manifest.data["artifact"]
+        filename = expected["filename"]
+        if Path(filename).name != filename or "/" in filename or "\\" in filename:
+            raise ValueError("Unsafe artifact filename")
+        if expected["size_bytes"] > MAX_DOWNLOAD_BYTES:
+            raise IntegrityError("Manifest artifact exceeds download size limit")
+        artifact = config.update_root / "downloads" / filename
+        key = load_pem_public_key(config.trusted_update_public_key_path.read_bytes())
+
+        def verify():
+            self.update_phase = "verifying"
+            return verify_update(
+                update.manifest_bytes, update.signature, artifact,
+                trusted_keys={config.trusted_update_key_id: key},
+                current_version=config.application_version,
+                platform=config.update_platform, architecture=config.update_architecture,
+                db_schema=db_schema,
+            )
+
+        if not artifact.is_symlink() and artifact.is_file():
+            try:
+                verified = verify()
+            except IntegrityError:
+                pass  # Replace corrupt cached bytes with a fresh download and verify again.
+            else:
+                return stage_update(verified, config.update_root, reuse_for_service=True)
+
+        self.update_phase = "downloading"
+        client = DeviceApi(config, store=self.credentials).updates()
+        try:
+            client.download_update(
+                update, artifact,
+                progress=lambda done, total: setattr(self, "update_progress", done / total),
+            )
+        finally:
+            client.close()
+        return stage_update(verify(), config.update_root, reuse_for_service=True)
 
     def device_rows(self, repository):
         root = self.database_path.resolve().parent

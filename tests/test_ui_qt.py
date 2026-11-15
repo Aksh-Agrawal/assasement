@@ -1,10 +1,14 @@
 """Automated smoke and functional regression tests for the PySide6/QML UI."""
 
+import json
 import os
+from concurrent.futures import Future
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from packaging.version import Version
 
 # Ensure headless offscreen platform for CI/automated testing
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -498,40 +502,219 @@ def test_settings_controller_operations(qapp, tmp_path, mock_repo):
     app_ctrl.close()
 
 
-def test_update_controller_binds_signed_release_and_actions(qapp, tmp_path, mock_repo):
-    from types import SimpleNamespace
-
-    from packaging.version import Version
-
-    db_path = tmp_path / "update-controller.db"
-    db_path.touch()
-    app_ctrl = AppController(db_path, AppConfig(database_path=db_path), CredentialStore(tmp_path / "creds.json"))
-    app_ctrl.startup_session.repository = mock_repo
-    app_ctrl.startup_session.complete = True
-    app_ctrl._initialize_runtime()
-    mock_repo.schema_version = 8
-    manifest = SimpleNamespace(
-        version=Version("0.2.0"),
-        data={
-            "compatibility": {"platform": "linux", "architecture": "aarch64"},
-            "release": {"required_db_schema": 8, "notes": "Stability improvements"},
-        },
+@pytest.fixture
+def update_controller(qapp, tmp_path, mock_repo, monkeypatch):
+    active = SimpleNamespace(version=None)
+    monkeypatch.setattr(
+        "app.ui_qt.controllers.settings_controller.active_release_version", lambda: active.version
     )
-    release = SimpleNamespace(manifest=manifest)
-    app_ctrl.device.available_update = release
-    calls = []
-    app_ctrl.device.start = lambda operation, **kwargs: calls.append((operation, kwargs))
-    settings = SettingsController(app_ctrl)
+    controllers = []
 
+    def start(running_version):
+        db_path = tmp_path / "update-controller.db"
+        db_path.touch()
+        config = AppConfig(
+            database_path=db_path, application_version=running_version,
+            update_root=tmp_path, update_inbox=tmp_path / "inbox",
+            update_platform="linux", update_architecture="aarch64",
+        )
+        app = AppController(db_path, config, CredentialStore(tmp_path / "creds.json"))
+        app.startup_session.repository = mock_repo
+        app.startup_session.complete = True
+        app._initialize_runtime()
+        app._poll_timer.stop()
+        controllers.append(app)
+        return app, SettingsController(app, parent=app)
+
+    yield start, active
+    for app in controllers:
+        app.close()
+
+
+def _available_release(version, *, architecture="aarch64"):
+    return SimpleNamespace(manifest=SimpleNamespace(
+        version=Version(version),
+        data={
+            "compatibility": {"platform": "linux", "architecture": architecture},
+            "release": {"required_db_schema": 8, "min_supported_version": "0.1.0",
+                        "notes": "Stability improvements"},
+        },
+    ))
+
+
+def _write_update_status(tmp_path, state, version):
+    pending = tmp_path / "status.tmp"
+    pending.write_text(json.dumps({"state": state, "version": version, "detail": ""}), encoding="utf-8")
+    pending.replace(tmp_path / "status.json")
+
+
+def test_update_controller_binds_signed_release_and_actions(update_controller):
+    start, active = update_controller
+    active.version = Version("0.1.0")
+    app, settings = start("0.1.0")
+    release = _available_release("0.1.1")
+    app.device.available_update = release
+    app.device.start = Mock()
+    settings.refreshUpdateState()
+
+    assert settings.appVersion == "0.1.0"
     assert settings.hasUpdate
     assert settings.updateCompatible
-    assert settings.availableVersion == "0.2.0"
+    assert settings.availableVersion == "0.1.1"
     assert settings.updateNotes == "Stability improvements"
     settings.checkUpdate()
     settings.downloadUpdate()
-    assert [operation for operation, _kwargs in calls] == ["update_check", "update_download"]
-    assert calls[-1][1]["update"] is release
-    app_ctrl.close()
+    assert [call.args[0] for call in app.device.start.call_args_list] == ["update_check", "update_download"]
+    assert app.device.start.call_args.kwargs["update"] is release
+
+
+@pytest.mark.parametrize("latest", [None, "0.1.0", "0.1.1"])
+def test_update_controller_hides_obsolete_release(update_controller, latest):
+    start, active = update_controller
+    active.version = Version("0.1.1")
+    app, settings = start("0.1.1")
+    if latest:
+        app.device.available_update = _available_release(latest, architecture="wrong")
+    settings.refreshUpdateState()
+
+    assert settings.updateStatus == "Software is up to date"
+    assert not settings.hasUpdate
+    assert settings.updateVersion == settings.availableVersion == settings.updateNotes == ""
+    assert not settings.updateCompatible
+    app.device.start = Mock()
+    settings.downloadUpdate()
+    app.device.start.assert_not_called()
+
+
+def test_update_controller_preserves_running_version_until_restart(update_controller, tmp_path):
+    start, active = update_controller
+    active.version = Version("0.1.0")
+    app, settings = start("0.1.0")
+    app.device.available_update = _available_release("0.1.1")
+    _write_update_status(tmp_path, "failed", "0.1.1")
+    settings.refreshUpdateState()
+    assert settings.appVersion == "0.1.0"
+    assert settings.updateStatus == "Update failed. Try again"
+    assert not settings.updatePendingInstall
+
+    active.version = Version("0.1.1")
+    _write_update_status(tmp_path, "successful", "0.1.1")
+    settings.refreshUpdateState()
+    assert settings.appVersion == "0.1.0"
+    assert not settings.hasUpdate
+    assert settings.updateStatus == "Restart required to load the active release"
+
+    restarted_app, restarted = start("0.1.1")
+    restarted_app.device.available_update = _available_release("0.1.1")
+    restarted.refreshUpdateState()
+    assert restarted.appVersion == "0.1.1"
+    assert restarted.updateStatus == "Software is up to date"
+    assert not restarted.hasUpdate
+
+
+def test_update_controller_missing_metadata_and_empty_check(update_controller, tmp_path):
+    start, _ = update_controller
+    (tmp_path / "status.json").write_text("[]", encoding="utf-8")
+    app, settings = start("0.1.9")
+    assert settings.appVersion == "0.1.9"
+    assert settings.updateStatus == "Check for a software update"
+    app.device.available_update = _available_release("0.1.10")
+    settings.refreshUpdateState()
+    assert settings.hasUpdate
+
+    app.device.available_update = None
+    app.deviceOperationFinished.emit("update_check")
+    assert settings.updateStatus == "Software is up to date"
+
+
+def test_update_controller_allows_retry_after_staged_install_fails(update_controller, tmp_path):
+    start, active = update_controller
+    active.version = Version("0.1.0")
+    app, settings = start("0.1.0")
+    release = _available_release("0.1.1")
+    app.device.available_update = release
+    app.device.start = Mock()
+    app.device.operation = "update_download"
+    app.device.future = Future()
+    staged = tmp_path / "staged" / "0.1.1"
+    app.device.future.set_result((app.device.generation, staged))
+    app._on_tick()
+    app.device.start.assert_called_once_with("update_install", staged=str(staged))
+
+    _write_update_status(tmp_path, "failed", "")
+    settings.refreshUpdateState()
+    assert settings.updateStatus == "Update failed. Try again"
+    assert not settings.updatePendingInstall
+    settings.downloadUpdate()
+    assert app.device.start.call_args.args == ("update_download",)
+    assert app.device.start.call_args.kwargs == {"update": release}
+
+
+def test_update_qml_refreshes_on_entry_and_after_state_changes(update_controller, qapp, tmp_path):
+    start, active = update_controller
+    active.version = Version("0.1.1")
+    app, settings = start("0.1.1")
+    app.device.available_update = _available_release("0.1.1", architecture="wrong")
+
+    engine = QQmlApplicationEngine()
+    qml_dir = Path("app/ui_qt/qml").resolve()
+    engine.addImportPath(str(qml_dir))
+    engine.rootContext().setContextProperty("appController", app)
+    engine.rootContext().setContextProperty("settingsController", settings)
+    engine.load(QUrl.fromLocalFile(str(qml_dir / "screens" / "SoftwareUpdateScreen.qml")))
+    try:
+        screen, = engine.rootObjects()
+        status = screen.findChild(QObject, "softwareUpdateStatus")
+        current = screen.findChild(QObject, "softwareCurrentVersion")
+        available = screen.findChild(QObject, "softwareAvailableVersion")
+        install = screen.findChild(QObject, "softwareInstallButton")
+        warning = screen.findChild(QObject, "softwareCompatibilityWarning")
+        assert status.property("text") == "Software is up to date"
+        assert current.property("text") == "Current version · v0.1.1"
+        assert available.property("text") == "Raspberry Pi OS · 64-bit"
+        assert not install.property("visible")
+        assert not warning.property("visible")
+
+        app.device.operation = "update_check"
+        app.device.future = Future()
+        settings.refreshUpdateState()
+        assert status.property("text") == "Checking for updates"
+        app.device.future.set_result((app.device.generation, _available_release("0.1.2")))
+        app._on_tick()
+        qapp.processEvents()
+        assert status.property("text") == "New version available"
+        assert available.property("text") == "Available version · v0.1.2"
+        assert install.property("visible")
+        assert install.property("enabled")
+
+        app.device.operation = "update_download"
+        app.device.future = Future()
+        settings.refreshUpdateState()
+        assert status.property("text") == "Downloading update"
+        app.device.update_phase = "verifying"
+        settings.refreshUpdateState()
+        assert status.property("text") == "Verifying update"
+        app.device.future = None
+
+        _write_update_status(tmp_path, "installing", "0.1.2")
+        settings.refreshUpdateState()
+        assert status.property("text") == "Installing update"
+        assert not install.property("visible")
+        _write_update_status(tmp_path, "rolled_back", "0.1.2")
+        settings.refreshUpdateState()
+        assert status.property("text") == "Update failed. Previous version restored"
+        assert current.property("text") == "Current version · v0.1.1"
+        assert install.property("visible")
+
+        active.version = Version("0.1.2")
+        _write_update_status(tmp_path, "successful", "0.1.2")
+        settings.refreshUpdateState()
+        assert status.property("text") == "Restart required to load the active release"
+        assert current.property("text") == "Current version · v0.1.1"
+        assert available.property("text") == "Active release · v0.1.2"
+        assert not install.property("visible")
+    finally:
+        close_qml(engine, app)
 
 
 def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
