@@ -5,6 +5,7 @@ import os
 import shutil
 import stat
 from datetime import UTC, datetime
+from time import monotonic, time
 
 from packaging.version import Version
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
@@ -38,6 +39,10 @@ UPDATE_INSTALLATION = {
     "activating_release": "Activating the update",
 }
 UPDATE_PROGRESS_LABELS = {"downloading": "Downloaded", "verifying": "File checked", "extracting": "Extracted"}
+UPDATE_CHECK_INTERVAL = 24 * 60 * 60
+LAST_UPDATE_CHECK_KEY = "last_software_update_check"
+REMEMBERED_UPDATE_KEY = "remembered_software_update"
+DISMISSED_UPDATE_KEY = "dismissed_software_update"
 
 
 class SettingsController(QObject):
@@ -77,6 +82,11 @@ class SettingsController(QObject):
         self._checked_for_update = False
         self._install_deferred = False
         self._update_view = None
+        self._next_update_poll = 0.0
+        self._last_update_check = None
+        self._update_settings_repository = None
+        self._remembered_update = ""
+        self._dismissed_update = ""
         self.app.deviceOperationFinished.connect(self._updateOperationFinished)
         self._update_timer = QTimer(self)
         self._update_timer.setInterval(250)
@@ -428,6 +438,19 @@ class SettingsController(QObject):
         return self.updateVersion
 
     @Property(str, notify=updateChanged)
+    def updateReminderVersion(self) -> str:
+        if self._restart_required or self.updatePendingInstall:
+            return ""
+        if self.hasUpdate:
+            return self.availableVersion if self.updateCompatible else ""
+        return self._remembered_update
+
+    @Property(str, notify=updateChanged)
+    def updateNoticeVersion(self) -> str:
+        version = self.updateReminderVersion
+        return version if version != self._dismissed_update else ""
+
+    @Property(str, notify=updateChanged)
     def updateNotes(self) -> str:
         update = self._availableUpdate()
         return update.manifest.data["release"].get("notes", "") if update else ""
@@ -505,17 +528,79 @@ class SettingsController(QObject):
             return "Ready to install after this assessment"
         if self.hasUpdate:
             return "New version available"
+        if self.updateReminderVersion:
+            return "Check online for the available update"
         if self._checked_for_update or self._active_version or self._release_state == "successful":
             return "Software is up to date"
         return "Check for a software update"
 
     def _pollUpdateState(self):
-        if self.app.screen == "software_update" or self.updatePendingInstall:
+        if (self.app.screen == "software_update" or self.updatePendingInstall
+                or self.app.repository is not self._update_settings_repository):
             self.refreshUpdateState()
+        now = monotonic()
+        if now < self._next_update_poll:
+            return
+        self._next_update_poll = now + 5
+        if self._last_update_check is not None and time() < self._last_update_check + UPDATE_CHECK_INTERVAL:
+            return
+        device = self.app.device
+        if (not self.app.startupComplete or not self.app.repository or not device or device.busy
+                or self.app.isAssessmentActive or self.app.keyboardVisible or self.updatePendingInstall
+                or not self.app.config.api_base_url or not self.app.isOnline or not device.credentials.load_safe()):
+            return
+        self.refreshUpdateState()
+        if not self.updateBusy and not self.updatePendingInstall and not self._restart_required:
+            device.start("update_check", automatic=True)
+            if device.busy:
+                self._recordUpdateCheck()
+            self.refreshUpdateState()
+
+    def _loadUpdateSettings(self):
+        repository = self.app.repository
+        if repository is self._update_settings_repository:
+            return
+        self._update_settings_repository = repository
+        self._last_update_check = None
+        self._remembered_update = self._dismissed_update = ""
+        if repository:
+            self._remembered_update = repository.get_setting(REMEMBERED_UPDATE_KEY) or ""
+            self._dismissed_update = repository.get_setting(DISMISSED_UPDATE_KEY) or ""
+            last_check = repository.get_setting(LAST_UPDATE_CHECK_KEY)
+            if last_check:
+                try:
+                    self._last_update_check = float(last_check)
+                except (TypeError, ValueError):
+                    pass
+
+    def _recordUpdateCheck(self):
+        self._last_update_check = time()
+        if self.app.repository:
+            self.app.repository.set_setting(LAST_UPDATE_CHECK_KEY, str(self._last_update_check))
+
+    @Slot()
+    def dismissUpdateNotice(self):
+        version = self.updateNoticeVersion
+        if version:
+            self._dismissed_update = version
+            if self.app.repository:
+                self.app.repository.set_setting(DISMISSED_UPDATE_KEY, version)
+            self.refreshUpdateState()
+
+    @Slot()
+    def viewUpdateNotice(self):
+        self.dismissUpdateNotice()
+        self.app.navigate("software_update")
 
     @Slot()
     def refreshUpdateState(self):
         self._active_version = active_release_version()
+        self._loadUpdateSettings()
+        try:
+            if self._remembered_update and Version(self._remembered_update) <= (self._active_version or self._running_version):
+                self._remembered_update = ""
+        except (TypeError, ValueError):
+            self._remembered_update = ""
         self._refreshReleaseStatus()
         self._update_requested = (
             self._release_state not in {"successful", "failed", "rolled_back"}
@@ -530,7 +615,7 @@ class SettingsController(QObject):
         view = (self.appVersion, self.activeReleaseVersion, self.availableVersion,
                 self.updateNotes, self.updateCompatible,
                 self.updateStatus, self.updateError, self.updateBusy,
-                self.updateWork, self.updatePendingInstall)
+                self.updateWork, self.updatePendingInstall, self.updateReminderVersion, self.updateNoticeVersion)
         if view != self._update_view:
             self._update_view = view
             self.updateChanged.emit()
@@ -540,11 +625,20 @@ class SettingsController(QObject):
         if operation not in UPDATE_OPERATIONS:
             return
         device = self.app.device
-        if device.failure:
+        if operation == "update_check":
+            if not device.failure:
+                self._checked_for_update = True
+                self._update_error = ""
+                version = self.availableVersion if self.updateCompatible else ""
+                if version != self._remembered_update:
+                    self._remembered_update = version
+                    if self.app.repository:
+                        self.app.repository.set_setting(REMEMBERED_UPDATE_KEY, version)
+            elif not device.update_check_automatic:
+                self._update_error = device.message
+        elif device.failure:
             self._update_error = device.message
             self._install_deferred = False
-        elif operation == "update_check":
-            self._checked_for_update = True
         elif operation == "update_download":
             self._install_deferred = True
         self.refreshUpdateState()
@@ -753,6 +847,7 @@ class SettingsController(QObject):
         if device and not device.busy and not self.updatePendingInstall:
             self._beginUpdateOperation("update_check")
             if device.busy:
+                self._recordUpdateCheck()
                 self.app.showNotification("Checking for updates...", "info")
 
     @Slot()

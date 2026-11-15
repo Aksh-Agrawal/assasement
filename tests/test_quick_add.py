@@ -3,6 +3,7 @@
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Thread
 from unittest.mock import Mock, patch
 
 import pytest
@@ -115,25 +116,25 @@ class TestMobileUploadClient:
 
 
 class TestQuickAddController:
-    def test_initial_state(self, qapp, tmp_path, mock_config, mock_credentials):
+    def test_initial_state(self, qapp, tmp_path, mock_config, mock_credentials, qt_owner):
         mock_app = Mock(spec=AppController)
         mock_app.database_path = tmp_path / "app.db"
         mock_app.config = mock_config
         mock_app.credentials = mock_credentials
 
-        controller = QuickAddController(mock_app)
+        controller = QuickAddController(mock_app, parent=qt_owner)
         assert controller.status == "WAITING_FOR_PHONE"
         assert controller.remainingTime == "10:00"
         assert controller.shortCode == ""
         assert controller.packTitle == ""
 
-    def test_handle_server_status_transitions(self, qapp, tmp_path, mock_config, mock_credentials):
+    def test_handle_server_status_transitions(self, qapp, tmp_path, mock_config, mock_credentials, qt_owner):
         mock_app = Mock(spec=AppController)
         mock_app.database_path = tmp_path / "app.db"
         mock_app.config = mock_config
         mock_app.credentials = mock_credentials
 
-        controller = QuickAddController(mock_app)
+        controller = QuickAddController(mock_app, parent=qt_owner)
         controller._session_id = "sess-123"
         expires = datetime.now(UTC) + timedelta(minutes=10)
 
@@ -148,7 +149,12 @@ class TestQuickAddController:
             error_code=None,
             error_message=None,
         )
-        controller._handle_server_status("PHONE_CONNECTED", st)
+        worker = Thread(target=controller._serverStatusSignal.emit, args=("PHONE_CONNECTED", st))
+        worker.start()
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+        assert controller.status == "WAITING_FOR_PHONE"
+        qapp.processEvents()
         assert controller.status == "PHONE_CONNECTED"
 
         # Uploading
@@ -222,13 +228,13 @@ class TestQuickAddController:
         assert controller.status == "FAILED"
         assert "Scanned PDF" in controller.errorMessage
 
-    def test_controller_uses_backend_provided_url_and_entry_url(self, qapp, tmp_path, mock_config, mock_credentials):
+    def test_controller_uses_backend_provided_url_and_entry_url(self, qapp, tmp_path, mock_config, mock_credentials, qt_owner):
         mock_app = Mock(spec=AppController)
         mock_app.database_path = tmp_path / "app.db"
         mock_app.config = mock_config
         mock_app.credentials = mock_credentials
 
-        controller = QuickAddController(mock_app)
+        controller = QuickAddController(mock_app, parent=qt_owner)
         expires = datetime.now(UTC) + timedelta(minutes=10)
         prod_url = "https://startup-cloud-1.onrender.com/quick-add/demo-token-xyz"
 
@@ -237,14 +243,14 @@ class TestQuickAddController:
         assert controller.uploadUrl == prod_url
         assert controller.entryUrl == "startup-cloud-1.onrender.com/quick-add"
 
-    def test_sync_finished_ready_state(self, qapp, tmp_path, mock_config, mock_credentials):
+    def test_sync_finished_ready_state(self, qapp, tmp_path, mock_config, mock_credentials, qt_owner):
         mock_app = Mock(spec=AppController)
         mock_app.database_path = tmp_path / "app.db"
         mock_app.config = mock_config
         mock_app.credentials = mock_credentials
         mock_app.ui_controller = Mock()
 
-        controller = QuickAddController(mock_app)
+        controller = QuickAddController(mock_app, parent=qt_owner)
         controller._status = "SYNCING_TO_DEVICE"
         controller._sync_in_progress = True
         controller._pack_title = "Physics 101"
@@ -257,25 +263,30 @@ class TestQuickAddController:
         assert controller._sync_in_progress is False
         mock_app.ui_controller.refresh_catalog.assert_called_once()
 
-    def test_cancel_quick_add(self, qapp, tmp_path, mock_config, mock_credentials):
+    def test_cancel_quick_add(self, qapp, tmp_path, mock_config, mock_credentials, qt_owner):
         mock_app = Mock(spec=AppController)
         mock_app.database_path = tmp_path / "app.db"
         mock_app.config = mock_config
         mock_app.credentials = mock_credentials
 
-        controller = QuickAddController(mock_app)
+        controller = QuickAddController(mock_app, parent=qt_owner)
         controller._session_id = "sess-123"
 
-        with patch("app.ui_qt.controllers.quick_add_controller.DeviceApi"):
+        with (patch("app.ui_qt.controllers.quick_add_controller.DeviceApi") as api,
+              patch("app.ui_qt.controllers.quick_add_controller.threading.Thread") as worker):
             controller.cancelQuickAdd()
+            worker.return_value.start.assert_called_once()
+            worker.call_args.kwargs["target"]()
+            client = api.return_value.mobile_upload.return_value.__enter__.return_value
+            client.cancel_session.assert_called_once_with("sess-123")
 
         assert controller.status == "CANCELLED"
         mock_app.navigate.assert_called_with("content")
 
 
 class TestQuickAddQML:
-    def test_qml_quick_add_screen_load(self, qapp, tmp_path, mock_config, mock_credentials):
-        engine = QQmlApplicationEngine()
+    def test_qml_quick_add_screen_load(self, qapp, tmp_path, mock_config, mock_credentials, qt_owner):
+        engine = QQmlApplicationEngine(parent=qt_owner)
         qml_dir = Path(__file__).resolve().parent.parent / "app" / "ui_qt" / "qml"
         engine.addImportPath(str(qml_dir))
 
@@ -289,7 +300,7 @@ class TestQuickAddQML:
         mock_app.syncLabel = "Idle"
         mock_app.isOnline = True
 
-        controller = QuickAddController(mock_app)
+        controller = QuickAddController(mock_app, parent=qt_owner)
         controller._status = "WAITING_FOR_PHONE"
         controller._short_code = "AB7K-2QF"
 

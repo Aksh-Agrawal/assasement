@@ -1,7 +1,8 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15
 import ".." 1.0
 
-Rectangle {
+AbstractButton {
     id: root
 
     property url iconSource: ""
@@ -11,42 +12,41 @@ Rectangle {
     property color pressedColor: Theme.surfaceActive
     property color borderColor: Theme.border
 
-    signal clicked()
-
     implicitWidth: Math.max(Metrics.touchMin, buttonSize)
     implicitHeight: Math.max(Metrics.touchMin, buttonSize)
-    radius: height / 2
-    color: mouseArea.containsPress ? pressedColor : backgroundColor
-    border.color: mouseArea.containsPress ? Theme.forest : borderColor
-    border.width: 1
+    padding: 0
+    focusPolicy: Qt.StrongFocus
+    hoverEnabled: true
     opacity: enabled ? 1.0 : 0.5
+    Accessible.name: text
+    Keys.onReturnPressed: clicked()
+    Keys.onEnterPressed: clicked()
 
-    Image {
-        anchors.centerIn: parent
-        width: 22
-        height: 22
-        visible: root.iconSource.toString().length > 0
-        source: root.iconSource
-        fillMode: Image.PreserveAspectFit
-        smooth: true
+    background: Rectangle {
+        radius: height / 2
+        color: root.down ? root.pressedColor : root.backgroundColor
+        border.color: root.down || root.hovered || root.visualFocus ? Theme.forest : root.borderColor
+        border.width: root.visualFocus ? Metrics.borderFocus : 1
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: -3
+            radius: height / 2
+            color: "transparent"
+            border.color: Theme.borderFocus
+            border.width: Metrics.borderFocus
+            visible: root.visualFocus
+        }
     }
 
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        enabled: root.enabled
-        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: root.clicked()
-    }
-
-    // Accessible keyboard focus indicator
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: -3
-        radius: root.radius + 3
-        color: "transparent"
-        border.color: Theme.borderFocus
-        border.width: Metrics.borderFocus
-        visible: root.activeFocus
+    contentItem: Item {
+        Image {
+            anchors.centerIn: parent
+            width: 22
+            height: 22
+            sourceSize: Qt.size(width, height)
+            source: root.iconSource
+            fillMode: Image.PreserveAspectFit
+        }
     }
 }

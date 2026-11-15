@@ -78,10 +78,11 @@ Rectangle {
                     Item { width: 1; height: Spacing.xs }
 
                     PrimaryButton {
+                        objectName: "navigatorSubmitButton"
                         width: parent.width
                         preferredHeight: Metrics.touchNormal
                         text: "Submit Assessment"
-                        onClicked: appController.navigate("submit_confirm")
+                        onClicked: assessmentController.requestSubmit()
                     }
 
                     SecondaryButton {
@@ -133,7 +134,7 @@ Rectangle {
                                 border.color: {
                                     if (modelData.isCurrent) return Theme.forest;
                                     if (modelData.status === "flagged") return Theme.terracotta;
-                                    if (modelData.status === "answered") return Theme.softSage;
+                                    if (modelData.status === "answered") return Theme.sage;
                                     return Theme.border;
                                 }
                                 border.width: modelData.isCurrent ? 2 : 1

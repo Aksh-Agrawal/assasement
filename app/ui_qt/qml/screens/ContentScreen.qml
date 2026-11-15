@@ -243,7 +243,7 @@ Rectangle {
         AppCard {
             Layout.fillWidth: true
             Layout.preferredHeight: offlineCopy.implicitHeight + Spacing.md
-            visible: !root.browsing && !root.showingQueue && root.connectionState === "offline" && libraryController.installedPacks.length > 0
+            visible: !root.browsing && !root.showingQueue && root.connectionState === "offline" && grid.count > 0
 
             Text {
                 id: offlineCopy
@@ -266,14 +266,30 @@ Rectangle {
                 id: grid
                 objectName: "questionBankGrid"
                 anchors.fill: parent
-                model: root.browsing ? libraryController.questionBanks : libraryController.installedPacks
+                model: root.showingQueue ? null
+                    : root.browsing ? libraryController.questionBankModel : libraryController.installedPackModel
                 visible: !root.showingQueue && count > 0 && (!root.browsing || root.bankState === "ready")
 
                 delegate: LibraryPackCard {
-                    required property var modelData
+                    required property string packId
+                    required property int packVersion
+                    required property string packTitle
+                    required property string packSubject
+                    required property string packChapter
+                    required property string packTopic
+                    required property int packQuestionCount
+                    required property bool packInstalled
+                    required property bool packDownloading
+                    required property string packStatus
+                    required property bool packRetry
                     width: grid.cellWidth - Spacing.sm
                     height: grid.cardHeight
-                    pack: modelData
+                    pack: ({
+                        id: packId, version: packVersion, title: packTitle, subject: packSubject,
+                        chapter: packChapter, topic: packTopic, questionCount: packQuestionCount,
+                        isInstalled: packInstalled, isDownloading: packDownloading, status: packStatus,
+                        retry: packRetry
+                    })
                     progressPercent: pack.status === "Downloading" ? libraryController.downloadPercent : 0
                     onClicked: {
                         if (pack.isInstalled)

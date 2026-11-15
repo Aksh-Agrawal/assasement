@@ -37,7 +37,7 @@ Rectangle {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Raspberry Pi Study Buddy"
+                text: "Questraa"
                 color: Theme.deepInk
                 font.pixelSize: Typography.hero
                 font.bold: true
@@ -46,7 +46,7 @@ Rectangle {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Your dedicated offline learning companion"
+                text: "Offline practice and assessments"
                 color: Theme.mutedInk
                 font.pixelSize: Typography.body
                 font.family: Typography.family

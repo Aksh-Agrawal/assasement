@@ -37,12 +37,13 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 270
+        height: keyboardBody.implicitHeight + 2 * Spacing.sm
         color: Theme.paper
         border.color: Theme.border
         border.width: 1
 
         Column {
+            id: keyboardBody
             anchors.fill: parent
             anchors.margins: Spacing.sm
             spacing: 6
@@ -50,13 +51,13 @@ Rectangle {
             // Header with title and entered text
             Row {
                 width: parent.width
-                height: 44
+                height: Metrics.touchMin
                 spacing: Spacing.sm
 
                 // Text Display Input Box
                 Rectangle {
                     width: parent.width - 170
-                    height: 42
+                    height: Metrics.touchMin
                     radius: Metrics.radiusSm
                     color: Theme.surfaceWarm
                     border.color: Theme.border
@@ -68,26 +69,18 @@ Rectangle {
                         spacing: Spacing.xs
 
                         Text {
+                            width: Math.max(0, parent.width - 8)
                             anchors.verticalCenter: parent.verticalCenter
-                            text: root.isPassword ? "•".repeat(root.textValue.length) : root.textValue
-                            color: Theme.textPrimary
+                            text: root.textValue.length === 0 ? root.title
+                                : root.isPassword ? "•".repeat(root.textValue.length) : root.textValue
+                            textFormat: Text.PlainText
+                            elide: Text.ElideLeft
+                            color: root.textValue.length > 0 ? Theme.textPrimary : Theme.mutedInk
                             font.pixelSize: Typography.body
                             font.bold: true
                             font.family: Typography.fontFamily
                         }
 
-                        // Blinking cursor
-                        Rectangle {
-                            width: 2
-                            height: 20
-                            color: Theme.forest
-                            anchors.verticalCenter: parent.verticalCenter
-                            SequentialAnimation on opacity {
-                                loops: Animation.Infinite
-                                NumberAnimation { from: 1; to: 0; duration: 500 }
-                                NumberAnimation { from: 0; to: 1; duration: 500 }
-                            }
-                        }
                     }
                 }
 
@@ -121,7 +114,7 @@ Rectangle {
                             : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
                         delegate: Rectangle {
                             width: root.isSymbols ? 60 : 72
-                            height: 44
+                            height: Metrics.touchMin
                             radius: Metrics.radiusSm
                             color: kMouse.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
                             border.color: kMouse.containsPress ? Theme.forest : Theme.border
@@ -154,7 +147,7 @@ Rectangle {
                             : ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
                         delegate: Rectangle {
                             width: 72
-                            height: 44
+                            height: Metrics.touchMin
                             radius: Metrics.radiusSm
                             color: kMouse2.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
                             border.color: kMouse2.containsPress ? Theme.forest : Theme.border
@@ -190,7 +183,7 @@ Rectangle {
                             : ["a", "s", "d", "f", "g", "h", "j", "k", "l"]
                         delegate: Rectangle {
                             width: 78
-                            height: 44
+                            height: Metrics.touchMin
                             radius: Metrics.radiusSm
                             color: kMouse3.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
                             border.color: kMouse3.containsPress ? Theme.forest : Theme.border
@@ -218,21 +211,25 @@ Rectangle {
 
                 // Row 4: Shift / Space / Backspace / Symbols
                 Row {
+                    id: bottomKeys
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: 5
+                    readonly property int letterWidth: Math.floor(
+                        (keyboardBody.width - 10 * spacing - 72 * 2 - 116 - 78) / 7)
 
                     // Shift key
                     Rectangle {
                         width: 72
-                        height: 44
+                        height: Metrics.touchMin
                         radius: Metrics.radiusSm
                         color: root.isShift ? Theme.forest : Theme.surfaceActive
                         border.color: Theme.border
                         border.width: 1
                         Text {
                             anchors.centerIn: parent
-                            text: "⇧"
-                            font.pixelSize: 20
+                            text: "Shift"
+                            font.pixelSize: Typography.metadata
+                            font.family: Typography.family
                             color: root.isShift ? Theme.paper : Theme.textPrimary
                         }
                         MouseArea {
@@ -245,7 +242,7 @@ Rectangle {
                     // Symbols toggle key
                     Rectangle {
                         width: 72
-                        height: 44
+                        height: Metrics.touchMin
                         radius: Metrics.radiusSm
                         color: root.isSymbols ? Theme.forest : Theme.surfaceActive
                         border.color: Theme.border
@@ -271,8 +268,8 @@ Rectangle {
                             ? ['"', "'", "<", ">", ",", "."]
                             : ["z", "x", "c", "v", "b", "n", "m"]
                         delegate: Rectangle {
-                            width: 64
-                            height: 44
+                            width: bottomKeys.letterWidth
+                            height: Metrics.touchMin
                             radius: Metrics.radiusSm
                             color: kMouse4.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
                             border.color: kMouse4.containsPress ? Theme.forest : Theme.border
@@ -299,8 +296,8 @@ Rectangle {
 
                     // Spacebar
                     Rectangle {
-                        width: 140
-                        height: 44
+                        width: 116
+                        height: Metrics.touchMin
                         radius: Metrics.radiusSm
                         color: sMouse.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
                         border.color: sMouse.containsPress ? Theme.forest : Theme.border
@@ -322,16 +319,17 @@ Rectangle {
 
                     // Backspace
                     Rectangle {
-                        width: 72
-                        height: 44
+                        width: 78
+                        height: Metrics.touchMin
                         radius: Metrics.radiusSm
                         color: bMouse.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
                         border.color: bMouse.containsPress ? Theme.forest : Theme.border
                         border.width: 1
                         Text {
                             anchors.centerIn: parent
-                            text: "⌫"
-                            font.pixelSize: 20
+                            text: "Backspace"
+                            font.pixelSize: Typography.metadata
+                            font.family: Typography.family
                             color: Theme.textPrimary
                         }
                         MouseArea {

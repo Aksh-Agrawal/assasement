@@ -4,6 +4,7 @@ import json
 import logging
 import socket
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -21,7 +22,7 @@ def _update_setting(database_path: Path | str, key: str, updates: dict) -> None:
     if not path.is_file() or path.stat().st_size == 0:
         return
     try:
-        with sqlite3.connect(path, timeout=5) as connection:
+        with closing(sqlite3.connect(path, timeout=5)) as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
             value = json.loads(row[0]) if row and row[0] else {}
@@ -88,7 +89,7 @@ def cloud_state(repository_or_path) -> dict:
         if hasattr(repository_or_path, "get_setting"):
             raw = repository_or_path.get_setting(CLOUD_KEY)
         else:
-            with sqlite3.connect(Path(repository_or_path), timeout=3) as conn:
+            with closing(sqlite3.connect(Path(repository_or_path), timeout=3)) as conn:
                 row = conn.execute("SELECT value FROM settings WHERE key=?", (CLOUD_KEY,)).fetchone()
                 raw = row[0] if row else None
         return json.loads(raw or "{}")
@@ -105,7 +106,7 @@ def internet_state(repository_or_path) -> dict:
         if hasattr(repository_or_path, "get_setting"):
             raw = repository_or_path.get_setting(INTERNET_KEY)
         else:
-            with sqlite3.connect(Path(repository_or_path), timeout=3) as conn:
+            with closing(sqlite3.connect(Path(repository_or_path), timeout=3)) as conn:
                 row = conn.execute("SELECT value FROM settings WHERE key=?", (INTERNET_KEY,)).fetchone()
                 raw = row[0] if row else None
         return json.loads(raw or "{}")
@@ -122,7 +123,7 @@ def wifi_state(repository_or_path) -> dict:
         if hasattr(repository_or_path, "get_setting"):
             raw = repository_or_path.get_setting(WIFI_KEY)
         else:
-            with sqlite3.connect(Path(repository_or_path), timeout=3) as conn:
+            with closing(sqlite3.connect(Path(repository_or_path), timeout=3)) as conn:
                 row = conn.execute("SELECT value FROM settings WHERE key=?", (WIFI_KEY,)).fetchone()
                 raw = row[0] if row else None
         return json.loads(raw or "{}")

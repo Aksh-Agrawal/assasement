@@ -1,17 +1,18 @@
 """Small scheduler settings reads/writes without full repository validation."""
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 
 
 def read_scheduler_state(path):
-    with sqlite3.connect(path, timeout=5) as connection:
+    with closing(sqlite3.connect(path, timeout=5)) as connection:
         return dict(connection.execute("SELECT key,value FROM settings WHERE key IN "
                     "('automatic_sync','connectivity_cloud','connectivity_internet',"
                     "'connectivity_sync','sync_requested_at')"))
 
 
 def _write(path, key, value):
-    with sqlite3.connect(path, timeout=5) as connection:
+    with closing(sqlite3.connect(path, timeout=5)) as connection, connection:
         connection.execute("INSERT INTO settings(key,value) VALUES(?,?) "
                            "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
 

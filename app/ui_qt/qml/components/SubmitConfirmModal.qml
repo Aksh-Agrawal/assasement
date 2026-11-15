@@ -14,6 +14,7 @@ Rectangle {
 
     anchors.fill: parent
     color: "#6623302D" // deep ink scrim
+    Keys.onEscapePressed: cancelClicked()
 
     // Dismiss on background click
     MouseArea {
@@ -146,6 +147,7 @@ Rectangle {
                 }
 
                 PrimaryButton {
+                    objectName: "confirmAssessmentButton"
                     text: "Submit Assessment"
                     preferredHeight: Metrics.touchNormal
                     onClicked: root.submitClicked()

@@ -13,30 +13,21 @@ Item {
         spacing: Spacing.md
 
         Rectangle {
-            id: spinner
             width: 44
             height: 44
             radius: 22
-            color: "transparent"
+            color: Theme.primaryLight
             border.color: Theme.border
-            border.width: 3
+            border.width: 1
             anchors.horizontalCenter: parent.horizontalCenter
 
-            Rectangle {
-                width: 10
-                height: 10
-                radius: 5
-                color: Theme.forest
-                x: parent.width / 2 - 5
-                y: -5
-            }
-
-            RotationAnimation on rotation {
-                from: 0
-                to: 360
-                duration: 1200
-                loops: Animation.Infinite
-                running: root.visible
+            Image {
+                anchors.centerIn: parent
+                width: 22
+                height: 22
+                sourceSize: Qt.size(width, height)
+                source: Assets.refresh
+                fillMode: Image.PreserveAspectFit
             }
         }
 

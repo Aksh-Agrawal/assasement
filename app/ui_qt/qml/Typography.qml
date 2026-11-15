@@ -5,9 +5,9 @@ QtObject {
     id: typography
 
     // Font Families
-    readonly property string family: "Arial"
+    readonly property string family: Qt.platform.os === "windows" ? "Arial" : "DejaVu Sans"
     readonly property string fontFamily: family
-    readonly property string familyEditorial: "Georgia"
+    readonly property string familyEditorial: Qt.platform.os === "windows" ? "Georgia" : "DejaVu Serif"
     readonly property string fontSerif: familyEditorial
 
     // Type Scale (optimized for 800x480 at ~180 DPI)

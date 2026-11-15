@@ -28,6 +28,8 @@ Rectangle {
             spacing: Spacing.md
 
             IconButton {
+                objectName: "questionLeaveButton"
+                text: "Leave assessment"
                 buttonSize: 34
                 iconSource: Assets.arrow_back
                 onClicked: leaveModal.visible = true
@@ -103,6 +105,7 @@ Rectangle {
 
             // Flag / Mark for review button
             IconButton {
+                text: assessmentController.isMarkedForReview ? "Remove review mark" : "Mark for review"
                 buttonSize: 34
                 iconSource: assessmentController.isMarkedForReview ? Assets.flag_filled : Assets.flag
                 backgroundColor: assessmentController.isMarkedForReview ? Theme.goldLight : Theme.surface

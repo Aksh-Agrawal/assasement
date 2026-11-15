@@ -46,19 +46,18 @@ Rectangle {
 
         LibraryGrid {
             id: grid
+            cardHeight: 88
             anchors.fill: parent
             anchors.topMargin: browseButton.implicitHeight + Spacing.sm
             model: libraryController.subjectCards
             visible: count > 0
 
-            delegate: LibraryCard {
+            delegate: SubjectCard {
                 required property var modelData
                 width: grid.cellWidth - Spacing.sm
                 height: grid.cardHeight
-                title: modelData.name
-                context: modelData.chapters
-                iconSource: Theme.subjectIcon(modelData.name)
-                actionText: "Explore"
+                subject: modelData.name
+                chapters: modelData.chapters
                 onClicked: libraryController.selectSubject(modelData.name)
             }
         }

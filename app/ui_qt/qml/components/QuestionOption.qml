@@ -1,26 +1,33 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15
 import ".." 1.0
 
-Rectangle {
+AbstractButton {
     id: root
 
     property string optionKey: "A"
     property string optionText: ""
     property bool selected: false
-    signal clicked()
-
+    padding: 0
+    focusPolicy: Qt.StrongFocus
+    hoverEnabled: true
+    Accessible.name: optionKey + ". " + optionText
+    Accessible.selected: selected
+    Keys.onReturnPressed: clicked()
+    Keys.onEnterPressed: clicked()
     implicitHeight: Math.max(Metrics.touchNormal, textLayout.implicitHeight + 18)
-    radius: Metrics.radiusMedium
-    color: selected ? Theme.surfaceSelected : (mouseArea.containsPress ? Theme.surfaceActive : Theme.surface)
-    border.color: selected ? Theme.forest : (mouseArea.containsPress ? Theme.primaryDark : Theme.border)
-    border.width: selected ? 2 : 1
     opacity: enabled ? 1.0 : 0.6
 
-    Behavior on color {
-        ColorAnimation { duration: Theme.animDuration }
-    }
-    Behavior on border.color {
-        ColorAnimation { duration: Theme.animDuration }
+    background: Rectangle {
+        radius: Metrics.radiusMedium
+        color: root.selected ? Theme.surfaceSelected
+            : root.down ? Theme.surfaceActive : root.hovered ? Theme.surfaceElevated : Theme.surface
+        border.color: root.selected || root.visualFocus ? Theme.forest : Theme.border
+        border.width: root.selected || root.visualFocus ? Metrics.borderFocus : 1
+
+        Behavior on color {
+            ColorAnimation { duration: Theme.animDuration }
+        }
     }
 
     Row {
@@ -58,6 +65,7 @@ Rectangle {
             width: parent.width - 36 - Spacing.md - (root.selected ? 34 : 0)
             anchors.verticalCenter: parent.verticalCenter
             text: root.optionText
+            textFormat: Text.PlainText
             color: Theme.deepInk
             font.pixelSize: Typography.body
             font.family: Typography.family
@@ -83,22 +91,4 @@ Rectangle {
         }
     }
 
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        enabled: root.enabled
-        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: root.clicked()
-    }
-
-    // Accessible keyboard focus ring
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: -3
-        radius: root.radius + 3
-        color: "transparent"
-        border.color: Theme.borderFocus
-        border.width: Metrics.borderFocus
-        visible: root.activeFocus
-    }
 }

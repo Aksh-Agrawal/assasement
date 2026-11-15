@@ -16,12 +16,13 @@ Item {
     Column {
         anchors.centerIn: parent
         spacing: Spacing.md
-        width: Math.min(parent.width - 40, 480)
+        width: Math.max(0, Math.min(parent.width - 40, 480))
 
         Image {
             anchors.horizontalCenter: parent.horizontalCenter
             width: 140
             height: 100
+            sourceSize: Qt.size(width, height)
             source: root.illustrationSource
             fillMode: Image.PreserveAspectFit
             smooth: true
@@ -29,11 +30,14 @@ Item {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width
             text: root.title
             color: Theme.deepInk
             font.pixelSize: Typography.sectionTitle
             font.bold: true
             font.family: Typography.family
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.Wrap
         }
 
         Text {
@@ -47,8 +51,6 @@ Item {
             width: parent.width
             visible: root.description.length > 0
         }
-
-        Item { width: 1; height: Spacing.xs }
 
         PrimaryButton {
             anchors.horizontalCenter: parent.horizontalCenter

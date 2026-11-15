@@ -438,8 +438,23 @@ class Repository:
                    for p in self.profile_library_catalog(profile_id))
 
     def visible_question_sets(self, profile_id: str | None):
-        packs = self.list_question_sets()
-        return tuple(p for p in packs if self.can_start_pack(profile_id or "", p.id, p.version))
+        profile = self.get_profile(profile_id) if profile_id else None
+        if not profile:
+            return ()
+        eligible = {(pack["set_id"], pack["version"])
+                    for pack in self.profile_library_catalog(profile.id)}
+        if profile.ownership_state != "owned":
+            public = self._connection.execute(
+                "SELECT id, version FROM question_sets AS q WHERE NOT EXISTS ("
+                "SELECT 1 FROM private_pack_versions AS p WHERE p.set_id=q.id AND p.version=q.version)"
+            )
+            eligible.update((row["id"], row["version"]) for row in public)
+        packs = []
+        for set_id, version in sorted(eligible):
+            pack = self.get_question_set(set_id, version)
+            if pack is not None:
+                packs.append(pack)
+        return tuple(packs)
 
     def content_revision(self) -> tuple[int, int]:
         """Observe commits from other connections as well as this connection."""

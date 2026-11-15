@@ -1,8 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
+import QtQuick.Controls 2.15 as Controls
 import "." 1.0
 import "components" 1.0
-import "screens" 1.0
 
 Window {
     id: window
@@ -11,19 +11,15 @@ Window {
     height: 480
     minimumWidth: 800
     minimumHeight: 480
-    title: "Raspberry Pi Study Buddy"
+    title: "Questraa"
     color: Theme.paper
 
-    // Background Educational Doodle Wallpaper (WhatsApp chat background style)
     Image {
-        id: bgWallpaper
         anchors.fill: parent
         source: Assets.wallpaper
         fillMode: Image.PreserveAspectCrop
         horizontalAlignment: Image.AlignLeft
         verticalAlignment: Image.AlignTop
-        asynchronous: false
-        cache: true
     }
 
     // Keyboard navigation hooks
@@ -47,11 +43,26 @@ Window {
     // Screen Router Loader
     Loader {
         id: screenLoader
+        objectName: "screenLoader"
         anchors.fill: parent
         asynchronous: false
+        enabled: appController.screen !== "submit_confirm"
+        property string route: appController.screen
+
+        Connections {
+            target: appController
+            function onScreenChanged() {
+                if (appController.screen === "submit_confirm") {
+                    if (screenLoader.route !== "question_nav")
+                        screenLoader.route = "question";
+                } else {
+                    screenLoader.route = appController.screen;
+                }
+            }
+        }
 
         source: {
-            switch (appController.screen) {
+            switch (route) {
                 case "startup": return "screens/StartupScreen.qml";
                 case "recovery": return "screens/RecoveryScreen.qml";
                 case "pairing": return "screens/PairingScreen.qml";
@@ -149,20 +160,85 @@ Window {
     }
 
     // Global Modal Overlay: Submit Confirmation
-    SubmitConfirmModal {
-        id: submitConfirmModal
-        visible: appController.screen === "submit_confirm"
-        answeredCount: assessmentController.answeredCount
-        unansweredCount: assessmentController.unansweredCount
-        markedCount: assessmentController.markedCount
-        onSubmitClicked: {
-            assessmentController.confirmSubmit();
+    Loader {
+        objectName: "submitConfirmLoader"
+        anchors.fill: parent
+        active: appController.screen === "submit_confirm"
+        enabled: active
+        focus: active
+        onLoaded: (item as Item).forceActiveFocus()
+
+        sourceComponent: SubmitConfirmModal {
+            answeredCount: assessmentController.answeredCount
+            unansweredCount: assessmentController.unansweredCount
+            markedCount: assessmentController.markedCount
+            onSubmitClicked: assessmentController.confirmSubmit()
+            onReviewClicked: assessmentController.cancelSubmit(true)
+            onCancelClicked: assessmentController.cancelSubmit()
         }
-        onReviewClicked: {
-            appController.navigate("question_nav");
+    }
+
+    Controls.Popup {
+        id: updateNotice
+        objectName: "softwareUpdateNotice"
+        anchors.centerIn: Controls.Overlay.overlay
+        width: Math.min(440, window.width - Spacing.huge * 2)
+        padding: Spacing.xl
+        modal: true
+        focus: true
+        closePolicy: Controls.Popup.NoAutoClose
+        visible: ["home", "subjects", "library", "chapters", "packs", "practice", "content",
+                  "progress", "history", "settings"].includes(appController.screen)
+                 && !appController.keyboardVisible && settingsController.updateNoticeVersion.length > 0
+
+        background: AppCard { }
+
+        Shortcut {
+            sequences: [StandardKey.Cancel]
+            enabled: updateNotice.visible
+            onActivated: settingsController.dismissUpdateNotice()
         }
-        onCancelClicked: {
-            assessmentController.cancelSubmit();
+
+        contentItem: Column {
+            spacing: Spacing.md
+
+            Text {
+                width: parent.width
+                text: "Software update available"
+                wrapMode: Text.WordWrap
+                color: Theme.deepInk
+                font.family: Typography.familyEditorial
+                font.pixelSize: Typography.pageTitle
+                font.bold: true
+            }
+
+            Text {
+                width: parent.width
+                text: "Version " + settingsController.updateNoticeVersion + " is available. Install it from Software Update when you're ready."
+                wrapMode: Text.WordWrap
+                color: Theme.mutedInk
+                font.family: Typography.family
+                font.pixelSize: Typography.body
+            }
+
+            Row {
+                anchors.right: parent.right
+                spacing: Spacing.sm
+
+                SecondaryButton {
+                    objectName: "softwareUpdateLater"
+                    preferredHeight: Metrics.touchMin
+                    text: "Later"
+                    onClicked: settingsController.dismissUpdateNotice()
+                }
+
+                PrimaryButton {
+                    objectName: "softwareUpdateView"
+                    preferredHeight: Metrics.touchMin
+                    text: "View update"
+                    onClicked: settingsController.viewUpdateNotice()
+                }
+            }
         }
     }
 
@@ -172,8 +248,8 @@ Window {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: appController.message.length > 0 ? 16 : -60
         anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(600, messageRow.implicitWidth + 36)
-        height: 48
+        width: Math.min(600, messageText.implicitWidth + 2 * Spacing.sm + 84)
+        height: Math.max(Metrics.touchMin, messageText.implicitHeight + Spacing.sm * 2)
         radius: 24
         color: appController.notificationType === "error" ? "#FFEBEE" : (appController.notificationType === "warning" ? "#FFF3E0" : Theme.primaryLight)
         border.color: appController.notificationType === "error" ? Theme.error : (appController.notificationType === "warning" ? Theme.highlight : Theme.primary)
@@ -189,8 +265,8 @@ Window {
         }
 
         Row {
-            id: messageRow
             anchors.centerIn: parent
+            width: parent.width - Spacing.sm * 2
             spacing: 10
 
             Image {
@@ -202,26 +278,29 @@ Window {
             }
 
             Text {
+                id: messageText
+                width: Math.max(0, parent.width - 84)
                 text: appController.message
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                maximumLineCount: 3
+                elide: Text.ElideRight
+                anchors.verticalCenter: parent.verticalCenter
                 font.pixelSize: 14
                 font.bold: true
                 color: Theme.textPrimary
                 font.family: Theme.fontFamily
             }
 
-            MouseArea {
-                width: 20
-                height: 20
+            IconButton {
+                width: Metrics.touchMin
+                height: Metrics.touchMin
                 anchors.verticalCenter: parent.verticalCenter
-                cursorShape: Qt.PointingHandCursor
+                text: "Dismiss notification"
+                iconSource: Assets.close
+                backgroundColor: "transparent"
+                borderColor: "transparent"
                 onClicked: appController.clearMessage()
-                Image {
-                    anchors.centerIn: parent
-                    width: 12
-                    height: 12
-                    source: Assets.close
-                    fillMode: Image.PreserveAspectFit
-                }
             }
         }
 
@@ -233,17 +312,31 @@ Window {
     }
 
     // Global Virtual Keyboard Overlay
-    VirtualKeyboard {
-        id: virtualKeyboard
-        visible: appController.keyboardVisible
-        textValue: appController.keyboardText
-        isPassword: appController.keyboardIsPassword
-        title: appController.keyboardTitle
-        onSubmitted: function(text) {
-            appController.submitKeyboard(text);
+    Loader {
+        id: keyboardLoader
+        objectName: "keyboardLoader"
+        anchors.fill: parent
+        active: appController.keyboardVisible
+        enabled: active
+        property Item previousFocus
+
+        onLoaded: {
+            previousFocus = window.activeFocusItem;
+            (item as Item).forceActiveFocus();
         }
-        onCancelled: {
-            appController.keyboardCancelled();
+        onActiveChanged: {
+            if (!active && previousFocus && previousFocus.visible) {
+                previousFocus.forceActiveFocus();
+                previousFocus = null;
+            }
+        }
+
+        sourceComponent: VirtualKeyboard {
+            textValue: appController.keyboardText
+            isPassword: appController.keyboardIsPassword
+            title: appController.keyboardTitle
+            onSubmitted: function(text) { appController.submitKeyboard(text); }
+            onCancelled: appController.keyboardCancelled()
         }
     }
 }

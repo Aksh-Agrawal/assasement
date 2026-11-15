@@ -240,6 +240,7 @@ class QuickAddController(QObject):
                 "Could not generate QR session. Please check connection and try again.",
             )
 
+    @Slot(str, str, str, str, object, str)
     def _on_session_created(self, session_id: str, token: str, upload_url: str, short_code: str, expires_at, profile_name: str):
         self._session_id = session_id
         self._token = token
@@ -258,6 +259,7 @@ class QuickAddController(QObject):
         self._poll_timer.start()
         self._countdown_timer.start()
 
+    @Slot(str, str)
     def _on_session_failed(self, status_text: str, error_message: str):
         self._status = "FAILED"
         self._status_text = status_text
@@ -271,9 +273,11 @@ class QuickAddController(QObject):
         self._countdown_timer.stop()
         sess_id = self._session_id
         if sess_id:
+            config, credentials = self.config, self.app.credentials
+
             def _async_cancel():
                 try:
-                    api = DeviceApi(self.config, store=self.app.credentials)
+                    api = DeviceApi(config, store=credentials)
                     with api.mobile_upload() as client:
                         client.cancel_session(sess_id)
                 except Exception:
@@ -326,6 +330,7 @@ class QuickAddController(QObject):
         except Exception as err:
             LOGGER.debug("Quick add poll transient error: %s", err)
 
+    @Slot(str, object)
     def _handle_server_status(self, server_status: str, st):
         if server_status == "PHONE_CONNECTED" and self._status == "WAITING_FOR_PHONE":
             self._status = "PHONE_CONNECTED"
@@ -397,6 +402,7 @@ class QuickAddController(QObject):
 
         self._syncFinishedSignal.emit(pack_present)
 
+    @Slot(bool)
     def _on_sync_finished(self, pack_present: bool):
         self._sync_in_progress = False
         if pack_present:

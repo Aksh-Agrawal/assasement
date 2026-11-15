@@ -42,7 +42,7 @@ Rectangle {
 
                 Rectangle {
                     width: 56; height: 56; radius: 28
-                    color: Theme.softSage
+                    color: Theme.primaryLight
                     anchors.horizontalCenter: parent.horizontalCenter
                     Image {
                         anchors.centerIn: parent
@@ -85,7 +85,9 @@ Rectangle {
                                 return "Active release · v" + active
                             return settingsController.hasUpdate
                                 ? "Available version · v" + settingsController.availableVersion
-                                : "Raspberry Pi OS · 64-bit"
+                                : settingsController.updateReminderVersion
+                                  ? "Last found · v" + settingsController.updateReminderVersion
+                                  : "Raspberry Pi OS · 64-bit"
                         }
                         color: Theme.textSecondary
                         font.pixelSize: Typography.caption

@@ -63,6 +63,7 @@ Rectangle {
                     AppCard {
                         width: parent.width
                         height: 208
+                        customBgColor: Theme.surfaceElevated
                         interactive: false
 
                         // Content row inside Hero
@@ -77,24 +78,12 @@ Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: Spacing.sm
 
-                                // Badge / Context Label
-                                Rectangle {
-                                    height: 24
-                                    width: heroBadgeText.implicitWidth + 16
-                                    radius: 12
-                                    color: libraryController.canResume ? Theme.terracottaLight : Theme.primaryLight
-                                    border.color: libraryController.canResume ? Theme.terracotta : Theme.sage
-                                    border.width: 1
-
-                                    Text {
-                                        id: heroBadgeText
-                                        anchors.centerIn: parent
-                                        text: libraryController.canResume ? "In Progress" : "Daily Practice"
-                                        color: libraryController.canResume ? Theme.terracotta : Theme.forest
-                                        font.pixelSize: Typography.caption
-                                        font.bold: true
-                                        font.family: Typography.family
-                                    }
+                                Text {
+                                    text: libraryController.canResume ? "Practice in progress" : "Your study desk"
+                                    color: Theme.forest
+                                    font.pixelSize: Typography.metadata
+                                    font.bold: true
+                                    font.family: Typography.family
                                 }
 
                                 // Greeting / Resume Title
@@ -102,7 +91,7 @@ Rectangle {
                                     objectName: "homeGreeting"
                                     text: libraryController.canResume ? ("Continue " + libraryController.resumeTitle) : (appController.greeting + ", " + appController.activeProfileName)
                                     color: Theme.deepInk
-                                    font.pixelSize: Typography.pageTitle
+                                    font.pixelSize: Typography.hero
                                     font.bold: true
                                     font.family: Typography.familyEditorial
                                     elide: Text.ElideRight
@@ -112,7 +101,7 @@ Rectangle {
                                 // Subtext
                                 Text {
                                     visible: root.hasPractice
-                                    text: libraryController.canResume ? (libraryController.resumeAnswered + " of " + libraryController.resumeTotal + " questions complete") : "Ready for today's practice? Choose a topic to begin."
+                                    text: libraryController.canResume ? (libraryController.resumeAnswered + " of " + libraryController.resumeTotal + " questions answered") : "Choose a subject to pick up a practice set."
                                     color: Theme.mutedInk
                                     font.pixelSize: Typography.body
                                     font.family: Typography.family
@@ -146,7 +135,7 @@ Rectangle {
                                     visible: root.hasPractice
                                     preferredHeight: Metrics.touchNormal
                                     buttonColor: Theme.forest
-                                    text: libraryController.canResume ? "Continue Practice →" : "Start Practice →"
+                                    text: libraryController.canResume ? "Continue practice" : "Choose a subject"
                                     onClicked: {
                                         if (libraryController.canResume) {
                                             assessmentController.resumeTest();
@@ -163,6 +152,7 @@ Rectangle {
                                 visible: parent.width >= 460
                                 width: 196
                                 height: 180
+                                sourceSize: Qt.size(width, height)
                                 anchors.verticalCenter: parent.verticalCenter
                                 source: libraryController.canResume ? Assets.home_resume : Assets.home_hero
                                 fillMode: Image.PreserveAspectFit
@@ -171,23 +161,34 @@ Rectangle {
                         }
                     }
 
+                    LibraryCard {
+                        objectName: "homeSoftwareUpdateReminder"
+                        visible: settingsController.updateReminderVersion.length > 0
+                        width: parent.width
+                        height: 76
+                        title: "Software update available"
+                        context: "Version " + settingsController.updateReminderVersion
+                        actionText: "View update"
+                        iconSource: Assets.update
+                        onClicked: settingsController.viewUpdateNotice()
+                    }
+
                     LibraryGrid {
                         id: subjects
                         width: parent.width
                         height: Math.ceil(count / columns) * cellHeight
-                        cardHeight: 112
+                        columns: count >= 3 && width >= 620 ? 3 : 2
+                        cardHeight: 88
                         interactive: false
                         visible: count > 0
                         model: libraryController.homeSubjects
 
-                        delegate: LibraryCard {
+                        delegate: SubjectCard {
                             required property var modelData
                             width: subjects.cellWidth - Spacing.sm
                             height: subjects.cardHeight
-                            title: modelData.name
-                            context: modelData.chapters
-                            actionText: "Explore"
-                            iconSource: Theme.subjectIcon(modelData.name)
+                            subject: modelData.name
+                            chapters: modelData.chapters
                             onClicked: libraryController.selectInstalledSubject(modelData.name)
                         }
                     }

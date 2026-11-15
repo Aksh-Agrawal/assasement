@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15
 import ".." 1.0
 
 Rectangle {
@@ -56,70 +57,66 @@ Rectangle {
                 { id: "settings", label: "Settings", icon: Assets.settings }
             ]
 
-            delegate: Rectangle {
+            delegate: AbstractButton {
                 id: navItem
+                required property var modelData
+                readonly property bool selected: root.currentTab === modelData.id
                 width: root.width - 12
                 height: 56
                 anchors.horizontalCenter: parent.horizontalCenter
-                radius: Metrics.radiusMedium
-                color: root.currentTab === modelData.id ? Theme.primaryLight : (itemMouseArea.containsPress ? Theme.surfaceActive : "transparent")
+                padding: 0
+                text: modelData.label
+                Accessible.name: text
+                focusPolicy: Qt.StrongFocus
+                hoverEnabled: true
+                Keys.onReturnPressed: clicked()
+                Keys.onEnterPressed: clicked()
+                onClicked: root.tabSelected(modelData.id)
 
-                Behavior on color {
-                    ColorAnimation { duration: Theme.animDuration }
-                }
-
-                // Left active accent bar
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 3
-                    height: 28
-                    radius: 1.5
-                    color: Theme.forest
-                    visible: root.currentTab === modelData.id
-                }
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 3
-
-                    Image {
-                        objectName: "navIcon-" + modelData.id
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: 22
-                        height: 22
-                        source: modelData.icon
-                        fillMode: Image.PreserveAspectFit
-                    }
-
-                    Text {
-                        objectName: "navLabel-" + modelData.id
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: modelData.label
-                        color: root.currentTab === modelData.id ? Theme.forest : Theme.mutedInk
-                        font.pixelSize: Typography.caption
-                        font.bold: root.currentTab === modelData.id
-                        font.family: Typography.family
-                    }
-                }
-
-                MouseArea {
-                    id: itemMouseArea
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.tabSelected(modelData.id)
-                }
-
-                // Focus ring
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: -2
-                    radius: navItem.radius + 2
-                    color: "transparent"
+                background: Rectangle {
+                    radius: Metrics.radiusMedium
+                    color: navItem.down ? Theme.surfaceActive : navItem.selected ? Theme.primaryLight
+                        : navItem.hovered ? Theme.paper : "transparent"
                     border.color: Theme.borderFocus
-                    border.width: Metrics.borderFocus
-                    visible: navItem.activeFocus
+                    border.width: navItem.visualFocus ? Metrics.borderFocus : 0
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 3
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3
+                        height: 28
+                        radius: 1.5
+                        color: Theme.forest
+                        visible: navItem.selected
+                    }
+                }
+
+                contentItem: Item {
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 3
+
+                        Image {
+                            objectName: "navIcon-" + navItem.modelData.id
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: 22
+                            height: 22
+                            sourceSize: Qt.size(width, height)
+                            source: navItem.modelData.icon
+                            fillMode: Image.PreserveAspectFit
+                        }
+
+                        Text {
+                            objectName: "navLabel-" + navItem.modelData.id
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: navItem.text
+                            color: navItem.selected ? Theme.forest : Theme.mutedInk
+                            font.pixelSize: Typography.caption
+                            font.bold: navItem.selected
+                            font.family: Typography.family
+                        }
+                    }
                 }
             }
         }

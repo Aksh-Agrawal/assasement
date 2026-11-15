@@ -71,6 +71,7 @@ class DeviceConsole:
         self.pairing = None
         self.pairing_error = ""
         self.available_update = None
+        self.update_check_automatic = False
         self.staged = None
         self.update_work = ("downloading", 0.0)
         self.download_state = {}
@@ -127,7 +128,9 @@ class DeviceConsole:
         self.account_message = None
         self.failure = None
         self.operation = operation
-        if operation == "update_download":
+        if operation == "update_check":
+            self.update_check_automatic = arguments.get("automatic", False)
+        elif operation == "update_download":
             self.staged = None
             self.update_work = ("downloading", 0.0)
         elif operation == "browse_banks":

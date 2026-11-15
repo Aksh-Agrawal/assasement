@@ -29,6 +29,7 @@ Rectangle {
         IconButton {
             id: backButton
             visible: root.showBack
+            text: "Back"
             buttonSize: 36
             iconSource: Assets.arrow_back
             onClicked: root.backClicked()

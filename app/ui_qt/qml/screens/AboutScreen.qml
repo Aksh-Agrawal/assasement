@@ -40,7 +40,7 @@ Rectangle {
 
                 Rectangle {
                     width: 56; height: 56; radius: 28
-                    color: Theme.softSage
+                    color: Theme.primaryLight
                     anchors.horizontalCenter: parent.horizontalCenter
                     Image {
                         anchors.centerIn: parent
@@ -52,7 +52,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Raspberry Pi Study Buddy"
+                    text: "Questraa"
                     color: Theme.textPrimary
                     font.pixelSize: Typography.pageTitle
                     font.family: Typography.fontSerif
@@ -61,7 +61,7 @@ Rectangle {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "A calm, focused, offline-first educational device designed for uninterrupted learning."
+                    text: "Practice questions, take assessments and review your progress offline."
                     color: Theme.textSecondary
                     font.pixelSize: Typography.body
                     font.family: Typography.fontFamily
@@ -77,8 +77,7 @@ Rectangle {
                     spacing: Spacing.xs
                     Text { text: "App Version: v" + settingsController.appVersion; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily; color: Theme.textPrimary }
                     Text { text: "Hardware Platform: Raspberry Pi Zero 2 W (512 MB)"; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily; color: Theme.textPrimary }
-                    Text { text: "User Interface: PySide6 & Qt Quick 2 (Tactile Educational Design)"; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily; color: Theme.textPrimary }
-                    Text { text: "License: Open source educational software. PySide6 LGPL v3."; font.pixelSize: Typography.caption; font.family: Typography.fontFamily; color: Theme.textSecondary }
+                    Text { text: "Interface: PySide6 and Qt Quick"; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily; color: Theme.textPrimary }
                 }
 
                 Item { width: 1; height: Spacing.xs }

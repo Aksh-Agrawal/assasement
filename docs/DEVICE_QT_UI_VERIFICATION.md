@@ -1,5 +1,7 @@
 # Qt/QML device UI verification
 
+For the current capture workflow, measurements and device checklist, see [Questraa device UI engineering and verification](PI_UI_ENGINEERING.md).
+
 ## Default UI
 
 The supported Pi launch path is PySide6/Qt Quick. The GUI install extra installs PySide6; the kiosk session and setup documentation launch `app.ui_qt.main`. The former Pygame presentation was retired in the repository cleanup; framework-neutral controller, device, and startup services remain under `app/ui/`. The illustrated paper-and-ink background and subject art remain in place.

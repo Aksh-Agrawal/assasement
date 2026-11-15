@@ -1,382 +1,384 @@
-"""Capture Qt Quick review screenshots at the target Pi display size (800x480)."""
+"""Render every Pi route and measure representative local UI work at 800×480."""
 
+import argparse
+import ctypes
+import gc
+import json
 import os
-import sys
+import re
 import tempfile
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import Mock
+from statistics import median
+from time import perf_counter_ns
+from types import SimpleNamespace
 
-# Ensure project root is in sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-os.environ["QT_QPA_PLATFORM"] = "offscreen"
-os.environ["QSG_RENDER_LOOP"] = "basic"
-os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(errors="backslashreplace")
-
-from PySide6.QtCore import QUrl
+import PySide6
+import segno
+from PySide6.QtCore import QObject, QPoint, Qt, QUrl
 from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtQuick import QQuickWindow  # noqa: F401
+from PySide6.QtQuick import QQuickWindow
+from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 
-from app.auth.credentials import CredentialStore
+from app.auth.credentials import CredentialStore, DeviceCredential
 from app.config import AppConfig
-from app.core.models import (
-    Confidence,
-    MarkingScheme,
-    Option,
-    Profile,
-    Question,
-    QuestionSet,
-)
+from app.connectivity import CLOUD_KEY, INTERNET_KEY, WIFI_KEY
+from app.content.catalog import RemotePack
+from app.core.models import MarkingScheme, Option, Profile, Question, QuestionSet
+from app.data.repo import Repository
 from app.ui_qt.controllers.app_controller import AppController
 from app.ui_qt.controllers.assessment_controller import AssessmentController
-from app.ui_qt.controllers.library_controller import LibraryController
+from app.ui_qt.controllers.library_controller import LibraryController, PracticeDownload
 from app.ui_qt.controllers.profile_controller import ProfileController
 from app.ui_qt.controllers.quick_add_controller import QuickAddController
 from app.ui_qt.controllers.settings_controller import SettingsController
+from app.ui_qt.main import close_qml
+
+SAMPLE_TIME = datetime(2026, 11, 15, 9, 0, tzinfo=UTC)
+ACCOUNT = "00000000-0000-4000-8000-000000000001"
+ACTIVE_LINK = "00000000-0000-4000-8000-000000000011"
 
 
-def capture_all():
-    app = QGuiApplication.instance() or QGuiApplication([])
+def ms(start):
+    return round((perf_counter_ns() - start) / 1_000_000, 2)
 
-    # Ensure clean font rendering in offscreen mode
-    for font_file in ["segoeui.ttf", "segoeuib.ttf", "segoeuisb.ttf", "arial.ttf", "arialbd.ttf"]:
-        font_path = Path("C:/Windows/Fonts") / font_file
-        if font_path.exists():
-            QFontDatabase.addApplicationFont(str(font_path))
-    app.setFont(QFont("Segoe UI", 11))
 
-    # Directories for screenshots
-    dirs = [Path("artifacts/pi-ui-verification")]
-    for d in dirs:
-        d.mkdir(parents=True, exist_ok=True)
+def memory_kib():
+    if os.name == "nt":
+        class ProcessMemory(ctypes.Structure):
+            _fields_ = [
+                ("size", ctypes.c_ulong), ("faults", ctypes.c_ulong),
+                ("peak", ctypes.c_size_t), ("working", ctypes.c_size_t),
+                ("remaining", ctypes.c_size_t * 6),
+            ]
 
-    capture_data = Path(tempfile.gettempdir()) / "startup-qt-ui-capture"
-    capture_data.mkdir(parents=True, exist_ok=True)
-    db_path = capture_data / "capture.db"
-    db_path.touch(exist_ok=True)
+        counters = ProcessMemory()
+        counters.size = ctypes.sizeof(counters)
+        current_process = ctypes.c_void_p(-1)
+        if ctypes.windll.psapi.GetProcessMemoryInfo(current_process, ctypes.byref(counters), counters.size):
+            return {"working": counters.working // 1024, "peak": counters.peak // 1024}
+    elif Path("/proc/self/status").is_file():
+        status = Path("/proc/self/status").read_text(encoding="utf-8")
+        return {name: int(match[1]) for key, name in (("VmRSS", "working"), ("VmHWM", "peak"))
+                if (match := re.search(rf"^{key}:\s+(\d+) kB", status, re.MULTILINE))}
+    return {}
 
-    config = AppConfig(database_path=db_path)
-    creds = CredentialStore(db_path.parent / "dev_creds.json")
 
-    app_ctrl = AppController(db_path, config, creds)
-
-    # Setup realistic sample data
-    mock_repo = Mock()
-    mock_repo.schema_version = 8
-    mock_repo.get_or_create_device_id.return_value = "rpi-test-01"
-    mock_repo.quick_check.return_value = Mock(ok=True)
-    mock_repo.count_attempts_by_sync_status.return_value = 0
-    mock_repo.sync_diagnostic_summary.return_value = {"attention_required": False}
-
-    q1 = Question(
-        id="q1",
-        position=1,
-        topic="Cell Biology",
-        difficulty=1,
-        question_text="Which organelle is primarily responsible for generating cellular ATP through oxidative phosphorylation?",
-        options=(
-            Option(key="A", text="Mitochondrion (inner folding matrix)"),
-            Option(key="B", text="Chloroplast (thylakoid membrane)"),
-            Option(key="C", text="Ribosome (polypeptide synthesis)"),
-            Option(key="D", text="Endoplasmic reticulum"),
-        ),
-        correct_key="A",
-        explanation="Mitochondria are the primary sites of ATP synthesis in eukaryotic cells via the electron transport chain on the inner mitochondrial membrane.",
-    )
-    q2 = Question(
-        id="q2",
-        position=2,
-        topic="Cell Biology",
-        difficulty=2,
-        question_text="What distinguishes eukaryotic plant cells from animal cells?",
-        options=(
-            Option(key="A", text="Rigid cellulose cell wall and chloroplasts"),
-            Option(key="B", text="Presence of a true nucleus"),
-            Option(key="C", text="Linear DNA chromosomes"),
-            Option(key="D", text="Phospholipid bilayer membrane"),
-        ),
-        correct_key="A",
-        explanation="Plant cells possess a cellulose cell wall, large central vacuole, and plastids such as chloroplasts.",
-    )
-
-    qset = QuestionSet(
-        id="bio-cell-01",
-        version=1,
-        title="Cell Structure & Organelles",
-        subject="Biology",
-        chapter="Cell Biology",
-        marking=MarkingScheme(),
-        questions=(q1, q2),
-    )
-
-    qset2 = QuestionSet(
-        id="chem-atom-01",
-        version=1,
-        title="Atomic Structure & Isotopes",
-        subject="Chemistry",
-        chapter="Atomic Theory",
-        marking=MarkingScheme(),
-        questions=(q1,),
-    )
-
-    qset3 = QuestionSet(
-        id="math-alg-01",
-        version=1,
-        title="Linear Equations & Inequalities",
-        subject="Mathematics",
-        chapter="Algebra",
-        marking=MarkingScheme(),
-        questions=(q1,),
-    )
-
-    all_qsets = (qset, qset2, qset3)
-    mock_repo.get_question_set.return_value = qset
-    mock_repo.list_question_sets.return_value = all_qsets
-    mock_repo.visible_question_sets.return_value = all_qsets
-    mock_repo.profile_library_catalog.return_value = ()
-    mock_repo.institute_work.return_value = ()
-    mock_repo.can_start_pack.return_value = True
-
-    # Mock historical attempts
-    mock_repo.completed_results.return_value = ()
-    mock_repo.save_response.side_effect = lambda resp, **kwargs: resp
-    mock_repo.find_in_progress_attempt.return_value = None
-    mock_repo.list_attempts.return_value = ()
-    mock_repo.get_student_account_context.return_value = {
-        "cloud_account_id": "acc-01",
-        "account_display_name": "Aksh",
+def bank_row(pack):
+    return {
+        "set_id": pack.id, "version": pack.version, "title": pack.title,
+        "subject": pack.subject, "chapter": pack.chapter,
+        "question_count": len(pack.questions), "size_bytes": 1024, "sha256": "0" * 64,
+        "published_at": SAMPLE_TIME.isoformat(),
     }
 
-    def fake_get_setting(key):
-        if key == "account_profiles":
-            return '{"profiles": [{"local_profile_id": "prof-01"}, {"local_profile_id": "prof-02"}]}'
-        if key == "network_state":
-            return "online"
-        return None
-    mock_repo.get_setting.side_effect = fake_get_setting
-    mock_repo.get_profile_pin.return_value = (None, None)
 
-    prof1 = Profile(
-        id="prof-01",
-        display_name="Alex",
-        cloud_account_id="acc-01",
-        cloud_profile_id="c1",
-        ownership_state="owned",
-        link_state="linked",
+def seed(repo, extra_packs):
+    profiles = [
+        {"local_profile_id": "alex", "exam_context": "Grade 11"},
+        {"local_profile_id": "maya", "exam_context": "Grade 10"},
+    ]
+    for i, (profile, name) in enumerate(zip(profiles, ("Alex", "Maya"), strict=True), start=1):
+        identifier = profile["local_profile_id"]
+        repo.create_profile(Profile(identifier, name))
+        repo.apply_profile_link(identifier, {
+            "local_profile_id": identifier,
+            "link_id": f"00000000-0000-4000-8000-00000000001{i}",
+            "student_account_id": ACCOUNT,
+            "study_profile_id": f"00000000-0000-4000-8000-00000000002{i}",
+            "account_display_name": "Alex", "study_profile_name": name, "status": "linked",
+        })
+    repo.cache_student_account_context(ACCOUNT, "Alex")
+    repo.set_setting("account_profiles", json.dumps({"profiles": profiles, "profile_count": 2}))
+    source = QuestionSet(
+        id="cell-biology", version=1, title="Cell Structure and Organelles",
+        subject="Biology", chapter="Cell Biology", marking=MarkingScheme(),
+        questions=(
+            Question(
+                id="q1", position=1, topic="Cell Biology", difficulty=1,
+                question_text="Which organelle produces most ATP during aerobic respiration?",
+                options=(Option("A", "Mitochondrion"), Option("B", "Chloroplast"),
+                         Option("C", "Ribosome"), Option("D", "Golgi apparatus")),
+                correct_key="A",
+                explanation="Mitochondria produce most of a cell’s ATP through oxidative phosphorylation.",
+            ),
+            Question(
+                id="q2", position=2, topic="Cell Biology", difficulty=2,
+                question_text="Which structure distinguishes plant cells from animal cells?",
+                options=(Option("A", "Cellulose cell wall"), Option("B", "Nucleus"),
+                         Option("C", "Cytoplasm"), Option("D", "Cell membrane")),
+                correct_key="A",
+                explanation="Plant cells have a cellulose wall outside their cell membrane.",
+            ),
+        ),
     )
-    prof2 = Profile(
-        id="prof-02",
-        display_name="Maya",
-        cloud_account_id="acc-01",
-        cloud_profile_id="c2",
-        ownership_state="owned",
-        link_state="linked",
-    )
-    mock_repo.list_profiles.return_value = (prof1, prof2)
+    packs = [source, replace(
+        source, id="atomic-structure", title="Atomic Structure and Isotopes",
+        subject="Chemistry", chapter="Atomic Theory",
+    ), replace(
+        source, id="linear-equations", title="Linear Equations and Inequalities",
+        subject="Mathematics", chapter="Algebra",
+    )]
+    for pack in packs:
+        repo.import_question_set(pack, content_hash="0" * 64, downloaded_at=SAMPLE_TIME)
+    for i in range(extra_packs):
+        # Installed on the same device and eligible only to the other learner.
+        pack = replace(source, id=f"other-learner-{i:03}", title=f"Private pack {i + 1}")
+        repo.import_question_set(pack, content_hash="0" * 64, downloaded_at=SAMPLE_TIME, profile_only=True)
+    repo.cache_profile_library("alex", ACTIVE_LINK, [bank_row(pack) for pack in packs])
+    repo.cache_profile_library("maya", "00000000-0000-4000-8000-000000000012",
+                               [bank_row(replace(source, id=f"other-learner-{i:03}",
+                                                 title=f"Private pack {i + 1}"))
+                                for i in range(extra_packs)])
+    return source
 
-    app_ctrl.startup_session.repository = mock_repo
-    app_ctrl.startup_session.complete = True
-    app_ctrl._initialize_runtime()
 
-    class MockHist:
-        def __init__(self, title, subject, score, maximum, completed_at, sync_status="synced", source="device"):
-            self.title = title
-            self.subject = subject
-            self.score = score
-            self.maximum = maximum
-            self.completed_at = completed_at
-            self.sync_status = Mock(value=sync_status)
-            self.source = source
-            self.correct = int(score)
-            self.wrong = max(0, int(maximum - score))
-            self.skipped = 0
-            self.answered = self.correct + self.wrong
-            self.attempt_id = f"capture-{title.lower().replace(' ', '-')}"
-            self.duration_ms = 180000
-            self.response_time_ms = 45000
-            self.confidence = {
-                "sure": {"correct": 1, "wrong": 0},
-                "not_sure": {"correct": 1, "wrong": 1},
-                "guessing": {"correct": 0, "wrong": 1},
-                "unrated": {"correct": 0, "wrong": 0},
-            }
-
-    mock_history = (
-        MockHist("Cell Structure & Organelles", "Biology", 8.0, 10.0, "01 Nov 2026"),
-        MockHist("Atomic Structure & Isotopes", "Chemistry", 9.0, 10.0, "31 Oct 2026"),
-        MockHist("Linear Equations & Graphs", "Mathematics", 7.0, 10.0, "30 Oct 2026"),
-    )
-    type(app_ctrl.ui_controller).history_items = property(lambda self: mock_history)
-
+def capture(app, output, work, extra_packs):
+    qml_dir = Path(__file__).resolve().parent / "qml"
+    expected = set(re.findall(r'return "(screens/[^"]+\.qml)"',
+                              (qml_dir / "App.qml").read_text(encoding="utf-8")))
+    captures = {}
+    measurements = {"navigation_to_grab_ms": {}, "samples_ms": {}, "window_qobjects": {},
+                    "process_memory_kib": {},
+                    "extra_private_packs": extra_packs, "qt": PySide6.__version__,
+                    "platform": app.platformName(), "scenegraph": os.environ.get("QT_QUICK_BACKEND")}
+    config = AppConfig(database_path=work / "capture.db", data_directory=work,
+                       credential_path=work / "creds.json", api_base_url="https://capture.test",
+                       update_root=work / "updates", update_inbox=work / "inbox",
+                       media_directory=work / "media", log_directory=work / "logs")
+    credentials = CredentialStore(config.credential_path)
+    credentials.save(DeviceCredential("sample-device", "fixture-only"))
+    ctrl = AppController(config.database_path, config, credentials)
+    ctrl._poll_timer.stop()
+    ctrl._clock_timer.stop()
+    ctrl._local_time = SAMPLE_TIME
+    ctrl._battery_label = "Mains"
+    ctrl.startup_session.repository = Repository(config.database_path)
+    repo = ctrl.startup_session.repository
+    try:
+        source = seed(repo, extra_packs)
+    except BaseException:
+        ctrl.close()
+        raise
+    repo.set_setting(CLOUD_KEY, json.dumps({"state": "Online"}))
+    repo.set_setting(INTERNET_KEY, json.dumps({"state": "Available"}))
+    repo.set_setting(WIFI_KEY, json.dumps({"state": "connected", "ssid": "Study room"}))
+    # Drive the running application’s state without host network, Wi-Fi or update services.
+    ctrl.device.account_verified = True
+    ctrl.device.pairing = SimpleNamespace(code="K7M2P9")
     engine = QQmlApplicationEngine()
-    engine.warnings.connect(lambda warnings: print("QML WARNINGS:", [warning.toString() for warning in warnings]))
-    qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
+    warnings = []
+    engine.warnings.connect(lambda batch: warnings.extend(item.toString() for item in batch))
+    profile = ProfileController(ctrl, parent=ctrl)
+    library = LibraryController(ctrl, parent=ctrl)
+    assess = AssessmentController(ctrl, parent=ctrl)
+    settings = SettingsController(ctrl, parent=ctrl)
+    settings._update_timer.stop()
+    quick_add = QuickAddController(ctrl, parent=ctrl)
+    for name, controller in (
+        ("appController", ctrl), ("profileController", profile), ("libraryController", library),
+        ("assessmentController", assess), ("settingsController", settings), ("quickAddController", quick_add),
+    ):
+        engine.rootContext().setContextProperty(name, controller)
 
-    prof_ctrl = ProfileController(app_ctrl)
-    lib_ctrl = LibraryController(app_ctrl)
-    assess_ctrl = AssessmentController(app_ctrl)
-    settings_ctrl = SettingsController(app_ctrl)
-    quick_add_ctrl = QuickAddController(app_ctrl)
-    settings_ctrl._pairing_code = "K7M2P9"
-
-    ctx = engine.rootContext()
-    ctx.setContextProperty("appController", app_ctrl)
-    ctx.setContextProperty("profileController", prof_ctrl)
-    ctx.setContextProperty("libraryController", lib_ctrl)
-    ctx.setContextProperty("assessmentController", assess_ctrl)
-    ctx.setContextProperty("settingsController", settings_ctrl)
-    ctx.setContextProperty("quickAddController", quick_add_ctrl)
-
-    engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
-    window = engine.rootObjects()[0]
-    window.setWidth(800)
-    window.setHeight(480)
-    window.show()
-
-    def grab_and_save(filename):
-        app_ctrl.clearMessage()
-        QTest.qWait(60)
+    def grab():
         app.processEvents()
-        image = window.grabWindow()
-        for d in dirs:
-            p = d / filename
-            image.save(str(p))
-        print(f"Captured {filename}: {image.width()}x{image.height()}")
+        return window.grabWindow()
 
-    # 1. Startup screen
-    app_ctrl.navigate("startup")
-    grab_and_save("01_startup_800x480.png")
+    def save(name, action=None):
+        start = perf_counter_ns()
+        if isinstance(action, str):
+            ctrl.navigate(action)
+            if ctrl.screen != action:
+                raise RuntimeError(f"{action} redirected to {ctrl.screen}")
+        elif action is not None:
+            action()
+        ctrl.clearMessage()
+        image = grab()
+        measurements["navigation_to_grab_ms"][name] = ms(start)
+        QTest.qWait(160)
+        image = grab()
+        source_url = loader.property("source").fileName()
+        captures[name] = f"screens/{source_url}"
+        if name in {"01-startup", "03-home", "20-bank-ready", "37-virtual-keyboard"}:
+            measurements["window_qobjects"][name] = len(window.findChildren(QObject))
+            measurements["process_memory_kib"][name] = memory_kib()
+        if image.size().toTuple() != (800, 480) or not image.save(str(output / (name + ".png"))):
+            raise RuntimeError(f"Could not save 800×480 image {name}")
+        print(f"Captured {name} ({source_url})")
 
-    # 2. Profile Picker
-    app_ctrl.navigate("profile_picker")
-    grab_and_save("02_profile_picker_800x480.png")
-    prof_ctrl.selectProfile(0)
+    def sample(label, action, repeats=11):
+        values = []
+        for _ in range(repeats):
+            start = perf_counter_ns()
+            action()
+            values.append(ms(start))
+        measurements["samples_ms"][label] = {"median": median(values), "values": values}
 
-    # 3. Home Dashboard (Contextual: ready for new practice)
-    app_ctrl.navigate("home")
-    grab_and_save("03_home_800x480.png")
+    try:
+        start = perf_counter_ns()
+        engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
+        window = engine.rootObjects()[0]
+        assert isinstance(window, QQuickWindow)
+        window.setWidth(800)
+        window.setHeight(480)
+        window.show()
+        loader = window.findChild(QObject, "screenLoader")
+        grab()
+        measurements["qml_load_to_first_grab_ms"] = ms(start)
+        save("01-startup")
+        start = perf_counter_ns()
+        ctrl.startup_session.complete = True
+        ctrl._initialize_runtime()
+        measurements["initialize_seeded_runtime_ms"] = ms(start)
+        save("02-profile-picker", "profile_picker")
+        profile.selectProfileId("alex")
+        save("03-home", "home")
+        save("04-subjects", "subjects")
+        save("05-chapters", lambda: library.selectSubject(source.subject))
+        save("06-packs", lambda: library.selectChapter(source.chapter))
+        save("07-test-setup", lambda: library.selectPack(source.id, 1))
+        save("08-question", lambda: assess.startTest("practice", 0))
+        save("09-question-detail", "question_detail")
+        ctrl.navigate("question")
+        leave = window.findChild(QObject, "questionLeaveButton")
+        point = leave.mapToScene(leave.boundingRect().center()).toPoint() if leave else QPoint(31, 25)
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=point)
+        save("10-leave-confirm")
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(10, 470))
+        save("11-confidence", lambda: assess.selectAnswer("A"))
+        assess.setConfidence("sure")
+        save("12-question-navigator", "question_nav")
+        def request_submit():
+            # Use the same engine transition when measuring an earlier checkout.
+            if assess._engine.state.value == "IN_QUESTION":
+                ctrl.ui_controller.application.request_submit()
+            ctrl.navigate("submit_confirm")
 
-    # 4. Subject Selection (Bookshelf)
-    app_ctrl.navigate("subjects")
-    grab_and_save("04_subjects_800x480.png")
+        save("13-submit-confirm", request_submit)
+        save("14-result", assess.confirmSubmit)
+        save("15-review", lambda: assess.openReview("all"))
+        save("16-history", "history")
+        save("17-analytics", "progress")
+        save("18-downloaded", "content")
+        save("19-bank-loading", lambda: library.setBrowsingBanks(True))
+        remote = tuple(RemotePack.from_dict(bank_row(replace(
+            source, id=f"remote-{i:03}", title=f"Cell Biology Practice {i + 1}",
+        ))) for i in range(30))
+        scope = ("alex", ACTIVE_LINK)
+        library._bank_scope = scope
 
-    # 5. Chapters (Biology)
-    lib_ctrl.selectSubject("Biology")
-    grab_and_save("05_chapters_800x480.png")
+        def bank_state(state, packs=()):
+            online = state == "ready"
+            repo.set_setting(CLOUD_KEY, json.dumps(
+                {"state": "Online" if online else "Offline" if state == "offline" else "Server unavailable"}))
+            repo.set_setting(INTERNET_KEY, json.dumps({"state": "Unavailable" if state == "offline" else "Available"}))
+            ctrl.statusChanged.emit()
+            library._bank_packs = packs
+            library._bank_state = state
+            library.bankCatalogChanged.emit()
 
-    # 6. Question Sets (Packs in Cell Biology)
-    lib_ctrl.selectChapter("Cell Biology")
-    grab_and_save("06_packs_800x480.png")
+        save("20-bank-ready", lambda: bank_state("ready", remote))
+        grid = window.findChild(QObject, "questionBankGrid")
+        y = grid.property("originY")
 
-    # 7. Test Setup
-    lib_ctrl.selectPack("bio-cell-01", 1)
-    app_ctrl.navigate("test_setup")
-    grab_and_save("07_test_setup_800x480.png")
+        def scroll_step():
+            grid.setProperty("contentY", y + 120 if grid.property("contentY") == y else y)
+            grab()
 
-    # 8. Active Question (Academically focused)
-    assess_ctrl.startTest("practice", 10)
-    grab_and_save("08_question_800x480.png")
+        entry = PracticeDownload(scope, remote[0], "download_bank", state="Downloading")
 
-    # 9. Confidence Rating
-    app_ctrl.navigate("confidence")
-    grab_and_save("09_confidence_800x480.png")
+        def update_row():
+            entry.state = "Verifying" if entry.state == "Downloading" else "Downloading"
+            library._download_states_changed()
+            grab()
 
-    # 10. Question Navigator
-    app_ctrl.navigate("question_nav")
-    grab_and_save("10_question_nav_800x480.png")
+        library._downloads[entry.identity] = entry
+        sample("catalog_scroll_step_to_grab", scroll_step)
+        sample("catalog_status_change_to_grab", update_row)
+        library._active_download = entry
+        entry.state = "Downloading"
+        library._download_percent = 47
+        library._download_states_changed()
+        save("21-download-queue", library.openDownloadQueue)
+        library.setBrowsingBanks(True)
+        save("22-bank-offline", lambda: bank_state("offline"))
+        save("23-bank-error", lambda: bank_state("unreachable"))
+        library.setBrowsingBanks(False)
+        quick_add._upload_url = "https://capture.test/quick-add"
+        quick_add._short_code = "DEMO42"
+        quick_add._profile_name = "Alex"
+        quick_add._status_text = "Waiting for your phone to scan."
+        segno.make(quick_add._upload_url, micro=False).save(quick_add._qr_file_path, scale=6)
+        save("24-quick-add", "quick_add")
+        save("25-settings", "settings")
+        save("26-wifi", "wifi")
+        save("27-sync", "sync")
+        save("28-account", "account")
+        save("29-software-update", "software_update")
+        save("30-device-info", "device_info")
+        save("31-diagnostics", "diagnostics")
+        save("32-about", "about")
+        save("33-institute-work", "institute_work")
+        save("34-pairing", "pairing")
+        save("35-create-profile", "create_profile")
+        save("36-recovery", "recovery")
+        ctrl.navigate("create_profile")
+        save("37-virtual-keyboard", lambda: ctrl.openKeyboard("profile_name", "", False, "Enter student name"))
+        ctrl.keyboardCancelled()
+        profile.selectProfileId("maya")
+        if not extra_packs:
+            save("38-home-empty", "home")
+        sample("sqlite_refresh_catalog", ctrl.ui_controller.refresh_catalog)
+        profile.selectProfileId("alex")
+        sample("sqlite_refresh_active_learner", ctrl.ui_controller.refresh_catalog)
 
-    # 11. Results (Score & laurel achievement)
-    assess_ctrl._result_cache = Mock(
-        score=8.0,
-        maximum=10.0,
-        percentage=80.0,
-        confidence_breakdown={Confidence.SURE: 6, Confidence.NOT_SURE: 3, Confidence.GUESSING: 1},
-        correct=8,
-        wrong=2,
-        skipped=0,
-    )
-    assess_ctrl.resultChanged.emit()
-    app_ctrl.navigate("result")
-    grab_and_save("11_result_800x480.png")
+        def navigate_home_and_catalog():
+            ctrl.navigate("home")
+            grab()
+            ctrl.navigate("content")
+            grab()
 
-    # 12. Review Screen
-    app_ctrl.navigate("review")
-    grab_and_save("12_review_800x480.png")
+        sample("home_and_practice_round_trip_to_grab", navigate_home_and_catalog)
+    finally:
+        close_qml(engine, ctrl)
 
-    # 13. Progress & Analytics
-    app_ctrl.navigate("progress")
-    grab_and_save("13_progress_analytics_800x480.png")
+    measurements["captures"] = captures
+    measurements["missing_screens"] = sorted(expected - set(captures.values()))
+    measurements["qml_warnings"] = warnings
+    (output / "measurements.json").write_text(json.dumps(measurements, indent=2) + "\n", encoding="utf-8")
+    if measurements["missing_screens"] or warnings:
+        print(json.dumps({"missing": measurements["missing_screens"], "qml_warnings": warnings}, indent=2))
+        return 1
+    return 0
 
-    # 14. Assessment History
-    app_ctrl.navigate("history")
-    grab_and_save("14_history_800x480.png")
 
-    # 15. Practice & Downloads (Content)
-    app_ctrl.navigate("content")
-    grab_and_save("15_content_downloads_800x480.png")
-
-    # 16. Settings Overview
-    app_ctrl.navigate("settings")
-    grab_and_save("16_settings_800x480.png")
-
-    # 17. Wi-Fi Appliance Screen
-    app_ctrl.navigate("wifi")
-    grab_and_save("17_wifi_800x480.png")
-
-    # 18. Sync Screen
-    app_ctrl.navigate("sync")
-    grab_and_save("18_sync_800x480.png")
-
-    # 19. Connected Account & Profiles
-    app_ctrl.navigate("account")
-    grab_and_save("19_account_800x480.png")
-
-    # 20. Device Info / Specifications
-    app_ctrl.navigate("device_info")
-    grab_and_save("20_device_info_800x480.png")
-
-    # 21. Diagnostics & Health
-    app_ctrl.navigate("diagnostics")
-    grab_and_save("21_diagnostics_800x480.png")
-    QTest.qWait(500)
-    app.processEvents()
-
-    # 22. Software Update
-    app_ctrl.navigate("software_update")
-    grab_and_save("22_software_update_800x480.png")
-
-    # 23. About Screen
-    app_ctrl.navigate("about")
-    grab_and_save("23_about_800x480.png")
-
-    # 24. Device Pairing Ticket
-    app_ctrl.navigate("pairing")
-    grab_and_save("24_pairing_800x480.png")
-
-    # 25. Recovery Mode Screen
-    app_ctrl.navigate("recovery")
-    grab_and_save("25_recovery_800x480.png")
-
-    # 26. Create Student Profile
-    app_ctrl.navigate("create_profile")
-    grab_and_save("26_create_profile_800x480.png")
-
-    # 27. Question Detail Passage
-    app_ctrl.navigate("question_detail")
-    grab_and_save("27_question_detail_800x480.png")
-
-    # QR Quick Add remains part of the normal Pi content workflow.
-    app_ctrl.navigate("quick_add")
-    grab_and_save("28_quick_add_800x480.png")
-
-    app_ctrl.close()
-    print("All 28 Qt review screenshots captured at 800x480 (simulated offscreen rendering).")
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--extra-packs", type=int, default=0)
+    args = parser.parse_args()
+    args.output.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    os.environ.setdefault("QT_QUICK_BACKEND", "software")
+    os.environ.setdefault("QSG_RENDER_LOOP", "basic")
+    QQuickStyle.setStyle("Basic")
+    app = QGuiApplication([])
+    if os.name == "nt" and app.platformName() == "offscreen":
+        fonts = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
+        for name in ("arial.ttf", "arialbd.ttf", "georgia.ttf", "georgiab.ttf", "segoeui.ttf"):
+            if (fonts / name).is_file():
+                QFontDatabase.addApplicationFont(str(fonts / name))
+        app.setFont(QFont("Arial"))
+    with tempfile.TemporaryDirectory(prefix="questraa-ui-review-") as work:
+        result = capture(app, args.output, Path(work), args.extra_packs)
+        gc.collect()
+        return result
 
 
 if __name__ == "__main__":
-    capture_all()
+    raise SystemExit(main())

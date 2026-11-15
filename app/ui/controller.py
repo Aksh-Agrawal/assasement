@@ -74,9 +74,12 @@ class LegacyController:
 
     def refresh_catalog(self) -> None:
         self.profiles = self.repository.list_profiles()
-        self.question_sets = self.repository.list_question_sets()
-        self.subjects = tuple(sorted({item.subject for item in self.question_sets}))
         self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
+        self._set_question_catalog(self.repository.list_question_sets())
+
+    def _set_question_catalog(self, question_sets, remote_subjects=()) -> None:
+        self.question_sets = question_sets
+        self.subjects = tuple(sorted({item.subject for item in question_sets}.union(remote_subjects)))
         self.subject_index = min(self.subject_index, max(0, len(self.subjects) - 1))
         self.set_index = min(self.set_index, max(0, len(self.subject_question_sets) - 1))
         self.message = ""
@@ -545,30 +548,28 @@ class UIController(LegacyController):
 
     def refresh_catalog(self):
         previous = self.selected_profile.id if getattr(self, "profiles", ()) and self.profile_index < len(self.profiles) else None
-        super().refresh_catalog()
-        if self.student_flow and os.environ.get("ASSESS_MAINTENANCE") != "1":
+        self.profiles = self.repository.list_profiles()
+        maintenance = os.environ.get("ASSESS_MAINTENANCE") == "1"
+        if self.student_flow and not maintenance:
             context = self.repository.get_student_account_context()
             if context:
                 cached = json.loads(self.repository.get_setting("account_profiles") or "{}")
                 active_ids = {p["local_profile_id"] for p in cached.get("profiles", [])}
                 self.profiles = tuple(p for p in self.profiles if
                     p.cloud_account_id == context["cloud_account_id"] and p.id in active_ids and p.link_state == "linked")
-                self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
             else:
                 self.profiles = tuple(p for p in self.profiles if p.ownership_state == "legacy_unclaimed")
-                self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
-        if os.environ.get("ASSESS_MAINTENANCE") == "1" and getattr(self, "legacy_mode", False):
+        if maintenance and getattr(self, "legacy_mode", False):
             self.profiles = tuple(p for p in self.profiles if p.ownership_state == "legacy_unclaimed")
-            self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
+        self.profile_index = min(self.profile_index, max(0, len(self.profiles) - 1))
         if previous in {p.id for p in self.profiles}:
             self.profile_index = next(i for i, p in enumerate(self.profiles) if p.id == previous)
         if self.student_flow:
             profile_id = self.selected_profile.id if self.selected_profile else None
-            self.question_sets = self.repository.visible_question_sets(profile_id)
-            self.set_index = min(self.set_index, max(0, len(self.subject_question_sets) - 1))
-            self.subjects = tuple(sorted({p.subject for p in self.question_sets} |
-                                         {p.subject for p in self.remote_packs}))
-            self.subject_index = min(self.subject_index, max(0, len(self.subjects) - 1))
+            self._set_question_catalog(self.repository.visible_question_sets(profile_id),
+                                       (pack.subject for pack in self.remote_packs))
+        else:
+            self._set_question_catalog(self.repository.list_question_sets())
 
     @property
     def remote_packs(self):

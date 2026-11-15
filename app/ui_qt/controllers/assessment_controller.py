@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
+from app.core.engine import AssessmentState
 from app.core.models import Confidence
 from app.ui_qt.controllers.app_controller import AppController
 
@@ -115,7 +116,7 @@ class AssessmentController(QObject):
 
     @Property(str, notify=questionChanged)
     def questionFigureSource(self) -> str:
-        if not self._app_service:
+        if not self._app_service or not self.isActive:
             return ""
         question = self._app_service.current_question()
         reference = question.media_ref
@@ -434,6 +435,10 @@ class AssessmentController(QObject):
             self.timerChanged.emit()
             if self._timer_seconds == 0:
                 self._countdown_timer.stop()
+                if self._engine.state is AssessmentState.AWAITING_CONFIDENCE:
+                    self._app_service.continue_unrated()
+                if self._engine.state is AssessmentState.IN_QUESTION:
+                    self._app_service.request_submit()
                 self.app.showNotification("Time is up! Submitting answers.", "warning")
                 self.confirmSubmit()
 
@@ -609,11 +614,18 @@ class AssessmentController(QObject):
 
     @Slot()
     def requestSubmit(self):
+        if not self.isActive or self._engine.state is not AssessmentState.IN_QUESTION:
+            return
+        self._app_service.request_submit()
         self.app.navigate("submit_confirm")
 
     @Slot()
-    def cancelSubmit(self):
-        self.app.navigate("question")
+    @Slot(bool)
+    def cancelSubmit(self, review=False):
+        if self.isActive and self._engine.state is AssessmentState.SUBMIT_CONFIRM:
+            self._app_service.cancel_submit()
+        follow_up = "question_nav" if review else "question"
+        self.app.navigate(follow_up, replace_current=True)
 
     @Slot()
     def confirmSubmit(self):
@@ -631,7 +643,7 @@ class AssessmentController(QObject):
             self.resultChanged.emit()
             self.reviewChanged.emit()
             self.historyChanged.emit()
-            self.app.navigate("result")
+            self.app.navigate("result", replace_current=self.app.screen == "submit_confirm")
         except Exception as err:
             LOGGER.error("Submit failed: %s", err)
             self.app.showNotification("Submit could not complete.", "error")

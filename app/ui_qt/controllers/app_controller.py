@@ -307,10 +307,13 @@ class AppController(QObject):
         self.startupProgressChanged.emit()
 
     @Slot(str)
-    def navigate(self, target_screen: str):
+    def navigate(self, target_screen: str, *, replace_current: bool = False):
         target_screen = self._account_screen_route(target_screen)
         if target_screen != self._screen:
-            self._screen_history.append(self._screen)
+            if not replace_current:
+                self._screen_history.append(self._screen)
+            elif self._screen_history and self._screen_history[-1] == target_screen:
+                self._screen_history.pop()
             self._show_screen(target_screen)
 
     @property
@@ -439,7 +442,9 @@ class AppController(QObject):
                     )
 
             if self.ui_controller:
-                self.ui_controller.refresh_catalog()
+                # UIController.tick already reloaded SQLite after a completed device job.
+                if not device_updated:
+                    self.ui_controller.refresh_catalog()
                 account = self.repository.get_student_account_context()
                 account_id = account["cloud_account_id"] if account else None
                 account_changed = account_id != self._account_id
@@ -460,7 +465,7 @@ class AppController(QObject):
                 elif completed == "account_sync" and account_id and not self.device.failure and self.screen == "pairing":
                     self.navigate("profile_picker")
                 if getattr(self, "library_controller", None):
-                    self.library_controller.refreshLibrary()
+                    self.library_controller.refreshLibrary(reload_catalog=False)
                 self.activeProfileChanged.emit()
             if getattr(self, "profile_controller", None):
                 self.profile_controller.profilesChanged.emit()
@@ -468,7 +473,8 @@ class AppController(QObject):
                 self.assessment_controller.historyChanged.emit()
             self.statusChanged.emit()
             message = self.device.message
-            if device_updated and message:
+            automatic_check = completed == "update_check" and self.device.update_check_automatic
+            if device_updated and message and not automatic_check:
                 failed = self.device.failure or self.device.link_error
                 self.showNotification(message, "warning" if failed else "info")
             elif account_changed and account_id is None:
@@ -500,8 +506,8 @@ class AppController(QObject):
             self.assessment_controller.resetProfileState()
 
     def close(self):
-        self._poll_timer.stop()
-        self._clock_timer.stop()
+        for timer in self.findChildren(QTimer):
+            timer.stop()
         if self.ui_controller:
             try:
                 self.ui_controller.close()

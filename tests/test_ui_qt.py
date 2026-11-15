@@ -5,7 +5,7 @@ import os
 from concurrent.futures import Future
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from packaging.version import Version
@@ -111,7 +111,7 @@ def mock_repo(tmp_path):
     return repo
 
 
-def test_qml_app_loads(qapp, tmp_path, mock_repo):
+def test_qml_app_loads(qapp, tmp_path, mock_repo, qt_owner):
     """Verify that App.qml and all components load cleanly into QQmlApplicationEngine."""
     db_path = tmp_path / "test.db"
     db_path.touch()
@@ -119,21 +119,21 @@ def test_qml_app_loads(qapp, tmp_path, mock_repo):
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    engine = QQmlApplicationEngine()
+    engine = QQmlApplicationEngine(parent=qt_owner)
     qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     # inject mock repo to avoid needing migrations during offscreen unit test
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
 
-    prof_ctrl = ProfileController(app_ctrl)
-    lib_ctrl = LibraryController(app_ctrl)
-    assess_ctrl = AssessmentController(app_ctrl)
-    settings_ctrl = SettingsController(app_ctrl)
-    quick_add_ctrl = QuickAddController(app_ctrl)
+    prof_ctrl = ProfileController(app_ctrl, parent=app_ctrl)
+    lib_ctrl = LibraryController(app_ctrl, parent=app_ctrl)
+    assess_ctrl = AssessmentController(app_ctrl, parent=app_ctrl)
+    settings_ctrl = SettingsController(app_ctrl, parent=app_ctrl)
+    quick_add_ctrl = QuickAddController(app_ctrl, parent=app_ctrl)
 
     ctx = engine.rootContext()
     ctx.setContextProperty("appController", app_ctrl)
@@ -172,7 +172,7 @@ def test_qml_app_loads(qapp, tmp_path, mock_repo):
     close_qml(engine, app_ctrl)
 
 
-def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo):
+def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo, qt_owner):
     """Verify routing and property transitions in controllers."""
     db_path = tmp_path / "test.db"
     db_path.touch()
@@ -180,7 +180,7 @@ def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo):
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
@@ -188,7 +188,7 @@ def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo):
     assert app_ctrl.screen in {"profile_picker", "home", "pairing"}
 
     # Test navigation
-    ProfileController(app_ctrl).selectProfile(0)
+    ProfileController(app_ctrl, parent=app_ctrl).selectProfile(0)
     app_ctrl.navigate("home")
     assert app_ctrl.screen == "home"
     assert not app_ctrl.isAssessmentActive
@@ -206,7 +206,7 @@ def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo):
     app_ctrl.close()
 
 
-def test_external_browser_history_commit_refreshes_rendered_qt_model(qapp, tmp_path):
+def test_external_browser_history_commit_refreshes_rendered_qt_model(qapp, tmp_path, qt_owner):
     """A background SQLite commit appears in the existing History screen without restart."""
     import json
     from uuid import uuid4
@@ -234,15 +234,15 @@ def test_external_browser_history_commit_refreshes_rendered_qt_model(qapp, tmp_p
     repo.cache_student_account_context(account, "Student")
     repo.set_setting("account_profiles", json.dumps({"profiles": [{"local_profile_id": local}]}))
     config = AppConfig(database_path=path)
-    app_ctrl = AppController(path, config, CredentialStore(tmp_path / "creds"))
+    app_ctrl = AppController(path, config, CredentialStore(tmp_path / "creds"), parent=qt_owner)
     app_ctrl.startup_session.repository = repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
-    prof = ProfileController(app_ctrl)
-    library = LibraryController(app_ctrl)
-    assessment = AssessmentController(app_ctrl)
-    settings = SettingsController(app_ctrl)
-    engine = QQmlApplicationEngine()
+    prof = ProfileController(app_ctrl, parent=app_ctrl)
+    library = LibraryController(app_ctrl, parent=app_ctrl)
+    assessment = AssessmentController(app_ctrl, parent=app_ctrl)
+    settings = SettingsController(app_ctrl, parent=app_ctrl)
+    engine = QQmlApplicationEngine(parent=qt_owner)
     root = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(root))
     for name, controller in (("appController", app_ctrl), ("profileController", prof),
@@ -303,7 +303,7 @@ def test_external_browser_history_commit_refreshes_rendered_qt_model(qapp, tmp_p
     close_qml(engine, app_ctrl)
 
 
-def test_cloud_echo_of_local_attempt_is_counted_once(tmp_path):
+def test_cloud_echo_of_local_attempt_is_counted_once(tmp_path, qt_owner):
     """A Pi upload echoed by cloud History stays one local analytics entry."""
     import json
     from datetime import UTC, datetime, timedelta
@@ -346,11 +346,11 @@ def test_cloud_echo_of_local_attempt_is_counted_once(tmp_path):
         {"local_profile_id": local_profile_id}]}))
     repo.cache_student_account_context(account, "Student")
     app_ctrl = AppController(path, AppConfig(database_path=path),
-        CredentialStore(tmp_path / "dedup-creds.json"))
+        CredentialStore(tmp_path / "dedup-creds.json"), parent=qt_owner)
     app_ctrl.startup_session.repository = repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
-    assessment = AssessmentController(app_ctrl)
+    assessment = AssessmentController(app_ctrl, parent=app_ctrl)
 
     assert len(assessment.historyList) == 1
     assert assessment.historyList[0]["source"] == "device"
@@ -361,7 +361,7 @@ def test_cloud_echo_of_local_attempt_is_counted_once(tmp_path):
     app_ctrl.close()
 
 
-def test_profile_controller_listing_and_selection(qapp, tmp_path, mock_repo):
+def test_profile_controller_listing_and_selection(qapp, tmp_path, mock_repo, qt_owner):
     from app.auth.credentials import DeviceCredential
 
     db_path = tmp_path / "test.db"
@@ -370,12 +370,12 @@ def test_profile_controller_listing_and_selection(qapp, tmp_path, mock_repo):
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
 
-    prof_ctrl = ProfileController(app_ctrl)
+    prof_ctrl = ProfileController(app_ctrl, parent=app_ctrl)
     assert prof_ctrl.profileCount >= 1
     assert prof_ctrl.canAddProfile is False
     prof_ctrl.createProfile("Should not be created", "Primary 5")
@@ -399,32 +399,32 @@ def test_profile_controller_listing_and_selection(qapp, tmp_path, mock_repo):
     app_ctrl.close()
 
 
-def test_library_and_assessment_properties(qapp, tmp_path, mock_repo):
+def test_library_and_assessment_properties(qapp, tmp_path, mock_repo, qt_owner):
     db_path = tmp_path / "test.db"
     db_path.touch()
 
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
 
-    lib_ctrl = LibraryController(app_ctrl)
+    lib_ctrl = LibraryController(app_ctrl, parent=app_ctrl)
     assert lib_ctrl.subjects == ["Biology"]
     assert lib_ctrl.chapters == []
     lib_ctrl.selectInstalledSubject("Biology")
     assert lib_ctrl.chapters == ["Cells"]
 
-    assess_ctrl = AssessmentController(app_ctrl)
+    assess_ctrl = AssessmentController(app_ctrl, parent=app_ctrl)
     assert assess_ctrl.questionIndex == 1
     assert assess_ctrl.answeredCount == 0
 
     app_ctrl.close()
 
 
-def test_assessment_flow_full(qapp, tmp_path, mock_repo):
+def test_assessment_flow_full(qapp, tmp_path, mock_repo, qt_owner):
     """Test full assessment interaction: start, select answer, confidence, submit, and review."""
     db_path = tmp_path / "test.db"
     db_path.touch()
@@ -432,12 +432,12 @@ def test_assessment_flow_full(qapp, tmp_path, mock_repo):
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
 
-    assess_ctrl = AssessmentController(app_ctrl)
+    assess_ctrl = AssessmentController(app_ctrl, parent=app_ctrl)
 
     # Mock application methods for active assessment
     mock_app = Mock()
@@ -446,7 +446,7 @@ def test_assessment_flow_full(qapp, tmp_path, mock_repo):
     mock_app.current_question.return_value = mock_question
     mock_app.current_response.return_value = Mock(selected_key="A", marked_review=False)
 
-    LibraryController(app_ctrl).selectPack("bio-pack-01", 1)
+    LibraryController(app_ctrl, parent=app_ctrl).selectPack("bio-pack-01", 1)
     assess_ctrl.startTest("practice", 10)
     assert assess_ctrl.isActive
     assert assess_ctrl.timerEnabled
@@ -478,7 +478,7 @@ def test_assessment_flow_full(qapp, tmp_path, mock_repo):
     app_ctrl.close()
 
 
-def test_settings_controller_operations(qapp, tmp_path, mock_repo):
+def test_settings_controller_operations(qapp, tmp_path, mock_repo, qt_owner):
     """Test SettingsController Wi-Fi, Sync, Update, and Diagnostics triggers."""
     db_path = tmp_path / "test.db"
     db_path.touch()
@@ -486,28 +486,34 @@ def test_settings_controller_operations(qapp, tmp_path, mock_repo):
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
 
-    settings_ctrl = SettingsController(app_ctrl)
+    settings_ctrl = SettingsController(app_ctrl, parent=app_ctrl)
     assert len(settings_ctrl.availableNetworks) >= 1
     assert settings_ctrl.overallHealth == app_ctrl.networkLabel
     assert settings_ctrl.storageUsedGb > 0
     assert settings_ctrl.storageTotalGb > 0
 
-    # Trigger async jobs (non-blocking)
+    # Verify dispatch without scanning Wi-Fi or contacting the cloud from a Qt test.
+    app_ctrl.device.start = Mock()
     settings_ctrl.scanWifi()
     settings_ctrl.startSync()
     settings_ctrl.checkUpdate()
     settings_ctrl.runDiagnostics()
+    assert app_ctrl.device.start.call_args_list == [
+        call("wifi_scan"), call("sync"), call("update_check"), call("diagnostics"),
+    ]
+    assert settings_ctrl._update_timer.isActive() and settings_ctrl._sync_countdown.isActive()
 
     app_ctrl.close()
+    assert not settings_ctrl._update_timer.isActive() and not settings_ctrl._sync_countdown.isActive()
 
 
 @pytest.fixture
-def update_controller(qapp, tmp_path, mock_repo, monkeypatch):
+def update_controller(qapp, tmp_path, mock_repo, monkeypatch, qt_owner):
     active = SimpleNamespace(version=None)
     monkeypatch.setattr(
         "app.ui_qt.controllers.settings_controller.active_release_version", lambda: active.version
@@ -522,7 +528,7 @@ def update_controller(qapp, tmp_path, mock_repo, monkeypatch):
             update_root=tmp_path, update_inbox=tmp_path / "inbox",
             update_platform="linux", update_architecture="aarch64",
         )
-        app = AppController(db_path, config, CredentialStore(tmp_path / "creds.json"))
+        app = AppController(db_path, config, CredentialStore(tmp_path / "creds.json"), parent=qt_owner)
         app.startup_session.repository = mock_repo
         app.startup_session.complete = True
         app._initialize_runtime()
@@ -550,6 +556,142 @@ def _write_update_status(tmp_path, state, version, **extra):
     pending = tmp_path / "status.tmp"
     pending.write_text(json.dumps({"state": state, "version": version, "detail": "", **extra}), encoding="utf-8")
     pending.replace(tmp_path / "status.json")
+
+
+def test_automatic_update_notice_waits_for_idle_and_remembers_later(update_controller, qapp, mock_repo, monkeypatch,
+                                                                  qt_owner, tmp_path):
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QFont, QFontDatabase
+    from PySide6.QtTest import QTest
+
+    from app.auth.credentials import DeviceCredential
+    from app.connectivity import CLOUD_KEY
+
+    start, active = update_controller
+    if os.name == "nt":
+        fonts = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
+        for font in ("arial.ttf", "arialbd.ttf", "georgia.ttf", "georgiab.ttf", "segoeui.ttf"):
+            QFontDatabase.addApplicationFont(str(fonts / font))
+        qapp.setFont(QFont("Segoe UI", 11))
+    active.version = Version("0.1.7")
+    clock = SimpleNamespace(now=100.0)
+    monkeypatch.setattr("app.ui_qt.controllers.settings_controller.monotonic", lambda: clock.now)
+    monkeypatch.setattr("app.ui_qt.controllers.settings_controller.time", lambda: 1_700_000_000 + clock.now)
+    stored = {CLOUD_KEY: '{"state":"Offline"}'}
+    original_setting = mock_repo.get_setting.side_effect
+    mock_repo.get_setting.side_effect = lambda key: stored[key] if key in stored else original_setting(key)
+    mock_repo.set_setting.side_effect = stored.__setitem__
+    monkeypatch.setenv("ASSESS_API_URL", "https://cloud.test")
+    app, settings = start("0.1.7")
+    settings._update_timer.stop()
+    app.credentials.save(DeviceCredential("test-pi", "device-token"))
+
+    def begin(operation, **kwargs):
+        assert operation == "update_check"
+        app.device.operation = operation
+        app.device.update_check_automatic = kwargs.get("automatic", False)
+        app.device.failure = None
+        app.device.future = Future()
+
+    app.device.start = Mock(side_effect=begin)
+    engine = QQmlApplicationEngine(parent=qt_owner)
+    qml_dir = Path("app/ui_qt/qml").resolve()
+    engine.addImportPath(str(qml_dir))
+    for name, controller in (
+        ("appController", app), ("profileController", ProfileController(app, parent=app)),
+        ("libraryController", LibraryController(app, parent=app)),
+        ("assessmentController", AssessmentController(app, parent=app)),
+        ("settingsController", settings), ("quickAddController", QuickAddController(app, parent=app)),
+    ):
+        engine.rootContext().setContextProperty(name, controller)
+    engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
+    try:
+        window, = engine.rootObjects()
+        popup = window.findChild(QObject, "softwareUpdateNotice")
+        loader = window.findChild(QObject, "screenLoader")
+
+        def reminder_visible(item):
+            if item.objectName() == "homeSoftwareUpdateReminder":
+                return item.isVisible() and item.width() > 0
+            return any(reminder_visible(child) for child in item.childItems())
+
+        app.navigate("home")
+        qapp.processEvents()
+        settings._pollUpdateState()
+        app.device.start.assert_not_called()
+        assert not popup.property("visible")
+        assert not reminder_visible(loader)
+
+        stored[CLOUD_KEY] = '{"state":"Online"}'
+        clock.now += 5
+        settings._pollUpdateState()
+        app.device.start.assert_called_once_with("update_check", automatic=True)
+        app.navigate("result")
+        app.device.future.set_result((app.device.generation, _available_release("0.1.8")))
+        app._on_tick()
+        assert settings.updateReminderVersion == "0.1.8"
+        assert not popup.property("visible")
+        assert app.message == ""
+
+        app.navigate("home")
+        qapp.processEvents()
+        assert popup.property("visible")
+        assert reminder_visible(loader)
+        QTest.qWait(150)
+        assert window.grabWindow().save(str(tmp_path / "software-update-notice-800x480.png"))
+        later = popup.findChild(QObject, "softwareUpdateLater")
+        position = later.mapToScene(QPointF(later.width() / 2, later.height() / 2)).toPoint()
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=position)
+        assert not popup.property("visible")
+        assert reminder_visible(loader)
+        assert settings.updateNoticeVersion == ""
+        QTest.qWait(150)
+        assert window.grabWindow().save(str(tmp_path / "software-update-reminder-800x480.png"))
+
+        clock.now += 15 * 60
+        settings._pollUpdateState()
+        app.device.start.assert_called_once_with("update_check", automatic=True)
+
+        restarted, restored = start("0.1.7")
+        restored._update_timer.stop()
+        restarted.navigate("home")
+        restarted.device.start = Mock()
+        assert restarted.isOnline
+        restored._pollUpdateState()
+        restarted.device.start.assert_not_called()
+        assert restored.updateReminderVersion == "0.1.8"
+        assert restored.updateNoticeVersion == ""
+        assert restarted.device.available_update is None
+
+        clock.now += 24 * 60 * 60 - 15 * 60
+        settings._pollUpdateState()
+        app.device.future.set_result((app.device.generation, _available_release("0.1.9")))
+        app._on_tick()
+        assert popup.property("visible") and settings.updateNoticeVersion == "0.1.9"
+        view = popup.findChild(QObject, "softwareUpdateView")
+        position = view.mapToScene(QPointF(view.width() / 2, view.height() / 2)).toPoint()
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=position)
+        assert app.screen == "software_update" and settings.updateNoticeVersion == ""
+        assert app.device.start.call_args_list == [call("update_check", automatic=True)] * 2
+
+        clock.now += 24 * 60 * 60
+        settings._pollUpdateState()
+        app.device.future.set_exception(RuntimeError("Update service unavailable"))
+        app._on_tick()
+        clock.now += 15 * 60
+        settings._pollUpdateState()
+        assert app.device.start.call_args_list == [call("update_check", automatic=True)] * 3
+
+        settings.checkUpdate()
+        app.device.start.assert_called_with("update_check")
+        app.device.future.set_result((app.device.generation, _available_release("0.1.9")))
+        app._on_tick()
+
+        active.version = Version("0.1.9")
+        settings.refreshUpdateState()
+        assert settings.updateReminderVersion == ""
+    finally:
+        close_qml(engine, app)
 
 
 def test_update_controller_binds_signed_release_and_actions(update_controller):
@@ -654,13 +796,13 @@ def test_update_controller_allows_retry_after_staged_install_fails(update_contro
     assert app.device.start.call_args.kwargs == {"update": release}
 
 
-def test_update_qml_refreshes_on_entry_and_after_state_changes(update_controller, qapp, tmp_path):
+def test_update_qml_refreshes_on_entry_and_after_state_changes(update_controller, qapp, tmp_path, qt_owner):
     start, active = update_controller
     active.version = Version("0.1.1")
     app, settings = start("0.1.1")
     app.device.available_update = _available_release("0.1.1", architecture="wrong")
 
-    engine = QQmlApplicationEngine()
+    engine = QQmlApplicationEngine(parent=qt_owner)
     qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
     engine.rootContext().setContextProperty("appController", app)
@@ -747,7 +889,7 @@ def test_update_qml_refreshes_on_entry_and_after_state_changes(update_controller
         close_qml(engine, app)
 
 
-def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
+def test_responsive_window_sizing(qapp, tmp_path, mock_repo, qt_owner):
     """Verify QML layout responsiveness at 800x480 and 800x600."""
     db_path = tmp_path / "test.db"
     db_path.touch()
@@ -755,11 +897,11 @@ def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    engine = QQmlApplicationEngine()
+    engine = QQmlApplicationEngine(parent=qt_owner)
     qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
@@ -790,7 +932,7 @@ def test_responsive_window_sizing(qapp, tmp_path, mock_repo):
     close_qml(engine, app_ctrl)
 
 
-def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo):
+def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo, qt_owner):
     """Instantiate all screens, reusable components and App; catch asset warnings."""
     from PySide6.QtCore import QEvent, qInstallMessageHandler
     from PySide6.QtQml import QQmlComponent
@@ -798,19 +940,20 @@ def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo):
     db_path = tmp_path / "test_screens.db"
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
-    engine = QQmlApplicationEngine()
+    engine = QQmlApplicationEngine(parent=qt_owner)
     qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
+    app_ctrl._poll_timer.stop()
     controllers = {
         "appController": app_ctrl,
-        "profileController": ProfileController(app_ctrl),
-        "libraryController": LibraryController(app_ctrl),
-        "assessmentController": AssessmentController(app_ctrl),
-        "settingsController": SettingsController(app_ctrl),
+        "profileController": ProfileController(app_ctrl, parent=app_ctrl),
+        "libraryController": LibraryController(app_ctrl, parent=app_ctrl),
+        "assessmentController": AssessmentController(app_ctrl, parent=app_ctrl),
+        "settingsController": SettingsController(app_ctrl, parent=app_ctrl),
     }
     for name, controller in controllers.items():
         engine.rootContext().setContextProperty(name, controller)
@@ -824,7 +967,8 @@ def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo):
         for path in paths:
             component = QQmlComponent(engine, QUrl.fromLocalFile(str(path)))
             assert not component.isError(), [e.toString() for e in component.errors()]
-            obj = component.create()
+            props = {"subject": "Biology"} if path.name == "SubjectCard.qml" else {}
+            obj = component.createWithInitialProperties(props)
             assert obj is not None, [e.toString() for e in component.errors()]
             qapp.processEvents()
             obj.deleteLater()
@@ -841,7 +985,7 @@ def test_all_qml_screens_compile_cleanly(qapp, tmp_path, mock_repo):
             qInstallMessageHandler(previous)
 
 
-def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):
+def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo, qt_owner):
     """Verify navigating across all reported routes loads without Loader error."""
     from PySide6.QtCore import QCoreApplication
 
@@ -850,14 +994,15 @@ def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    engine = QQmlApplicationEngine()
+    engine = QQmlApplicationEngine(parent=qt_owner)
     qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
+    app_ctrl._poll_timer.stop()
 
     ctx = engine.rootContext()
     ctx.setContextProperty("appController", app_ctrl)
@@ -869,7 +1014,8 @@ def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):
     engine.load(QUrl.fromLocalFile(str(qml_dir / "App.qml")))
     assert len(engine.rootObjects()) > 0
     win = engine.rootObjects()[0]
-    screen_loader = win.findChild(object, "screenLoader")
+    screen_loader = win.findChild(QObject, "screenLoader")
+    assert screen_loader is not None
 
     # Test all reported routes
     routes_to_test = [
@@ -895,27 +1041,48 @@ def test_navigation_routes_and_error_boundary(qapp, tmp_path, mock_repo):
     for route in routes_to_test:
         app_ctrl.navigate(route)
         QCoreApplication.processEvents()
-        if screen_loader is not None:
-            # Loader status: 1 is Ready, 0 is Null, 3 is Error
-            assert screen_loader.property("status") != 3, f"Screen Loader Error for route '{route}'"
+        assert screen_loader.property("item") is not None, f"Screen did not load for route '{route}'"
 
     close_qml(engine, app_ctrl)
 
 
-def test_offline_pack_to_question_flow(qapp, tmp_path, mock_repo):
+def test_practice_model_updates_download_status_without_rebuilding_rows(qapp):
+    from PySide6.QtTest import QSignalSpy
+
+    from app.ui_qt.controllers.practice_pack_model import PracticePackModel
+
+    model = PracticePackModel()
+    changed = QSignalSpy(model.dataChanged)
+    resets = QSignalSpy(model.modelReset)
+    inserts = QSignalSpy(model.rowsInserted)
+    rows = [{"id": "biology", "version": 1, "status": "Available"},
+            {"id": "chemistry", "version": 1, "status": "Available"}]
+    model.set_rows(rows)
+    assert inserts.count() == 1 and model.rowCount() == 2
+
+    model.set_rows([rows[0], {**rows[1], "status": "Downloading", "isDownloading": True}])
+    roles = {name: role for role, name in model.roleNames().items()}
+    first, last, changed_roles = changed.at(0)
+    assert first.row() == last.row() == 1
+    assert set(changed_roles) == {roles[b"packStatus"], roles[b"packDownloading"]}
+    assert model.data(first, roles[b"packStatus"]) == "Downloading"
+    assert resets.count() == 0 and inserts.count() == 1
+
+
+def test_offline_pack_to_question_flow(qapp, tmp_path, mock_repo, qt_owner):
     """Verify offline downloaded pack -> test setup -> start test -> question -> answers."""
     db_path = tmp_path / "test_flow.db"
     db_path.touch()
     config = AppConfig(database_path=db_path)
     creds = CredentialStore(tmp_path / "creds.json")
 
-    app_ctrl = AppController(db_path, config, creds)
+    app_ctrl = AppController(db_path, config, creds, parent=qt_owner)
     app_ctrl.startup_session.repository = mock_repo
     app_ctrl.startup_session.complete = True
     app_ctrl._initialize_runtime()
 
-    lib_ctrl = LibraryController(app_ctrl)
-    assess_ctrl = AssessmentController(app_ctrl)
+    lib_ctrl = LibraryController(app_ctrl, parent=app_ctrl)
+    assess_ctrl = AssessmentController(app_ctrl, parent=app_ctrl)
 
     # 1. Select downloaded pack
     lib_ctrl.selectPack("bio-pack-01", 1)
@@ -936,7 +1103,7 @@ def test_offline_pack_to_question_flow(qapp, tmp_path, mock_repo):
 
 
 
-def test_background_removal_refreshes_qt_models_and_session(qapp, tmp_path):
+def test_background_removal_refreshes_qt_models_and_session(qapp, tmp_path, qt_owner):
     from app.content.importer import import_pack
     from app.data.repo import Repository
     from tests.content.test_profile_library import metadata, setup
@@ -946,12 +1113,12 @@ def test_background_removal_refreshes_qt_models_and_session(qapp, tmp_path):
         link = setup(repo)
         pack = import_pack(Path("content/sample_biology.json"), repo).pack.question_set
         repo.cache_profile_library("a", link, [metadata(Path("content/sample_biology.json").read_bytes())])
-        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"))
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"), parent=qt_owner)
         ctrl.startup_session.repository = repo
         ctrl.startup_session.complete = True
         ctrl._initialize_runtime()
-        library = LibraryController(ctrl)
-        assessment = AssessmentController(ctrl)
+        library = LibraryController(ctrl, parent=ctrl)
+        assessment = AssessmentController(ctrl, parent=ctrl)
         library.selectSubject(pack.subject)
         library.selectChapter(pack.chapter)
         library.selectPack(pack.id, pack.version)
@@ -976,7 +1143,7 @@ def test_background_removal_refreshes_qt_models_and_session(qapp, tmp_path):
         ctrl.close()
 
 
-def test_runtime_switch_isolates_profile_state_and_preserves_offline_attempts(qapp, tmp_path):
+def test_runtime_switch_isolates_profile_state_and_preserves_offline_attempts(qapp, tmp_path, qt_owner):
     import json
 
     from app.assessment import AssessmentApplication
@@ -1004,14 +1171,14 @@ def test_runtime_switch_isolates_profile_state_and_preserves_offline_attempts(qa
             service.start_test(profile, pack.id, 1)
             service.request_submit()
             service.submit()
-        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "cred.json"))
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "cred.json"), parent=qt_owner)
         ctrl.startup_session.repository = repo
         ctrl.startup_session.complete = True
         ctrl._initialize_runtime()
-        profiles = ProfileController(ctrl)
-        library = LibraryController(ctrl)
-        assessment = AssessmentController(ctrl)
-        settings = SettingsController(ctrl)
+        profiles = ProfileController(ctrl, parent=ctrl)
+        library = LibraryController(ctrl, parent=ctrl)
+        assessment = AssessmentController(ctrl, parent=ctrl)
+        settings = SettingsController(ctrl, parent=ctrl)
         profiles.selectProfile(0)
         assert ctrl.screen == "home"
         assert ctrl.activeProfileName == "Student A"
@@ -1067,7 +1234,7 @@ def test_runtime_switch_isolates_profile_state_and_preserves_offline_attempts(qa
         ctrl.close()
 
 
-def test_authenticated_contact_notifies_header_and_settings_without_restart(qapp, tmp_path):
+def test_authenticated_contact_notifies_header_and_settings_without_restart(qapp, tmp_path, qt_owner):
     import httpx
 
     from app.api.client import DeviceApi
@@ -1079,12 +1246,12 @@ def test_authenticated_contact_notifies_header_and_settings_without_restart(qapp
     store = CredentialStore(tmp_path / "credentials.json")
     store.save(DeviceCredential("device", "token"))
     with Repository(path) as repo:
-        ctrl = AppController(path, config, store)
+        ctrl = AppController(path, config, store, parent=qt_owner)
         ctrl.device.start = lambda *args, **kwargs: None
         ctrl.startup_session.repository = repo
         ctrl.startup_session.complete = True
         ctrl._initialize_runtime()
-        settings = SettingsController(ctrl)
+        settings = SettingsController(ctrl, parent=ctrl)
         notifications = []
         settings.wifiChanged.connect(lambda: notifications.append(True))
         ctrl._on_tick()
@@ -1100,7 +1267,7 @@ def test_authenticated_contact_notifies_header_and_settings_without_restart(qapp
         ctrl.close()
 
 
-def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path, monkeypatch):
+def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path, monkeypatch, qt_owner):
     from threading import Event
 
     import httpx
@@ -1139,7 +1306,7 @@ def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path,
         return original(*args, **kwargs, transport=httpx.MockTransport(endpoint))
 
     monkeypatch.setattr(account_device, "unlink_relationship", unlink)
-    app = AppController(path, config, store)
+    app = AppController(path, config, store, parent=qt_owner)
     app._poll_timer.stop()
     app.startup_session.repository = repo
     app.startup_session.complete = True
@@ -1147,12 +1314,12 @@ def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path,
     monkeypatch.setattr(app.device, "start", lambda operation, **args: (
         start(operation, **args) if operation in {"profile_unlink", "account_disconnect", "unlink_retry"} else None))
     app._initialize_runtime()
-    profile_ctrl = ProfileController(app)
-    library = LibraryController(app)
-    assessment = AssessmentController(app)
-    settings = SettingsController(app)
-    quick_add = QuickAddController(app)
-    engine = QQmlApplicationEngine()
+    profile_ctrl = ProfileController(app, parent=app)
+    library = LibraryController(app, parent=app)
+    assessment = AssessmentController(app, parent=app)
+    settings = SettingsController(app, parent=app)
+    quick_add = QuickAddController(app, parent=app)
+    engine = QQmlApplicationEngine(parent=qt_owner)
     qml = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml))
     for name, controller in (("appController", app), ("profileController", profile_ctrl),
@@ -1228,7 +1395,7 @@ def test_qml_unlink_controls_wait_for_confirmation_and_reconcile(qapp, tmp_path,
         close_qml(engine, app)
 
 
-def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path):
+def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path, qt_owner):
     import hashlib
 
     from app.data.repo import Repository
@@ -1241,11 +1408,11 @@ def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path):
         digest = hashlib.pbkdf2_hmac("sha256", b"1234", b"salt", 100000).hex()
         repo._connection.execute("UPDATE profiles SET pin_hash=?, pin_salt='salt' WHERE id='a'",
                                  ("pbkdf2_sha256$100000$" + digest,))
-        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"))
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"), parent=qt_owner)
         ctrl.startup_session.repository = repo
         ctrl.startup_session.complete = True
         ctrl._initialize_runtime()
-        profiles = ProfileController(ctrl)
+        profiles = ProfileController(ctrl, parent=ctrl)
         assert ctrl.ui_controller.selected_profile.id == "b"
         assert ctrl.screen == "profile_picker"  # Highlight only; preserve shared-device picker.
         profiles.selectProfileId("a")
@@ -1269,7 +1436,7 @@ def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path):
         ctrl.close()
 
     with Repository(path) as repo:
-        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"))
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"), parent=qt_owner)
         ctrl.startup_session.repository = repo
         ctrl.startup_session.complete = True
         ctrl._initialize_runtime()
@@ -1278,16 +1445,16 @@ def test_last_profile_highlight_and_revoked_pin_target(qapp, tmp_path):
         ctrl.close()
 
 
-def test_auto_sync_toggle_persists_and_manual_sync_remains_available(qapp, tmp_path):
+def test_auto_sync_toggle_persists_and_manual_sync_remains_available(qapp, tmp_path, qt_owner):
     from unittest.mock import Mock
 
     from app.data.repo import Repository
 
     path = tmp_path / "toggle.db"
     with Repository(path) as repo:
-        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"))
+        ctrl = AppController(path, AppConfig(database_path=path), CredentialStore(tmp_path / "creds.json"), parent=qt_owner)
         ctrl.repository = repo
-        settings = SettingsController(ctrl)
+        settings = SettingsController(ctrl, parent=ctrl)
         assert settings.automaticSync
         settings.setAutomaticSync(False)
         assert not settings.automaticSync
@@ -1320,7 +1487,7 @@ def test_qt_library_download_uses_the_selected_study_profile(qapp):
                                              local_profile_id="selected")
 
 
-def test_unpaired_profile_creation_requires_an_account(qapp, tmp_path, monkeypatch):
+def test_unpaired_profile_creation_requires_an_account(qapp, tmp_path, monkeypatch, qt_owner):
     """Only operator mode can start anonymous offline practice."""
     from app.data.repo import Repository
 
@@ -1328,12 +1495,12 @@ def test_unpaired_profile_creation_requires_an_account(qapp, tmp_path, monkeypat
     monkeypatch.delenv("ASSESS_MAINTENANCE", raising=False)
     with Repository(db_path) as repo:
         config = AppConfig(database_path=db_path, api_base_url=None)
-        ctrl = AppController(db_path, config, CredentialStore(tmp_path / "creds.json"))
+        ctrl = AppController(db_path, config, CredentialStore(tmp_path / "creds.json"), parent=qt_owner)
         ctrl.startup_session.repository = repo
         ctrl.startup_session.complete = True
         ctrl._initialize_runtime()
 
-        prof_ctrl = ProfileController(ctrl)
+        prof_ctrl = ProfileController(ctrl, parent=ctrl)
 
         # Signal test
         received_text = []
@@ -1357,7 +1524,7 @@ def test_unpaired_profile_creation_requires_an_account(qapp, tmp_path, monkeypat
         ctrl.close()
 
 
-def test_qml_pairing_retries_and_loads_existing_account_profiles(qapp, tmp_path, monkeypatch):
+def test_qml_pairing_retries_and_loads_existing_account_profiles(qapp, tmp_path, monkeypatch, qt_owner):
     from uuid import uuid4
 
     import httpx
@@ -1406,7 +1573,7 @@ def test_qml_pairing_retries_and_loads_existing_account_profiles(qapp, tmp_path,
         sync_account(*args, **kwargs, transport=transport)))
 
     app = AppController(path, AppConfig(database_path=path, api_base_url=api_url),
-                        CredentialStore(tmp_path / "pairing-credentials.json"))
+                        CredentialStore(tmp_path / "pairing-credentials.json"), parent=qt_owner)
     app._poll_timer.stop()
     app.startup_session.repository = Repository(path)
     app.startup_session.complete = True
@@ -1414,9 +1581,9 @@ def test_qml_pairing_retries_and_loads_existing_account_profiles(qapp, tmp_path,
     monkeypatch.setattr(app.device, "start", lambda operation, **args: (
         start(operation, **args) if operation in {"pair_request", "pair_poll", "account_sync"} else None))
     app._initialize_runtime()
-    profile_ctrl = ProfileController(app)
-    settings = SettingsController(app)
-    engine = QQmlApplicationEngine()
+    profile_ctrl = ProfileController(app, parent=app)
+    settings = SettingsController(app, parent=app)
+    engine = QQmlApplicationEngine(parent=qt_owner)
     qml = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml))
     for name, controller in (("appController", app), ("profileController", profile_ctrl),
@@ -1536,7 +1703,7 @@ def test_history_analytics_window_and_cloud_answer_time_denominator(qapp):
     controller._countdown_timer.stop()
 
 
-def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_path, request):
+def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_path, request, qt_owner):
     """Run the native QML assessment against a disposable SQLite database offline."""
     import hashlib
     import json
@@ -1596,7 +1763,7 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     repo.close()
 
     def launch():
-        app_ctrl = AppController(database, config, credentials)
+        app_ctrl = AppController(database, config, credentials, parent=qt_owner)
         offline_repository = Repository(database)
         offline_repository.set_setting("connectivity_cloud", json.dumps({"state": "Offline"}))
         offline_repository.set_setting("connectivity_sync", "Offline")
@@ -1609,7 +1776,7 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
         assessment_ctrl = AssessmentController(app_ctrl, parent=app_ctrl)
         settings_ctrl = SettingsController(app_ctrl, parent=app_ctrl)
         quick_add_ctrl = QuickAddController(app_ctrl, parent=app_ctrl)
-        engine = QQmlApplicationEngine()
+        engine = QQmlApplicationEngine(parent=qt_owner)
         warnings = []
         engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
         closed = False
@@ -1646,9 +1813,28 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     assessment_ctrl.setConfidence("sure")
     assessment_ctrl.selectAnswer("A")
     assessment_ctrl.setConfidence("guessing")
-    assessment_ctrl.nextQuestion()  # leave the last response skipped
-    assessment_ctrl.confirmSubmit()
+    # Open confirmation from the question grid with the last response skipped.
+    app_ctrl.navigate("question_nav")
+    review_window = engine.rootObjects()[0]
+    modal = review_window.findChild(QObject, "submitConfirmLoader")
+    assert modal.property("item") is None
+
+    def key_press(name, key):
+        button = review_window.findChild(QObject, name)
+        button.forceActiveFocus(Qt.FocusReason.TabFocusReason)
+        QTest.keyClick(review_window, key)
+        qapp.processEvents()
+
+    key_press("navigatorSubmitButton", Qt.Key.Key_Space)
+    assert app_ctrl.screen == "submit_confirm" and modal.property("item") is not None
+    QTest.keyClick(review_window, Qt.Key.Key_Escape)
+    qapp.processEvents()
+    assert app_ctrl.screen == "question" and modal.property("item") is None
+    app_ctrl.navigate("question_nav")
+    key_press("navigatorSubmitButton", Qt.Key.Key_Return)
+    key_press("confirmAssessmentButton", Qt.Key.Key_Return)
     assert app_ctrl.screen == "result"
+    assert "submit_confirm" not in app_ctrl._screen_history
     assert assessment_ctrl.score == 3
     assert assessment_ctrl.scoreMax == 12
     assert assessment_ctrl.scorePercent == 25
@@ -1663,7 +1849,6 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
 
     capture_dir = Path(__file__).resolve().parents[1] / "artifacts" / "offline-final-verification"
     capture_dir.mkdir(parents=True, exist_ok=True)
-    review_window = engine.rootObjects()[0]
     app_ctrl.navigate("history")
     qapp.processEvents()
     QTest.qWait(100)
@@ -1853,7 +2038,7 @@ def test_practice_filters_expose_count_presets_and_allow_empty_matches(qapp, moc
     assert controller.practiceCountPresets("Fractions", "Standard") == []
 
 
-def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path, monkeypatch):
+def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path, monkeypatch, qt_owner):
     from datetime import datetime, timedelta
     from threading import Event
     from uuid import uuid4
@@ -1992,7 +2177,7 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
                                 transport=httpx.MockTransport(handle), **kwargs)
 
     monkeypatch.setattr(DeviceApi, "content", fake_content)
-    ctrl = AppController(database, config, credentials)
+    ctrl = AppController(database, config, credentials, parent=qt_owner)
     ctrl.startup_session.repository = Repository(database)
     ctrl.startup_session.complete = True
     ctrl._initialize_runtime()
@@ -2003,7 +2188,7 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
     profile = ProfileController(ctrl, parent=ctrl)
     library = LibraryController(ctrl, parent=ctrl)
     assessment = AssessmentController(ctrl, parent=ctrl)
-    engine = QQmlApplicationEngine()
+    engine = QQmlApplicationEngine(parent=qt_owner)
     qml_dir = Path("app/ui_qt/qml").resolve()
     engine.addImportPath(str(qml_dir))
     for name, instance in (

@@ -46,7 +46,7 @@ Rectangle {
                         width: 36
                         height: 36
                         radius: 18
-                        color: Theme.softSage
+                        color: Theme.primaryLight
                         Image {
                             anchors.centerIn: parent
                             width: 20
@@ -143,7 +143,7 @@ Rectangle {
                                 radius: 18
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                color: kbMouse.containsPress ? Theme.softSage : Theme.surfaceWarm
+                                color: kbMouse.containsPress ? Theme.primaryLight : Theme.surfaceWarm
                                 border.color: Theme.border
                                 border.width: 1
 

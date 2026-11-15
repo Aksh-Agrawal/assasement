@@ -42,7 +42,7 @@ Rectangle {
                     spacing: Spacing.sm
                     Rectangle {
                         width: 32; height: 32; radius: 16
-                        color: Theme.softSage
+                        color: Theme.primaryLight
                         Image {
                             anchors.centerIn: parent
                             width: 18; height: 18
@@ -53,7 +53,7 @@ Rectangle {
                     Column {
                         anchors.verticalCenter: parent.verticalCenter
                         Text {
-                            text: "Hardware Colophon"
+                            text: "About this device"
                             color: Theme.textPrimary
                             font.pixelSize: Typography.sectionTitle
                             font.family: Typography.fontSerif
@@ -67,38 +67,45 @@ Rectangle {
                     columns: 2
                     rowSpacing: Spacing.sm
                     columnSpacing: Spacing.lg
+                    readonly property real fieldWidth: (width - columnSpacing) / columns
 
                     Column {
+                        width: parent.fieldWidth
                         spacing: 2
                         Text { text: "Device Identity"; color: Theme.textSecondary; font.pixelSize: Typography.caption; font.family: Typography.fontFamily }
-                        Text { text: "Raspberry Pi Study Buddy"; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.body; font.family: Typography.fontFamily }
+                        Text { text: "Questraa"; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.body; font.family: Typography.fontFamily }
                     }
 
                     Column {
+                        width: parent.fieldWidth
                         spacing: 2
                         Text { text: "Hardware Platform"; color: Theme.textSecondary; font.pixelSize: Typography.caption; font.family: Typography.fontFamily }
-                        Text { text: "Raspberry Pi Zero 2 W (512 MB)"; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.body; font.family: Typography.fontFamily }
+                        Text { width: parent.width; wrapMode: Text.Wrap; text: "Raspberry Pi Zero 2 W (512 MB)"; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.body; font.family: Typography.fontFamily }
                     }
 
                     Column {
+                        width: parent.fieldWidth
                         spacing: 2
                         Text { text: "Display Resolution"; color: Theme.textSecondary; font.pixelSize: Typography.caption; font.family: Typography.fontFamily }
-                        Text { text: "800 × 480 Landscape (5-inch touch)"; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.body; font.family: Typography.fontFamily }
+                        Text { text: "800 × 480 landscape"; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.body; font.family: Typography.fontFamily }
                     }
 
                     Column {
+                        width: parent.fieldWidth
                         spacing: 2
                         Text { text: "Software Release"; color: Theme.textSecondary; font.pixelSize: Typography.caption; font.family: Typography.fontFamily }
                         Text { text: "v" + settingsController.appVersion; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.body; font.family: Typography.fontFamily }
                     }
 
                     Column {
+                        width: parent.fieldWidth
                         spacing: 2
                         Text { text: "Device Identifier"; color: Theme.textSecondary; font.pixelSize: Typography.caption; font.family: Typography.fontFamily }
-                        Text { text: settingsController.deviceId; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily; elide: Text.ElideRight; width: 220 }
+                        Text { text: settingsController.deviceId; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.metadata; font.family: Typography.fontFamily; elide: Text.ElideRight; width: parent.width }
                     }
 
                     Column {
+                        width: parent.fieldWidth
                         spacing: 2
                         Text { text: "Local Storage"; color: Theme.textSecondary; font.pixelSize: Typography.caption; font.family: Typography.fontFamily }
                         Text { text: settingsController.storageUsedGb + " GB / " + settingsController.storageTotalGb + " GB"; font.bold: true; color: Theme.textPrimary; font.pixelSize: Typography.body; font.family: Typography.fontFamily }

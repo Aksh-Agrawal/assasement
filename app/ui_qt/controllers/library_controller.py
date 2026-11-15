@@ -9,6 +9,7 @@ from app.connectivity import internet_label
 from app.content.catalog import RemotePack
 from app.content.client import QUESTION_BANK_PAGE_SIZE
 from app.ui_qt.controllers.app_controller import AppController
+from app.ui_qt.controllers.practice_pack_model import PracticePackModel
 
 
 @dataclass(slots=True)
@@ -52,6 +53,10 @@ class LibraryController(QObject):
         self._downloads = {}
         self._active_download = None
         self._download_percent = 0
+        self._installed_model = None
+        self._bank_model = PracticePackModel(self)
+        self.catalogChanged.connect(self._refresh_installed_model)
+        self.bankCatalogChanged.connect(self._refresh_bank_model)
         self.app.deviceOperationFinished.connect(self._device_finished)
         self.app.screenChanged.connect(self._screen_changed)
 
@@ -127,6 +132,17 @@ class LibraryController(QObject):
     @Property(list, notify=catalogChanged)
     def installedPacks(self) -> list:
         return [self._local_row(pack) for pack in self._installed_packs()]
+
+    @Property(QObject, constant=True)
+    def installedPackModel(self):
+        if self._installed_model is None:
+            self._installed_model = PracticePackModel(self)
+            self._refresh_installed_model()
+        return self._installed_model
+
+    def _refresh_installed_model(self):
+        if self._installed_model is not None:
+            self._installed_model.set_rows(self.installedPacks)
 
     @Property(list, notify=selectionChanged)
     def packs(self) -> list:
@@ -222,9 +238,18 @@ class LibraryController(QObject):
 
     @Property(list, notify=bankCatalogChanged)
     def questionBanks(self):
+        if not self._bank_packs:
+            return []
         installed = {(p.id, p.version) for p in self._local_sets()}
         return [self._remote_row(pack, self._bank_scope, ready=(pack.set_id, pack.version) in installed)
                 for pack in self._bank_packs]
+
+    @Property(QObject, constant=True)
+    def questionBankModel(self):
+        return self._bank_model
+
+    def _refresh_bank_model(self):
+        self._bank_model.set_rows(self.questionBanks)
 
     def _remote_row(self, pack, scope, *, ready=False):
         entry = self._downloads.get((scope, pack.set_id, pack.version))
@@ -543,10 +568,11 @@ class LibraryController(QObject):
             self.app.showNotification("Pack not found in catalog.", "warning")
 
     @Slot()
-    def refreshLibrary(self):
+    def refreshLibrary(self, *, reload_catalog=True):
         if self.app.ui_controller:
             self.app.ui_controller.repository.reconcile_content_state()
-            self.app.ui_controller.refresh_catalog()
+            if reload_catalog:
+                self.app.ui_controller.refresh_catalog()
             cleared = self.app.ui_controller.application.reconcile_session()
             assessment = getattr(self.app, "assessment_controller", None)
             if cleared and assessment:

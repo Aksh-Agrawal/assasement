@@ -90,7 +90,7 @@ Rectangle {
 
                             Rectangle {
                                 width: 38; height: 38; radius: 19
-                                color: Theme.softSage
+                                color: Theme.primaryLight
                                 anchors.verticalCenter: parent.verticalCenter
                                 Image {
                                     anchors.centerIn: parent
@@ -238,7 +238,7 @@ Rectangle {
 
                                     Rectangle {
                                         width: 32; height: 32; radius: 16
-                                        color: modelData.isActive ? Theme.forest : Theme.softSage
+                                        color: modelData.isActive ? Theme.forest : Theme.primaryLight
                                         anchors.verticalCenter: parent.verticalCenter
                                         Image {
                                             anchors.centerIn: parent

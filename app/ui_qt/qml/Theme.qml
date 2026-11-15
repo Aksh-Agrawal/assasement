@@ -7,9 +7,9 @@ QtObject {
     // -------------------------------------------------------------------------
     // Primary Editorial Palette (Paper / Ink / Nature)
     // -------------------------------------------------------------------------
-    readonly property color canvas: "transparent"      // Transparent so educational doodle wallpaper shows through
-    readonly property color background: "transparent"  // Transparent screen background
-    readonly property color paper: "#F5EFE3"          // Solid Paper / Canvas base
+    readonly property color canvas: "transparent"
+    readonly property color background: "transparent"
+    readonly property color paper: "#F3F0E8"
     readonly property color surface: "#FBF7EF"         // Warm Surface for cards / sheets
     readonly property color surfaceWarm: surface
     readonly property color surfaceElevated: "#FFFFFF" // Crisp white highlights
@@ -58,8 +58,8 @@ QtObject {
     readonly property int fontSizeBody: 16
     readonly property int fontSizeSecondary: 14
     readonly property int fontSizeCaption: 12
-    readonly property string fontFamily: "Arial"
-    readonly property string fontFamilySerif: "Georgia"
+    readonly property string fontFamily: Typography.family
+    readonly property string fontFamilySerif: Typography.familyEditorial
 
     // Dimensions & Touch Targets
     readonly property int touchMin: 48
