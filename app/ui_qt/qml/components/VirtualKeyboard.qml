@@ -47,6 +47,9 @@ Rectangle {
             anchors.fill: parent
             anchors.margins: Spacing.sm
             spacing: 6
+            readonly property int keySpacing: 4
+            readonly property int letterKeyWidth: Math.min(72,
+                Math.floor((width - 9 * keySpacing) / 10))
 
             // Header with title and entered text
             Row {
@@ -106,14 +109,17 @@ Rectangle {
 
                 // Row 1: Numbers or Symbols
                 Row {
+                    id: numberRow
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 4
+                    spacing: keyboardBody.keySpacing
+                    readonly property int symbolKeyWidth: Math.min(60,
+                        Math.floor((keyboardBody.width - 11 * spacing) / 12))
                     Repeater {
                         model: root.isSymbols
                             ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="]
                             : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
                         delegate: Rectangle {
-                            width: root.isSymbols ? 60 : 72
+                            width: root.isSymbols ? numberRow.symbolKeyWidth : keyboardBody.letterKeyWidth
                             height: Metrics.touchMin
                             radius: Metrics.radiusSm
                             color: kMouse.containsPress ? Theme.surfaceWarm : Theme.surfaceActive
@@ -140,13 +146,13 @@ Rectangle {
                 // Row 2: QWERTY
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 4
+                    spacing: keyboardBody.keySpacing
                     Repeater {
                         model: root.isSymbols
                             ? ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")"]
                             : ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
                         delegate: Rectangle {
-                            width: 72
+                            width: keyboardBody.letterKeyWidth
                             height: Metrics.touchMin
                             radius: Metrics.radiusSm
                             color: kMouse2.containsPress ? Theme.surfaceWarm : Theme.surfaceActive

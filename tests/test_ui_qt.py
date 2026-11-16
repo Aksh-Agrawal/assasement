@@ -243,6 +243,34 @@ def test_native_touch_uses_tap_position_and_scrolls_without_clicking(qapp, qml_a
     assert app_ctrl.screen == "history"
 
 
+def test_touch_frame_keeps_edge_taps_outside_the_submit_overlay(qapp, qml_app):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+
+    engine, app_ctrl, _ = qml_app
+    window = engine.rootObjects()[0]
+    app_ctrl.navigate("submit_confirm")
+    qapp.processEvents()
+
+    touch = QTest.createTouchDevice()
+
+    def tap(x, y):
+        point = QPoint(x, y)
+        QTest.touchEvent(window, touch).press(0, point).commit()
+        QTest.touchEvent(window, touch).release(0, point).commit()
+
+    for x, y in (
+        (15, 240), (784, 240), (400, 15), (400, 464),
+        (15, 15), (784, 15), (15, 464), (784, 464),
+    ):
+        tap(x, y)
+        assert app_ctrl.screen == "submit_confirm"
+
+    # Tapping the modal backdrop inside the frame still cancels the confirmation.
+    tap(24, 240)
+    assert app_ctrl.screen == "question"
+
+
 def test_qt_entry_point_hides_cursor_until_qml_closes(qapp, tmp_path, monkeypatch):
     from PySide6.QtCore import Qt
 
@@ -1017,14 +1045,19 @@ def test_responsive_window_sizing(qapp, tmp_path, mock_repo, qt_owner):
     # Target 1: 800 x 480
     win.setWidth(800)
     win.setHeight(480)
+    qapp.processEvents()
     assert win.width() == 800
     assert win.height() == 480
+    safe_area = visual_item(win.contentItem(), "touchSafeArea")
+    assert (safe_area.x(), safe_area.y(), safe_area.width(), safe_area.height()) == (16, 16, 768, 448)
 
     # Target 2: 800 x 600 (dev fallback)
     win.setWidth(800)
     win.setHeight(600)
+    qapp.processEvents()
     assert win.width() == 800
     assert win.height() == 600
+    assert (safe_area.x(), safe_area.y(), safe_area.width(), safe_area.height()) == (16, 16, 768, 568)
 
     close_qml(engine, app_ctrl)
 
@@ -2017,7 +2050,10 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     qapp.processEvents()
     QTest.qWait(100)
     assert window.grabWindow().save(str(capture_dir / "recovery-practice-screen-800x480.png"))
-    QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(592, 164))
+    recovery_card = visual_item(window.contentItem(), f"practicePack-{recovery_pack.id}")
+    assert recovery_card is not None
+    QTest.mouseClick(window, Qt.MouseButton.LeftButton,
+                     pos=recovery_card.mapToScene(recovery_card.boundingRect().center()).toPoint())
     qapp.processEvents()
     assert app_ctrl.screen == "test_setup"
     assert library_ctrl._selected_pack_id == recovery_pack.id
@@ -2450,7 +2486,10 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         assert library.pendingDownloads == 2
         assert [row["state"] for row in library.downloadQueue] == ["Downloading", "Queued"]
         assert state["downloads"] == [biology["set_id"], biology["set_id"]]
-        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(400, 83))
+        queue_tab = visual_item(window.contentItem(), "practiceDownloadQueueTab")
+        assert queue_tab is not None
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton,
+                         pos=queue_tab.mapToScene(queue_tab.boundingRect().center()).toPoint())
         assert library.showingDownloadQueue
         queue_view = window.findChild(QObject, "practiceDownloadQueue")
         assert queue_view.property("visible") and queue_view.property("count") == 2

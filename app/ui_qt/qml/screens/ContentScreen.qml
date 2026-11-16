@@ -89,6 +89,8 @@ Rectangle {
         font.pixelSize: Typography.caption
         textRole: "label"
         valueRole: "value"
+        popup.topMargin: Metrics.touchSafeInset
+        popup.bottomMargin: Metrics.touchSafeInset
         currentIndex: selectionIndex
         displayText: selectionIndex >= 0 ? model[selectionIndex].label : selection
         background: AppCard {

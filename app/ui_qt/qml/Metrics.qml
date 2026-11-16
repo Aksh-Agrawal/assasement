@@ -8,6 +8,7 @@ QtObject {
     readonly property int touchMin: 48
     readonly property int touchNormal: 54
     readonly property int touchLarge: 60
+    readonly property int touchSafeInset: 16
 
     // Corner Radii
     readonly property int radiusSmall: 6
@@ -20,7 +21,7 @@ QtObject {
 
     // Structural Dimensions
     readonly property int navRailWidth: 96
-    readonly property int headerHeight: 46
+    readonly property int headerHeight: touchMin + 2 * Spacing.xs
     readonly property int borderThin: 1
     readonly property int borderFocus: 2
 

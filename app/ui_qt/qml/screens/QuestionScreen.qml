@@ -9,14 +9,14 @@ Rectangle {
     color: Theme.canvas
 
     // -------------------------------------------------------------------------
-    // Top Active Assessment Header (Compact 44px)
+    // Top Active Assessment Header
     // -------------------------------------------------------------------------
     Rectangle {
         id: questionHeader
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 44
+        height: Metrics.headerHeight
         color: Theme.surface
         border.color: Theme.border
         border.width: 1

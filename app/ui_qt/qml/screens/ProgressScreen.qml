@@ -99,6 +99,8 @@ Rectangle {
                                         id: windowPicker
                                         width: 116
                                         height: 32
+                                        popup.topMargin: Metrics.touchSafeInset
+                                        popup.bottomMargin: Metrics.touchSafeInset
                                         model: [5, 10, 20]
                                         currentIndex: [5, 10, 20].indexOf(assessmentController.analyticsWindow)
                                         displayText: "Last " + currentValue
