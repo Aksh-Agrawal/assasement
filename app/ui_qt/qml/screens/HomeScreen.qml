@@ -226,6 +226,7 @@ Rectangle {
                             }
 
                             SecondaryButton {
+                                objectName: "homeBrowseQuestionBanks"
                                 text: "Practice Library"
                                 onClicked: libraryController.openQuestionBanks()
                             }

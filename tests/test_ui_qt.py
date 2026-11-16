@@ -243,34 +243,6 @@ def test_native_touch_uses_tap_position_and_scrolls_without_clicking(qapp, qml_a
     assert app_ctrl.screen == "history"
 
 
-def test_touch_frame_keeps_edge_taps_outside_the_submit_overlay(qapp, qml_app):
-    from PySide6.QtCore import QPoint
-    from PySide6.QtTest import QTest
-
-    engine, app_ctrl, _ = qml_app
-    window = engine.rootObjects()[0]
-    app_ctrl.navigate("submit_confirm")
-    qapp.processEvents()
-
-    touch = QTest.createTouchDevice()
-
-    def tap(x, y):
-        point = QPoint(x, y)
-        QTest.touchEvent(window, touch).press(0, point).commit()
-        QTest.touchEvent(window, touch).release(0, point).commit()
-
-    for x, y in (
-        (15, 240), (784, 240), (400, 15), (400, 464),
-        (15, 15), (784, 15), (15, 464), (784, 464),
-    ):
-        tap(x, y)
-        assert app_ctrl.screen == "submit_confirm"
-
-    # Tapping the modal backdrop inside the frame still cancels the confirmation.
-    tap(24, 240)
-    assert app_ctrl.screen == "question"
-
-
 def test_qt_entry_point_hides_cursor_until_qml_closes(qapp, tmp_path, monkeypatch):
     from PySide6.QtCore import Qt
 
@@ -1957,6 +1929,27 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
 
     key_press("navigatorSubmitButton", Qt.Key.Key_Space)
     assert app_ctrl.screen == "submit_confirm" and modal.property("item") is not None
+
+    touch = QTest.createTouchDevice()
+
+    def tap(point):
+        QTest.touchEvent(review_window, touch).press(0, point).commit()
+        QTest.touchEvent(review_window, touch).release(0, point).commit()
+        qapp.processEvents()
+
+    for x, y in (
+        (15, 240), (784, 240), (400, 15), (400, 464),
+        (15, 15), (784, 15), (15, 464), (784, 464),
+    ):
+        tap(QPoint(x, y))
+        assert app_ctrl.screen == "submit_confirm"
+
+    # A tap on the visible backdrop inside the frame still cancels confirmation.
+    tap(QPoint(24, 240))
+    assert app_ctrl.screen == "question" and modal.property("item") is None
+
+    app_ctrl.navigate("question_nav")
+    key_press("navigatorSubmitButton", Qt.Key.Key_Space)
     QTest.keyClick(review_window, Qt.Key.Key_Escape)
     qapp.processEvents()
     assert app_ctrl.screen == "question" and modal.property("item") is None
@@ -2538,7 +2531,10 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         ctrl.navigate("home")
         assert library.homeSubjects == []
         save("12-home-no-downloads")
-        QTest.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(196, 347))
+        browse_button = visual_item(window.contentItem(), "homeBrowseQuestionBanks")
+        assert browse_button is not None and browse_button.isVisible()
+        QTest.mouseClick(window, Qt.MouseButton.LeftButton,
+                         pos=browse_button.mapToScene(browse_button.boundingRect().center()).toPoint())
         assert ctrl.screen == "content" and library.browsingBanks
     finally:
         hold_download.set()
