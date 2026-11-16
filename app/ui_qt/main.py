@@ -9,8 +9,8 @@ from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from PySide6.QtCore import QCoreApplication, QEvent, QUrl
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QCoreApplication, QEvent, Qt, QUrl
+from PySide6.QtGui import QCursor, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
 from app.auth.credentials import CredentialStore
@@ -117,6 +117,7 @@ def run(
 
     # Load main App.qml
     main_qml = qml_dir / "App.qml"
+    app.setOverrideCursor(QCursor(Qt.CursorShape.BlankCursor))
     try:
         engine.load(QUrl.fromLocalFile(str(main_qml)))
         if not engine.rootObjects():
@@ -128,6 +129,14 @@ def run(
             root_window.showFullScreen()
         else:
             root_window.show()
+
+        LOGGER.info(
+            "Qt display: platform=%s, window=%dx%d logical pixels, device pixel ratio=%g",
+            app.platformName(),
+            root_window.width(),
+            root_window.height(),
+            root_window.devicePixelRatio(),
+        )
 
         if smoke_test:
             startup = app_controller.startup_session
@@ -146,7 +155,10 @@ def run(
         finally:
             scheduler.close()
     finally:
-        close_qml(engine, app_controller)
+        try:
+            close_qml(engine, app_controller)
+        finally:
+            app.restoreOverrideCursor()
 
 
 def main() -> int:

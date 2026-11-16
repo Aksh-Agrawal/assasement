@@ -42,6 +42,15 @@ from app.ui_qt.controllers.settings_controller import SettingsController
 from app.ui_qt.main import close_qml
 
 
+def visual_item(parent, name):
+    if parent.objectName() == name:
+        return parent
+    for child in parent.childItems():
+        if item := visual_item(child, name):
+            return item
+    return None
+
+
 @pytest.fixture
 def mock_repo(tmp_path):
     repo = Mock()
@@ -111,8 +120,8 @@ def mock_repo(tmp_path):
     return repo
 
 
-def test_qml_app_loads(qapp, tmp_path, mock_repo, qt_owner):
-    """Verify that App.qml and all components load cleanly into QQmlApplicationEngine."""
+@pytest.fixture
+def qml_app(tmp_path, mock_repo, qt_owner):
     db_path = tmp_path / "test.db"
     db_path.touch()
 
@@ -146,7 +155,13 @@ def test_qml_app_loads(qapp, tmp_path, mock_repo, qt_owner):
     app_qml = qml_dir / "App.qml"
     engine.load(QUrl.fromLocalFile(str(app_qml)))
 
-    assert len(engine.rootObjects()) > 0, "Failed to load App.qml root object"
+    assert engine.rootObjects(), "Failed to load App.qml root object"
+    return engine, app_ctrl, lib_ctrl
+
+
+def test_qml_app_loads(qapp, tmp_path, qml_app):
+    """Verify that App.qml and all components load cleanly into QQmlApplicationEngine."""
+    engine, app_ctrl, lib_ctrl = qml_app
     root_win = engine.rootObjects()[0]
     assert root_win.width() == 800
     assert root_win.height() == 480
@@ -169,7 +184,89 @@ def test_qml_app_loads(qapp, tmp_path, mock_repo, qt_owner):
     assert not quick_add_frame.isNull()
     assert (quick_add_frame.width(), quick_add_frame.height()) == (800, 480)
 
-    close_qml(engine, app_ctrl)
+
+def test_native_touch_uses_tap_position_and_scrolls_without_clicking(qapp, qml_app, monkeypatch):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QSignalSpy, QTest
+
+    engine, app_ctrl, _ = qml_app
+    window = engine.rootObjects()[0]
+    app_ctrl.navigate("home")
+    qapp.processEvents()
+
+    def center(item):
+        return item.mapToScene(QPoint(int(item.width() / 2), int(item.height() / 2))).toPoint()
+
+    def nav_button(tab):
+        label = visual_item(window.contentItem(), f"navLabel-{tab}")
+        return label.parentItem().parentItem().parentItem()
+
+    # Place the mouse over History, then send a direct touch to Settings.
+    history_button = nav_button("history")
+    settings_button = nav_button("settings")
+    history_clicks = QSignalSpy(history_button.clicked)
+    settings_clicks = QSignalSpy(settings_button.clicked)
+    QTest.mouseMove(window, center(history_button))
+    assert history_button.property("hovered")
+    touch = QTest.createTouchDevice()
+    settings_pos = center(settings_button)
+    QTest.touchEvent(window, touch).press(0, settings_pos).commit()
+    QTest.touchEvent(window, touch).release(0, settings_pos).commit()
+    assert app_ctrl.screen == "settings"
+    assert settings_clicks.count() == 1
+    assert history_clicks.count() == 0
+
+    # A scroll starting on an interactive history card must not activate it.
+    rows = tuple(
+        HistoryItem("Practice", "Biology", 1, 1, None, SyncStatus.PENDING, attempt_id=f"row-{i}")
+        for i in range(12)
+    )
+    monkeypatch.setattr(type(app_ctrl.ui_controller), "history_items", property(lambda _: rows))
+    app_ctrl.navigate("history")
+    qapp.processEvents()
+    card = visual_item(window.contentItem(), "history-row-row-2")
+    list_view = card.parentItem().parentItem().parentItem()
+    clicks = QSignalSpy(card.clicked)
+    start = center(card)
+    QTest.touchEvent(window, touch).press(0, start).commit()
+    QTest.touchEvent(window, touch).release(0, start).commit()
+    assert clicks.count() == 1
+
+    QTest.touchEvent(window, touch).press(0, start).commit()
+    for dy in (30, 70, 110):
+        QTest.touchEvent(window, touch).move(0, start - QPoint(0, dy)).commit()
+        # Give Qt Quick a frame to deliver each compressed touch update.
+        QTest.qWait(25)
+    QTest.touchEvent(window, touch).release(0, start - QPoint(0, 110)).commit()
+    assert list_view.property("contentY") > 0
+    assert clicks.count() == 1
+    assert app_ctrl.screen == "history"
+
+
+def test_qt_entry_point_hides_cursor_until_qml_closes(qapp, tmp_path, monkeypatch):
+    from PySide6.QtCore import Qt
+
+    from app.ui_qt import main as qt_main
+
+    monkeypatch.setattr(qt_main, "QGuiApplication", lambda _: qapp)
+    monkeypatch.setattr(qt_main, "configure_logging", Mock())
+
+    def close_with_cursor_check(engine, controller):
+        try:
+            assert engine.rootObjects()
+            assert qapp.overrideCursor().shape() == Qt.CursorShape.BlankCursor
+        finally:
+            close_qml(engine, controller)
+
+    monkeypatch.setattr(qt_main, "close_qml", close_with_cursor_check)
+    config = AppConfig(
+        database_path=tmp_path / "startup.db",
+        credential_path=tmp_path / "credentials.json",
+        log_directory=tmp_path / "logs",
+    )
+    previous_cursor = qapp.overrideCursor()
+    assert qt_main.run(config.database_path, config=config, smoke_test=True) == 0
+    assert qapp.overrideCursor() == previous_cursor
 
 
 def test_navigation_and_controller_properties(qapp, tmp_path, mock_repo, qt_owner):
@@ -2228,14 +2325,6 @@ def test_qml_library_screen_flow_and_profile_scoped_bank_download(qapp, tmp_path
         ctrl.statusChanged.emit()
         library.refreshLibrary()
         library.tick()
-
-    def visual_item(parent, name):
-        if parent.objectName() == name:
-            return parent
-        for child in parent.childItems():
-            if item := visual_item(child, name):
-                return item
-        return None
 
     def header_text(name):
         return visual_item(window.contentItem(), name).property("text")
