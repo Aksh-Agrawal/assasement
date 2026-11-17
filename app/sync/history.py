@@ -15,6 +15,17 @@ def sync_history(repository, api):
             with api.content(local_profile_id=profile.id, link_id=context["link_id"]) as client:
                 items = client.fetch_completed_results()
                 repository.cache_completed_results(profile.id, context["link_id"], items)
+                fetch_checks = getattr(client, "fetch_analytics_checks", None)
+                if callable(fetch_checks):
+                    try:
+                        checks = fetch_checks()
+                        if checks is not None:
+                            repository.cache_analytics_checks(profile.id, context["link_id"], checks)
+                    except (ContentAuthError, ProfileUnavailableError):
+                        raise
+                    except Exception as error:
+                        review_failures += 1
+                        repository.set_setting("last_history_error", type(error).__name__)
                 synced += 1
                 results += len(items)
                 # History and Analytics can refresh even if review evidence fails.
@@ -23,9 +34,14 @@ def sync_history(repository, api):
                     continue
                 items = repository.completed_results(profile.id)
                 enriched = False
-                for item in items:
+                for index, item in enumerate(items):
                     local = repository.get_attempt(item["attempt_id"])
-                    if (local and local.profile_id == profile.id) or "review_available" in item:
+                    evidence_version = item.get("evidence_version")
+                    upgrade_review = bool(index < 20 and evidence_version
+                                          and item.get("review_evidence_version") != evidence_version)
+                    if (local and local.profile_id == profile.id) or (
+                        "review_available" in item and not upgrade_review
+                    ):
                         continue
                     try:
                         detail = fetch_detail(item["attempt_id"])
@@ -41,12 +57,13 @@ def sync_history(repository, api):
                         continue
                     if detail is not None:
                         if any(detail.get(field) != item.get(field) for field in
-                               ("attempt_id", "study_profile_id", "source", "status")):
+                               ("attempt_id", "study_profile_id", "source", "status", "set_id", "version")):
                             review_failures += 1
                             repository.set_setting("last_history_error", "ReviewIdentityMismatch")
                             continue
                         item["review"] = detail.get("review", [])
                         item["review_available"] = bool(detail.get("review_available"))
+                        item["review_evidence_version"] = detail.get("evidence_version")
                         enriched = True
                 if enriched:
                     try:

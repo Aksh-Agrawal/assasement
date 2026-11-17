@@ -7,7 +7,7 @@ Rectangle {
     anchors.fill: parent
     color: Theme.canvas
 
-    property int selectedIndex: 0
+    property int selectedIndex: assessmentController.initialReviewIndex
 
     AppHeader {
         id: header

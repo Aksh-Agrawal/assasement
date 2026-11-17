@@ -6,10 +6,12 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, QThreadPool, QTimer, Signal, Slot
 
 from app.core.engine import AssessmentState
 from app.core.models import Confidence
+from app.data.intelligence import history_metrics
+from app.ui_qt.controllers.analytics_worker import AnalyticsJob
 from app.ui_qt.controllers.app_controller import AppController
 
 LOGGER = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ class AssessmentController(QObject):
     resultChanged = Signal()
     reviewChanged = Signal()
     historyChanged = Signal()
+    progressChanged = Signal()
 
     def __init__(self, app_controller: AppController, parent=None):
         super().__init__(parent)
@@ -55,6 +58,14 @@ class AssessmentController(QObject):
         self._result_cache = None
         self._analytics_window = 20
         self._review_from_history = False
+        self._progress = {}
+        self._progress_generation = 0
+        self._progress_busy = False
+        self._simulated_marking = None
+        self._revisit_budget = None
+        self._analytics_pool = QThreadPool(self)
+        self._analytics_pool.setMaxThreadCount(1)
+        self.historyChanged.connect(self._refresh_visible_progress)
 
         # Assessment timer (1 second ticks)
         self._countdown_timer = QTimer(self)
@@ -69,6 +80,13 @@ class AssessmentController(QObject):
         self._review_items = []
         self._result_cache = None
         self._selected_review_index = 0
+        self._progress_generation += 1
+        self._progress = {}
+        self._progress_busy = False
+        self._simulated_marking = None
+        self._revisit_budget = None
+        self._analytics_pool.clear()
+        self.progressChanged.emit()
         for signal in (self.questionChanged, self.timerChanged, self.navigatorChanged,
                        self.resultChanged, self.reviewChanged, self.historyChanged):
             signal.emit()
@@ -366,47 +384,73 @@ class AssessmentController(QObject):
     def historyAnalytics(self) -> dict:
         # Match the cloud dashboard's recent-attempt analytics window. The
         # History screen remains unfiltered and retains every cached result.
-        items = self.historyList[:self._analytics_window]
-        correct = sum(item["correct"] for item in items)
-        wrong = sum(item["wrong"] for item in items)
-        skipped = sum(item["skipped"] for item in items)
-        response_count = correct + wrong
-        response_time = sum(item["responseTimeMs"] or 0 for item in items)
-        answered_count = sum(item["answered"] for item in items)
-        levels = ("sure", "not_sure", "guessing", "unrated")
-        confidence = {
-            level: {"correct": 0, "wrong": 0}
-            for level in levels
-        }
-        for item in items:
-            for level in levels:
-                counts = item.get("confidence", {}).get(level, {})
-                confidence[level]["correct"] += int(counts.get("correct", 0))
-                confidence[level]["wrong"] += int(counts.get("wrong", 0))
+        return history_metrics(self.historyList[:self._analytics_window])
 
-        trends = []
-        for index, item in enumerate(reversed(items)):
-            graded = item["correct"] + item["wrong"]
-            trends.append({
-                "index": index,
-                "label": item["completedAt"],
-                "accuracyPercent": round(item["correct"] * 100 / graded) if graded else -1,
-                "correct": item["correct"],
-                "wrong": item["wrong"],
-            })
-        return {
-            "attempts": len(items),
-            "correct": correct,
-            "wrong": wrong,
-            "skipped": skipped,
-            "accuracyPercent": round(correct * 100 / response_count) if response_count else -1,
-            "practiceTimeMs": sum(item["durationMs"] for item in items),
-            "averageResponseTimeMs": round(response_time / answered_count) if answered_count else -1,
-            "webAttempts": sum(item["source"] == "web" for item in items),
-            "deviceAttempts": sum(item["source"] == "device" for item in items),
-            "confidence": confidence,
-            "trends": trends,
-        }
+    @Property(dict, notify=progressChanged)
+    def progressMetrics(self):
+        return self._progress.get("metrics") or history_metrics([])
+
+    @Property(dict, notify=progressChanged)
+    def progressIntelligence(self):
+        return self._progress
+
+    @Property(bool, notify=progressChanged)
+    def progressBusy(self):
+        return self._progress_busy
+
+    def _refresh_visible_progress(self):
+        if getattr(self.app, "screen", "") == "progress":
+            self.refreshProgress()
+
+    @Slot()
+    def refreshProgress(self):
+        self._progress_generation += 1
+        self._analytics_pool.clear()
+        ui = self.app.ui_controller
+        profile = ui.selected_profile if ui else None
+        database = getattr(self.app, "database_path", None)
+        if profile and database:
+            self._progress_busy = True
+            job = AnalyticsJob(self._progress_generation, database, profile.id, self._analytics_window,
+                               self._simulated_marking, self._revisit_budget)
+            job.signals.finished.connect(self._accept_progress)
+            self._analytics_pool.start(job)
+        else:
+            self._progress = {}
+            self._progress_busy = False
+        self.progressChanged.emit()
+
+    @Slot(int, dict)
+    def _accept_progress(self, generation, view):
+        if generation != self._progress_generation:
+            return
+        self._progress, self._progress_busy = view, False
+        self.progressChanged.emit()
+
+    @Slot(float, float, float, int)
+    def simulateStrategy(self, correct, wrong, skip, minutes):
+        if not (0 < correct <= 1000 and -1000 <= wrong <= 0 and -1000 <= skip <= 0
+                and 0 <= minutes <= 720):
+            self.app.showNotification("Enter valid marks and a time budget.", "warning")
+            return
+        self._simulated_marking = {"correct": correct, "wrong": wrong, "skip": skip}
+        self._revisit_budget = minutes * 60_000 if minutes else None
+        self.refreshProgress()
+
+    @Slot(str)
+    def startDownloadedCheck(self, pack_id):
+        ui = self.app.ui_controller
+        if not ui or not ui.selected_profile or ui.selected_profile.link_state != "linked":
+            return
+        checks = self._progress.get("recovery", []) + self._progress.get("retention", [])
+        if not any(item.get("pi_pack_id") == pack_id and item.get("can_open_pack") for item in checks):
+            self.app.showNotification("This check is no longer available.", "info")
+            return
+        pack = ui.repository.get_question_set(pack_id, 1)
+        if pack is None:
+            self.app.showNotification("Sync to download this check.", "info")
+            return
+        self._start_selected_test(ui.selected_profile, pack, question_count=1)
 
     @Property(int, notify=historyChanged)
     def analyticsWindow(self) -> int:
@@ -463,6 +507,10 @@ class AssessmentController(QObject):
             self.app.showNotification("This practice pack is no longer available. Choose a downloaded pack.", "warning")
             return
 
+        self._start_selected_test(profile, set_item, timer_minutes, question_count, difficulty, topic, shuffle)
+
+    def _start_selected_test(self, profile, set_item, timer_minutes=0, question_count=0,
+                             difficulty="", topic="", shuffle=False):
         try:
             profile_id = profile.id
             self._app_service.start_test(
@@ -666,8 +714,13 @@ class AssessmentController(QObject):
         self.reviewChanged.emit()
         self.app.navigate("review")
 
+    @Property(int, notify=reviewChanged)
+    def initialReviewIndex(self):
+        return self._selected_review_index
+
     @Slot(str)
-    def openHistoryReview(self, attempt_id: str):
+    @Slot(str, str)
+    def openHistoryReview(self, attempt_id: str, question_id: str = ""):
         """Open local Pi evidence or an authorized cloud review cached in SQLite."""
         ui = self.app.ui_controller
         repository = self.app.startup_session.repository if self.app.startup_session else None
@@ -683,7 +736,7 @@ class AssessmentController(QObject):
                     "Detailed review is not available for this assessment on this device.", "info"
                 )
                 return
-            self._open_cached_history_review(cloud_item)
+            self._open_cached_history_review(cloud_item, question_id)
             return
         question_set = repository.get_question_set(attempt.set_id, attempt.set_version)
         order = repository.get_attempt_question_order(attempt.id)
@@ -707,11 +760,13 @@ class AssessmentController(QObject):
         self._review_items = list(ui.review_items)
         self._review_filter = "all"
         self._review_from_history = True
-        self._selected_review_index = 0
+        self._selected_review_index = next(
+            (index for index, item in enumerate(self._review_items) if item.question.id == question_id), 0,
+        )
         self.reviewChanged.emit()
         self.app.navigate("review")
 
-    def _open_cached_history_review(self, attempt: dict) -> None:
+    def _open_cached_history_review(self, attempt: dict, question_id: str = "") -> None:
         from app.core.models import Confidence
 
         review_items = []
@@ -740,12 +795,15 @@ class AssessmentController(QObject):
         self._review_items = review_items
         self._review_filter = "all"
         self._review_from_history = True
-        self._selected_review_index = 0
+        self._selected_review_index = next(
+            (index for index, item in enumerate(self._review_items) if item.question.id == question_id), 0,
+        )
         self.reviewChanged.emit()
         self.app.navigate("review")
 
     @Slot()
     def closeReview(self):
+        self._selected_review_index = 0
         self.app.navigate("history" if self._review_from_history else "result")
         self._review_from_history = False
 

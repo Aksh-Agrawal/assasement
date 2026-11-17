@@ -147,3 +147,12 @@ Optional consent-based profile membership, scoped teaching, group assignments, w
 and assignment-only result access are now implemented. Personal ownership remains unchanged.
 See [institute assignment contract](INSTITUTE_ASSIGNMENT_CONTRACT.md) for current behavior,
 removal/retention rules, compatibility and deferred policies.
+
+
+## Offline knowledge intelligence
+
+The Analytics screen reads the newest 5, 10 or 20 completed attempts on a background Qt worker. It merges native SQLite attempts with profile-authorized cached Web/Pi History by attempt UUID. Native records take precedence. The Knowledge Map uses response-level confidence and correctness, retains topic/version metadata and links to the existing Review screen. Earlier cloud history without detailed evidence still contributes to Overview. The device indicates limited evidence or pending sync.
+
+Cloud History v1 evidence adds a recorded marking scheme, an evidence version and question-level response identity, topic, difficulty and type. Older responses remain readable. During the existing full sync worker, the device calls `GET /api/v1/profile-content/{link_id}/analytics/checks` for the same scoped link and local profile. The response contains recovery and retention state and any pack already delivered to that link. An older server returning 404 is supported. A revoked link invalidates the check cache and excludes cached cloud attempts from knowledge analytics. Historical native records remain intact.
+
+A downloaded check uses the existing pack grant and native assessment flow. Its completion works offline, queues as an ordinary attempt and is reconciled by the cloud on sync. Exact attempt UUID and delayed-check stage identity make retries idempotent. Current cloud schedules and fresh packs are acquired on sync. The device uses the latest completed attempt for its strategy comparison and supports overriding base marks and the revisit time budget locally. The web simulator also supports historical attempt selection, question-type rules and per-question exceptions.

@@ -316,6 +316,7 @@ class Repository:
     def _retire_profile_link(self, connection, profile_id, reason):
         context = self.get_profile_link_context(profile_id)
         connection.execute("UPDATE profiles SET link_state='unlinked' WHERE id=?", (profile_id,))
+        connection.execute("DELETE FROM settings WHERE key=?", ("analytics_checks:" + profile_id,))
         for table in ("profile_library", "institute_work"):
             connection.execute(f"UPDATE {table} SET eligible=0 WHERE local_profile_id=?", (profile_id,))
         connection.execute("DELETE FROM settings WHERE key='last_active_profile_id' AND value=?", (profile_id,))
@@ -399,6 +400,15 @@ class Repository:
                         raise ValueError("Invalid review confidence")
                     if answer.get("is_correct") not in {None, True, False}:
                         raise ValueError("Invalid review correctness")
+                    for field, maximum in (("response_id", 255), ("topic", 200)):
+                        value = answer.get(field)
+                        if value is not None and (not isinstance(value, str) or not 0 < len(value) <= maximum):
+                            raise ValueError("Invalid review metadata")
+                    difficulty = answer.get("difficulty")
+                    if difficulty is not None and (type(difficulty) is not int or not 1 <= difficulty <= 5):
+                        raise ValueError("Invalid review difficulty")
+                    if answer.get("question_type") not in {None, "numerical", "multiple_choice"}:
+                        raise ValueError("Invalid review question type")
                     if not isinstance(answer.get("marked_review", False), bool):
                         raise ValueError("Invalid review flag")
                     response_time = answer.get("response_time_ms", 0)
@@ -411,12 +421,27 @@ class Repository:
             )))
             if same_attempt and not detail and (old.get("review") or "review_available" in old and detail is None):
                 item = {**item, "review": old.get("review", []),
-                        "review_available": old.get("review_available", True)}
+                        "review_available": old.get("review_available", True),
+                        "review_evidence_version": old.get("review_evidence_version")}
             if item.get("review") and item.get("review_available") is False:
                 raise ValueError("Review data cannot be marked unavailable")
             cached.append(item)
         self.set_setting("completed_results:" + profile_id, json.dumps(
             {"study_profile_id": profile.cloud_profile_id, "items": cached}, allow_nan=False))
+
+    def cache_analytics_checks(self, profile_id: str, link_id: str, data: dict) -> None:
+        with transaction(self._connection) as connection:
+            profile = self.get_profile(profile_id)
+            context = self.get_profile_link_context(profile_id)
+            if (not profile or profile.link_state != "linked" or not context
+                    or context["link_id"] != link_id or data.get("schema_version") != 1
+                    or data.get("study_profile_id") != profile.cloud_profile_id
+                    or any(not isinstance(data.get(key), list) or len(data[key]) > 100
+                           for key in ("recovery", "retention"))):
+                raise ValueError("Invalid analytics check ownership or schema")
+            payload = {**data, "link_id": link_id}
+            self._write_setting(connection, "analytics_checks:" + profile_id,
+                                json.dumps(payload, allow_nan=False))
 
     def completed_results(self, profile_id: str) -> list[dict]:
         profile = self.get_profile(profile_id)

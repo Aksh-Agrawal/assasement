@@ -23,6 +23,9 @@ def test_paginated_history_atomic_validation_and_transient_recovery(tmp_path):
     calls = []
     def handler(request):
         assert request.headers["Authorization"] == "Bearer device_test.secret"
+        if request.url.path.endswith("/analytics/checks"):
+            assert request.url.params["local_profile_id"] == local
+            return httpx.Response(404)
         if request.url.path.endswith("/history/" + result):
             review_calls.append(review_status)
             if review_status != 200:

@@ -232,7 +232,7 @@ class LegacyController:
                     + int(result["result"].get("wrong", 0)))),
                 result["attempt_id"],
             ))
-        return tuple(sorted(items, key=lambda item: item.completed_at, reverse=True))
+        return tuple(sorted(items, key=lambda item: (item.completed_at, item.attempt_id or ""), reverse=True))
 
     @property
     def software_version(self) -> str:

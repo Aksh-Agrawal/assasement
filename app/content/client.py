@@ -271,6 +271,24 @@ class ContentApiClient:
             raise ContentProtocolError("Invalid completed-attempt detail")
         return body
 
+    def fetch_analytics_checks(self):
+        """Load the current check schedule through the authorized profile link."""
+        if not self.profile_scoped:
+            raise ContentProtocolError("Analytics checks require a linked profile")
+        try:
+            response = self._client.get(
+                f"/api/v1/profile-content/{self.link_id}/analytics/checks",
+                params={"local_profile_id": self.local_profile_id},
+            )
+        except httpx.RequestError as error:
+            raise ContentNetworkError("Cloud connection unavailable") from error
+        if response.status_code == 404:
+            return None
+        self._check_response(response)
+        if len(response.content) > 512 * 1024:
+            raise ContentProtocolError("Analytics checks exceed the device size limit")
+        return json_object(response)
+
     @staticmethod
     def _check_response(response: httpx.Response) -> None:
         if response.status_code == 409:

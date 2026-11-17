@@ -2001,6 +2001,11 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     assert not screenshot.isNull()
     assert screenshot.width() == 800 and screenshot.height() == 480
     assert screenshot.save(str(capture_dir / "progress-analytics-800x480.png"))
+    for _ in range(25):
+        if not assessment_ctrl.progressBusy:
+            break
+        QTest.qWait(20)
+    assert assessment_ctrl.progressIntelligence["knowledge"]["overall"]["quadrants"]["confident_correct"] == 1
     analytics_flickable = window.findChild(QObject, "progressAnalyticsFlickable")
     average_answer_text = window.findChild(QObject, "averageAnswerTimeText")
     assert analytics_flickable is not None and average_answer_text is not None
