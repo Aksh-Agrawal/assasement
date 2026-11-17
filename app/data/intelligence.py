@@ -7,7 +7,15 @@ from contextlib import closing
 from datetime import UTC, datetime
 
 from app.core.exam_strategy import simulate
-from app.core.reliability import LEVELS, summarize
+from app.core.reliability import (
+    DEFAULT_POLICY,
+    LEVELS,
+    quadrant_for,
+    summarize,
+    topic_breakdowns,
+    topic_identity,
+    unique_evidence,
+)
 from app.data.db import datetime_from_text
 
 
@@ -134,7 +142,8 @@ def local_entry(attempt, responses):
         result["response_time_ms"] += row["response_time_ms"] or 0
         if row["outcome"] in {"correct", "wrong"}:
             result[row["outcome"]] += 1
-            confidence[row["confidence"] or "unrated"][row["outcome"]] += 1
+            level = row["confidence"] if row["confidence"] in LEVELS else "unrated"
+            confidence[level][row["outcome"]] += 1
     result["skipped"] = max(0, attempt["question_count"] - result["answered"])
     return history_entry(identity, attempt["title"], json.loads(attempt["marking_json"]), result,
                          rows=rows, missing=len(responses) < attempt["question_count"])
@@ -187,6 +196,59 @@ def check_status(connection, profile_id, checks, profile, now):
     return checks
 
 
+def installed_topics(connection, profile_id, profile, linked):
+    # Match Library visibility without loading question text, figures or full packs.
+    return connection.execute(
+        """
+        WITH selected AS (
+            SELECT l.set_id, MAX(l.version) AS version
+            FROM profile_library l
+            JOIN question_sets installed ON installed.id = l.set_id AND installed.version = l.version
+            WHERE ? AND l.local_profile_id = ? AND l.link_id = ? AND l.eligible = 1
+            GROUP BY l.set_id
+        )
+        SELECT DISTINCT s.subject, s.chapter, q.topic
+        FROM question_sets s JOIN questions q ON q.set_id = s.id AND q.set_version = s.version
+        WHERE (? AND s.is_active = 1 AND NOT EXISTS (
+            SELECT 1 FROM private_pack_versions p WHERE p.set_id = s.id AND p.version = s.version
+        )) OR EXISTS (
+            SELECT 1 FROM selected WHERE selected.set_id = s.id AND selected.version = s.version
+        )
+        ORDER BY s.subject, s.chapter, q.topic
+        """, (linked, profile_id, profile["link_id"], profile["ownership_state"] != "owned"),
+    )
+
+
+def device_knowledge(rows, catalog, targets):
+    result = summarize(rows, include_topics=False)
+    topics = topic_breakdowns(rows, catalog)
+    latest_answers = {}
+    for row in unique_evidence(rows):
+        if row["outcome"] not in ("correct", "wrong"):
+            continue
+        key = topic_identity(row)
+        existing = latest_answers.get(key)
+        confident_wrong = quadrant_for(row) == "confident_wrong"
+        if existing is None or (confident_wrong and not existing[0]):
+            latest_answers[key] = (confident_wrong, {
+                field: row[field] for field in ("attempt_id", "question_id")
+            })
+    retention = {topic_identity(item): item for item in targets["retention"]}
+    downloaded = {topic_identity(item): item["pi_pack_id"]
+                  for items in targets.values() for item in items if item.get("can_open_pack")}
+    ordered = sorted(topics, key=lambda key: (topics[key]["attempt_count"] == 0, key))
+    result["topics"] = [
+        {**topics[key], "key": json.dumps(key),
+         "evidence": [latest_answers[key][1]] if key in latest_answers else [],
+         "retention": retention.get(key, {}).get("status"), "downloaded_check": downloaded.get(key)}
+        for key in ordered[:120]
+    ]
+    result["topic_count"] = len(topics)
+    result["minimum_graded"] = DEFAULT_POLICY.minimum_graded
+    result["trend"] = [point for point in result["trend"] if point["graded"]][-5:]
+    return result
+
+
 def load_intelligence(database, profile_id, window, marking=None, budget_ms=None):
     uri = database.resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True, timeout=3)) as connection:
@@ -194,7 +256,7 @@ def load_intelligence(database, profile_id, window, marking=None, budget_ms=None
         connection.execute("BEGIN")
         profile = connection.execute(
             """
-            SELECT p.cloud_profile_id, p.link_state, l.link_id
+            SELECT p.cloud_profile_id, p.link_state, p.ownership_state, l.link_id
             FROM profiles p LEFT JOIN profile_link_context l ON l.local_profile_id = p.id
             WHERE p.id = ? AND p.deleted_at IS NULL
             """, (profile_id,),
@@ -227,6 +289,7 @@ def load_intelligence(database, profile_id, window, marking=None, budget_ms=None
         for topic in targets["retention"]:
             topic["history"] = [event for event in topic["history"] if event["attempt_id"] in ids]
         pending = linked and any(attempt["sync_status"] != "synced" for attempt, _ in local)
+        catalog = [dict(row) for row in installed_topics(connection, profile_id, profile, linked)]
     strategy = None
     newest = items[0] if items else None
     if newest and (marking or newest["marking"]):
@@ -235,7 +298,7 @@ def load_intelligence(database, profile_id, window, marking=None, budget_ms=None
         strategy = simulate(rows, projection[0], projection, marking=marking, budget_ms=budget_ms)
     return {
         "metrics": history_metrics([item["metrics"] for item in items]),
-        "knowledge": summarize(rows), "strategy": strategy, **targets,
+        "knowledge": device_knowledge(rows, catalog, targets), "strategy": strategy, **targets,
         "pending": pending, "limited": any(item["limited"] for item in items),
         "checks_cached": bool(checks), "checks_limited": bool(checks.get("limited")),
         "linked": linked,

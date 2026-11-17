@@ -13,7 +13,6 @@ Rectangle {
     property int detailPage: 0
     property int pageSize: 5
     property var details: {
-        if (sectionIndex === 1) return intelligence.knowledge ? intelligence.knowledge.topics : []
         if (sectionIndex === 2) return intelligence.recovery || []
         if (sectionIndex === 3) return intelligence.retention || []
         return []
@@ -102,9 +101,21 @@ Rectangle {
                         Repeater {
                             model: ["Overview", "Knowledge Map", "Recovery", "Retention", "Exam Strategy"]
                             delegate: SecondaryButton {
+                                objectName: "progressSection-" + index
                                 width: (body.width - Spacing.xs * 4) / 5
                                 preferredHeight: Metrics.touchNormal
                                 text: modelData
+                                contentItem: Text {
+                                    text: modelData
+                                    textFormat: Text.PlainText
+                                    color: Theme.deepInk
+                                    font.family: Typography.family
+                                    font.pixelSize: Typography.caption
+                                    font.bold: index === root.sectionIndex
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
+                                }
                                 enabled: index !== root.sectionIndex
                                 onClicked: {
                                     root.sectionIndex = index
@@ -147,7 +158,13 @@ Rectangle {
 
                     AnalyticsText {
                         visible: Boolean(intelligence.failed)
-                        text: "Analytics could not load. Reopen Analytics to retry."
+                        text: "Analytics could not load."
+                    }
+
+                    SecondaryButton {
+                        visible: Boolean(intelligence.failed) && !assessmentController.progressBusy
+                        text: "Try again"
+                        onClicked: assessmentController.refreshProgress()
                     }
 
                     AppCard {
@@ -368,47 +385,25 @@ Rectangle {
                         }
                     }
 
-                    AppCard {
-                        visible: root.sectionIndex === 1
+                    Loader {
                         width: parent.width
-                        height: reliabilityBody.implicitHeight + Spacing.md * 2
-
-                        Column {
-                            id: reliabilityBody
-                            x: Spacing.md
-                            y: Spacing.md
-                            width: parent.width - Spacing.md * 2
-                            spacing: Spacing.xs
-                            property var view: intelligence.knowledge ? intelligence.knowledge.overall : null
-                            AnalyticsHeading { text: "Confidence and results" }
-                            AnalyticsText {
-                                text: reliabilityBody.view ? reliabilityBody.view.rated + " of " + reliabilityBody.view.graded
-                                      + " graded answers rated · " + reliabilityBody.view.unrated + " unrated · "
-                                      + reliabilityBody.view.skipped + " recorded skips · " + reliabilityBody.view.ungraded
-                                      + " ungraded" : "No locally available evidence."
+                        active: root.sectionIndex === 1 && Boolean(intelligence.knowledge)
+                        visible: active
+                        sourceComponent: KnowledgePanel {
+                            knowledge: intelligence.knowledge
+                            onReviewRequested: function(attempt, question) {
+                                assessmentController.openHistoryReview(attempt, question)
                             }
-                            Repeater {
-                                model: [{key: "confident_correct", title: "Confident and correct"},
-                                        {key: "confident_wrong", title: "Confident but wrong"},
-                                        {key: "uncertain_correct", title: "Uncertain but correct"},
-                                        {key: "uncertain_wrong", title: "Uncertain and wrong"}]
-                                delegate: AnalyticsText {
-                                    text: modelData.title + (reliabilityBody.view ? "  "
-                                          + reliabilityBody.view.quadrants[modelData.key] + "  ·  "
-                                          + root.percent(reliabilityBody.view.percentages[modelData.key]) : "")
-                                }
-                            }
-                            AnalyticsText {
-                                text: "Topic details use the question evidence available on this device."
+                            onCheckRequested: function(pack) {
+                                assessmentController.startDownloadedCheck(pack)
                             }
                         }
                     }
 
                     AnalyticsText {
-                        visible: root.sectionIndex >= 1 && root.sectionIndex <= 3
+                        visible: (root.sectionIndex === 2 || root.sectionIndex === 3)
                                  && root.details.length === 0 && !assessmentController.progressBusy
-                        text: root.sectionIndex === 1 ? "No topic details for these attempts." :
-                              !intelligence.checks_cached ? "Sync your linked profile to see its check schedule." :
+                        text: !intelligence.checks_cached ? "Sync your linked profile to see its check schedule." :
                               root.sectionIndex === 2 ? "No recovery recommendations." : "No retention checks scheduled."
                     }
 
@@ -429,16 +424,10 @@ Rectangle {
                                 y: Spacing.md
                                 width: parent.width - Spacing.md * 2
                                 spacing: Spacing.xs
-                                property var answer: root.sectionIndex === 1 && modelData.evidence && modelData.evidence.length
-                                                     ? modelData.evidence[0] : null
-
                                 AnalyticsHeading { text: modelData.topic }
                                 AnalyticsText { text: modelData.subject + " · " + modelData.chapter }
                                 AnalyticsText {
-                                    text: root.sectionIndex === 1 ? root.percent(modelData.accuracy) + " accuracy across "
-                                          + modelData.graded + " graded" + (!modelData.gap ? "" : modelData.gap === "repeated"
-                                          ? " · Repeated confident mistakes" : " · Possible understanding gap") :
-                                          root.sectionIndex === 2 ? (modelData.status === "ready" ? "Ready to check" :
+                                    text: root.sectionIndex === 2 ? (modelData.status === "ready" ? "Ready to check" :
                                           modelData.status === "recovered" ? "Recovered" : modelData.status === "waiting" ?
                                           "Scheduled for " + modelData.local_due : modelData.status === "no_questions" ?
                                           "Awaiting a fresh question" : modelData.status === "dismissed" ?
@@ -448,21 +437,15 @@ Rectangle {
                                           ? "Retained after delayed checks" : "Needs reinforcement"
                                 }
                                 AnalyticsText {
-                                    visible: root.sectionIndex !== 1 && Boolean(modelData.pi_pack_id)
+                                    visible: Boolean(modelData.pi_pack_id)
                                     text: modelData.pending_completion ? "Check completed on this device. Awaiting reconciliation." :
                                           modelData.can_open_pack ? "Downloaded · available offline" : "Waiting to download on sync"
                                 }
                                 SecondaryButton {
-                                    visible: root.sectionIndex !== 1 && Boolean(modelData.can_open_pack)
+                                    visible: Boolean(modelData.can_open_pack)
                                     text: "Start downloaded check"
                                     preferredHeight: Metrics.touchNormal
                                     onClicked: assessmentController.startDownloadedCheck(modelData.pi_pack_id)
-                                }
-                                SecondaryButton {
-                                    visible: Boolean(topicBody.answer)
-                                    text: "Review answer"
-                                    preferredHeight: Metrics.touchNormal
-                                    onClicked: assessmentController.openHistoryReview(topicBody.answer.attempt_id, topicBody.answer.question_id)
                                 }
                                 Repeater {
                                     model: root.sectionIndex === 3 ? (modelData.history || []) : []

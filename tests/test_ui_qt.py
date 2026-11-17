@@ -2020,6 +2020,41 @@ def test_offline_qt_assessment_survives_restart_and_history_review(qapp, tmp_pat
     assert window.grabWindow().save(str(capture_dir / "progress-analytics-details-800x480.png"))
     analytics_flickable.setProperty("contentY", 0)
 
+    section_button = visual_item(window.contentItem(), "progressSection-1")
+    section_button.forceActiveFocus(Qt.FocusReason.TabFocusReason)
+    QTest.keyClick(window, Qt.Key.Key_Space)
+    qapp.processEvents()
+    panel = visual_item(window.contentItem(), "knowledgePanel")
+    assert panel is not None and panel.isVisible()
+    assert panel.property("overall")["quadrants"]["uncertain_wrong"] == 1
+    safe_area = visual_item(window.contentItem(), "touchSafeArea")
+    assert (safe_area.x(), safe_area.y(), safe_area.width(), safe_area.height()) == (16, 16, 768, 448)
+    for name in ("confident_correct", "confident_wrong", "uncertain_correct", "uncertain_wrong"):
+        cell = visual_item(panel, "knowledgeQuadrant-" + name)
+        assert cell is not None and cell.isVisible()
+        assert cell.width() >= 48 and cell.height() >= 48
+    qapp.processEvents()
+    assert window.grabWindow().save(str(capture_dir / "progress-knowledge-800x480.png"))
+    tile = visual_item(panel, "knowledgeTopicTile")
+    assert tile is not None and tile.height() >= 48
+    tile_point = tile.mapToScene(tile.boundingRect().center())
+    analytics_flickable.setProperty("contentY", max(0, tile_point.y() - 325))
+    qapp.processEvents()
+    tap(tile.mapToScene(tile.boundingRect().center()).toPoint())
+    QTest.qWait(40)
+    review_button = visual_item(panel, "knowledgeReview")
+    assert review_button.isVisible()
+    review_point = review_button.mapToScene(review_button.boundingRect().center())
+    analytics_flickable.setProperty("contentY", analytics_flickable.property("contentY") + max(0, review_point.y() - 350))
+    QTest.qWait(40)
+    review_target = review_button.mapToScene(review_button.boundingRect().center()).toPoint()
+    assert 80 <= review_target.y() <= 464, review_target
+    tap(review_target)
+    assert app_ctrl.screen == "review"
+    assessment_ctrl.closeReview()
+    assert app_ctrl.screen == "history"
+    app_ctrl.navigate("progress")
+
     # Model a cloud-delivered eligible recovery pack already installed in SQLite.
     recovery_pack = QuestionSet(
         "recovery-pi-offline-cells", 1, "Recovery check: Cells", "Biology", "Cells",

@@ -57,6 +57,8 @@ def test_offline_snapshot_keeps_native_evidence_and_scopes_checks(tmp_path):
         "confident_correct": 0, "confident_wrong": 1, "uncertain_correct": 1, "uncertain_wrong": 0,
     }
     assert view["knowledge"]["topics"][0]["evidence"][0]["attempt_id"] == attempt.id
+    assert view["knowledge"]["topics"][0]["attempt_count"] == 2
+    assert [point["attempt_id"] for point in view["knowledge"]["trend"]] == [attempt.id, web]
     assert view["checks_cached"] and len(view["retention"]) == 1
     assert view["strategy"]["modelled_questions"] == 0
     assert load_intelligence(database, "another-profile", 5) == {}
@@ -66,3 +68,4 @@ def test_offline_snapshot_keeps_native_evidence_and_scopes_checks(tmp_path):
     offline = load_intelligence(database, PROFILE.id, 20)
     assert offline["metrics"]["attempts"] == 1 and not offline["checks_cached"]
     assert offline["knowledge"]["overall"]["quadrants"]["confident_wrong"] == 1
+    assert len(offline["knowledge"]["trend"]) == 1

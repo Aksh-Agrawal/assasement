@@ -31,6 +31,54 @@ def ratio(numerator, denominator):
     return numerator / denominator if denominator else None
 
 
+def quadrant_for(row):
+    level, outcome = row.get("confidence"), row["outcome"]
+    if level in LEVELS[:3] and outcome in {"correct", "wrong"}:
+        return ("confident" if level == "sure" else "uncertain") + "_" + outcome
+    return None
+
+
+def topic_identity(row):
+    """Keep missing metadata distinct from any real curriculum label."""
+    return tuple(normalized(row.get(key) or "") for key in ("subject", "chapter", "topic"))
+
+
+def unique_evidence(rows):
+    seen = set()
+    for row in sorted(rows, key=lambda row: (row["completed_at"], row["attempt_id"], row["question_id"]),
+                      reverse=True):
+        key = (row["attempt_id"], row["question_id"])
+        if key not in seen:
+            seen.add(key)
+            yield row
+
+
+def topic_breakdowns(rows, catalog=(), policy=DEFAULT_POLICY):
+    """Aggregate the displayed attempt range, including known unassessed topics."""
+    groups = {}
+    for row in unique_evidence(rows):
+        key = topic_identity(row)
+        if key not in groups:
+            groups[key] = (row, Breakdown(), set())
+        _, counts, attempts = groups[key]
+        counts.add(row)
+        attempts.add(row["attempt_id"])
+    for item in catalog:
+        key = topic_identity(item)
+        if key not in groups:
+            groups[key] = (item, Breakdown(), set())
+    return {
+        key: {
+            **{name: row.get(name) if part else None
+               for name, part in zip(("subject", "chapter", "topic"), key, strict=True)},
+            **counts.view(policy),
+            "attempt_count": len(attempts),
+            "last_practiced_at": row.get("completed_at"),
+        }
+        for key, (row, counts, attempts) in groups.items()
+    }
+
+
 @dataclass
 class Breakdown:
     counts: Counter = field(default_factory=Counter)
@@ -48,9 +96,9 @@ class Breakdown:
             level = "unrated"
         self.levels[level][outcome] += 1
         self.counts[outcome] += 1
-        if level != "unrated":
-            certainty = "confident" if level == "sure" else "uncertain"
-            self.counts[certainty + "_" + outcome] += 1
+        quadrant = quadrant_for(row)
+        if quadrant:
+            self.counts[quadrant] += 1
         if level == "sure" and outcome == "wrong":
             self.wrong_attempts.add(row["attempt_id"])
             self.wrong_questions.add((row["set_id"], row["question_id"]))
@@ -85,28 +133,20 @@ class Breakdown:
         }
 
 
-def summarize(rows, policy=DEFAULT_POLICY):
+def summarize(rows, policy=DEFAULT_POLICY, *, include_topics=True):
     overall = Breakdown()
     topics = defaultdict(Breakdown)
     groups = defaultdict(dict)
     trend = defaultdict(Breakdown)
     attempts = {}
     labels = {}
-    seen = set()
-    unique = []
-    rows = sorted(rows, key=lambda row: (row["completed_at"], row["attempt_id"], row["question_id"]),
-                  reverse=True)
-    for row in rows:
-        identity = (row["attempt_id"], row["question_id"])
-        if identity in seen:
-            continue
-        seen.add(identity)
-        unique.append(row)
+    unique = list(unique_evidence(rows))
+    for row in unique:
         overall.add(row)
         attempt = row["attempt_id"]
         trend[attempt].add(row)
         attempts[attempt] = row["completed_at"]
-        if not all(row.get(field) for field in ("subject", "chapter", "topic")):
+        if not include_topics or not all(row.get(field) for field in ("subject", "chapter", "topic")):
             continue
         key = group_key(row)
         labels.setdefault(key, {field: row[field] for field in ("subject", "chapter", "topic")})
@@ -114,8 +154,9 @@ def summarize(rows, policy=DEFAULT_POLICY):
         groups[key].setdefault(attempt, Breakdown()).add(row)
     evidence = defaultdict(list)
     # Place confident mistakes first so a bounded list preserves actionable evidence.
-    for row in sorted(unique, key=lambda row: row["confidence"] == "sure" and row["outcome"] == "wrong",
-                      reverse=True):
+    ordered = (sorted(unique, key=lambda row: quadrant_for(row) == "confident_wrong", reverse=True)
+               if include_topics else ())
+    for row in ordered:
         if not all(row.get(field) for field in ("subject", "chapter", "topic")):
             continue
         key = group_key(row)
